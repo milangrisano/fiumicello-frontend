@@ -3,13 +3,20 @@ import 'package:http/http.dart' as http;
 
 /// Centralized HTTP client for the whole app.
 ///
-/// The API base URL is built from the same host where the app is opened, so
-/// it works when loading from `localhost`, from an IP, or from a mobile device
-/// on the LAN (e.g. `192.168.0.201:3000/api`).
+/// In production the frontend is served by Nginx, which proxies `/api` to the
+/// backend service. In development it builds the URL from the current host.
 class ApiClient {
   ApiClient._();
 
+  static const String _apiBaseOverride =
+      String.fromEnvironment('API_BASE', defaultValue: '');
+
   static String get baseUrl {
+    // Production: Nginx serves /api and proxies to the backend.
+    if (_apiBaseOverride.isNotEmpty) {
+      return _apiBaseOverride;
+    }
+    // Development: use the same host where the app is opened.
     final host = Uri.base.host;
     if (host.isEmpty || host == 'localhost' || host == '127.0.0.1') {
       return 'http://localhost:3000/api';
