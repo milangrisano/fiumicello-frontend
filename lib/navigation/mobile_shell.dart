@@ -17,6 +17,7 @@ class MobileShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: onSelect,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: [
           for (var i = 0; i < AppSections.labels.length; i++)
             NavigationDestination(
