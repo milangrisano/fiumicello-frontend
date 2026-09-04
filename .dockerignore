@@ -1,0 +1,10 @@
+.git
+.gitignore
+build
+.dart_tool
+.idea
+*.iml
+.metadata
+test
+plan.md
+README.md

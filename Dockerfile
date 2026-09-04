@@ -1,10 +1,11 @@
-FROM cirrusci/flutter:stable
+# Multi-stage build: compile Flutter web, then serve with Nginx
+FROM cirrusci/flutter:stable AS build
 
-# Herramientas para servir el build web
-RUN apt-get update && apt-get install -y --no-install-recommends python3 \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
+WORKDIR /build
 COPY . .
+RUN flutter pub get && flutter build web --release
 
-EXPOSE 8080
+FROM nginx:stable-alpine AS runtime
+COPY --from=build /build/build/web /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
