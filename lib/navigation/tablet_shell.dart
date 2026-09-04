@@ -12,17 +12,18 @@ class TabletShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visible = AppSections.visible();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fiumicello · Gestión'),
         automaticallyImplyLeading: false,
         actions: [
-          for (var i = 0; i < AppSections.labels.length; i++)
+          for (final s in visible)
             IconButton(
-              tooltip: AppSections.labels[i],
-              icon: Icon(AppSections.icons[i]),
-              isSelected: selectedIndex == i,
-              onPressed: () => onSelect(i),
+              tooltip: s.label,
+              icon: Icon(s.icon),
+              isSelected: selectedIndex == s.index,
+              onPressed: () => onSelect(s.index),
             ),
         ],
       ),

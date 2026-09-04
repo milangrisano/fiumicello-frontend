@@ -6,19 +6,22 @@ Dates are UTC.
 ## [Unreleased]
 
 ### Added (2026-09-04)
-- **Login screen** (`lib/views/login_view.dart`): username/password form calling
-  `POST /api/auth/login`; on success navigates into the app.
-- **Session gate** (`lib/app.dart`): restores a persisted session and routes to
-  `/login` or `/app` accordingly.
-- **JWT in API client** (`lib/core/data/api_client.dart`):
-  - `login()`, `logout()`, `restoreSession()`, `isLoggedIn`, `currentUsername`.
-  - Sends `Authorization: Bearer <token>` on every request.
-  - Resolves a relative `/api` base against the app origin (Nginx prod proxy).
-- Session persisted via `shared_preferences`.
+- **Registration (email → code → password)** in a single advancing page (`register_view.dart`):
+  email → enter the 6-digit code sent to the email → set password (stored as hash on the backend).
+- **Password recovery** (`forgot_password_view.dart`, `reset_password_view.dart`): email →
+  link/token → new password.
+- **Superadmin panel** (`admin_tokens_view.dart`, only `superadmin` role sees it):
+  - Generate service tokens (shown once, stored as hash), list them, revoke them.
+  - Approve pending registrations (`pendiente` → `aprobado`).
+- **Login with email**: identifier field is now the email, plus subtle links to create an
+  account and recover password.
+- `ApiClient`: `register`, `verify`, `forgotPassword`, `resetPassword`, `listServicios`,
+  `generarServicio`, `revocarServicio`, `listPendientes`, `aprobar`.
+- Navigation now filters the admin section by role (`AppSections.visible()`); non-superadmins
+  don't see "Administración".
 
 ### Changed (2026-09-04)
-- Mobile bottom `NavigationBar` now uses `labelBehavior: alwaysHide` → **icons only**
-  (no text labels under them).
+- Mobile bottom `NavigationBar` uses `labelBehavior: alwaysHide` (icons only).
 
 ### Fixed (2026-09-04)
 - **Money formatting bug**: Postgres `numeric` values arrive over the API as strings

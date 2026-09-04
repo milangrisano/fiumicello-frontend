@@ -2,14 +2,28 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Simple result wrapper (avoids Dart 'records' — the dev SDK is older).
+class PostResult {
+  final bool ok;
+  final String message;
+  PostResult(this.ok, this.message);
+}
+
+class ListResult {
+  final bool ok;
+  final List<dynamic> list;
+  final String message;
+  ListResult(this.ok, this.list, this.message);
+}
+
+class TokenResult {
+  final bool ok;
+  final Map<String, dynamic>? data;
+  final String message;
+  TokenResult(this.ok, this.data, this.message);
+}
+
 /// Centralized HTTP client for the whole app.
-///
-/// In production the frontend is served by Nginx, which proxies `/api` to the
-/// backend service. In development it builds the URL from the current host.
-///
-/// Since the backend now requires JWT auth on protected routes, this client
-/// stores the bearer token (persisted via shared_preferences) and attaches it
-/// to every request.
 class ApiClient {
   ApiClient._();
 
@@ -20,12 +34,10 @@ class ApiClient {
   static const _userKey = 'auth_user';
 
   static String? _token;
-  static String? _username;
+  static Map<String, dynamic>? _user;
 
   static String get baseUrl {
-    // Production: Nginx serves /api and proxies to the backend.
     if (_apiBaseOverride.isNotEmpty) {
-      // Allow a relative override (e.g. "/api") resolved against the app origin.
       if (_apiBaseOverride.startsWith('/')) {
         try {
           return Uri.base.resolve(_apiBaseOverride).toString().replaceAll(RegExp(r'/+$'), '');
@@ -35,7 +47,6 @@ class ApiClient {
       }
       return _apiBaseOverride;
     }
-    // Development: use the same host where the app is opened.
     final host = Uri.base.host;
     if (host.isEmpty || host == 'localhost' || host == '127.0.0.1') {
       return 'http://localhost:3000/api';
@@ -44,47 +55,131 @@ class ApiClient {
   }
 
   static bool get isLoggedIn => _token != null && _token!.isNotEmpty;
+  static String? get currentEmail => _user?['email'] as String?;
+  static String? get currentRol => _user?['rol'] as String?;
+  static bool get isSuperadmin => currentRol == 'superadmin';
+  static bool get isAdmin => currentRol == 'admin';
 
-  static String? get currentUsername => _username;
-
-  /// Loads a previously persisted token/session from local storage.
   static Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);
-    _username = prefs.getString(_userKey);
+    final u = prefs.getString(_userKey);
+    if (u != null && u.isNotEmpty) {
+      try {
+        _user = Map<String, dynamic>.from(jsonDecode(u));
+      } catch (_) {
+        _user = null;
+      }
+    }
   }
 
-  /// Attempts a login against POST /auth/login. On success stores the token.
-  static Future<bool> login(String username, String password) async {
-    final uri = Uri.parse('$baseUrl/auth/login');
+  static Future<bool> login(String email, String password) async {
     final res = await http.post(
-      uri,
+      Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
+      body: jsonEncode({'email': email, 'password': password}),
     );
-    if (res.statusCode != 200 && res.statusCode != 201) {
-      return false;
-    }
+    if (res.statusCode != 200) return false;
     final body = Map<String, dynamic>.from(jsonDecode(res.body));
     final token = body['access_token'] as String?;
     if (token == null || token.isEmpty) return false;
-
     _token = token;
-    _username = body['user']?['username'] ?? username;
+    _user = Map<String, dynamic>.from(body['user']);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
-    await prefs.setString(_userKey, _username!);
+    await prefs.setString(_userKey, jsonEncode(_user!));
     return true;
   }
 
-  /// Clears the stored token (logout).
   static Future<void> logout() async {
     _token = null;
-    _username = null;
+    _user = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
   }
+
+  static Future<PostResult> register(String email) =>
+      _post('/auth/register', {'email': email});
+
+  static Future<PostResult> verify(email, code, password) =>
+      _post('/auth/verify', {'email': email, 'code': code, 'password': password});
+
+  static Future<PostResult> forgotPassword(String email) =>
+      _post('/auth/forgot-password', {'email': email});
+
+  static Future<PostResult> resetPassword(email, token, password) =>
+      _post('/auth/reset-password', {'email': email, 'token': token, 'password': password});
+
+  static Future<ListResult> listServicios() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/auth/servicios'), headers: _headers());
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<TokenResult> generarServicio(String nombre) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/servicios'),
+        headers: _headers(),
+        body: jsonEncode({'nombre': nombre}),
+      );
+      if (res.statusCode == 201) {
+        return TokenResult(true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
+      }
+      return TokenResult(false, null, _msg(res.body));
+    } catch (e) {
+      return TokenResult(false, null, '$e');
+    }
+  }
+
+  static Future<PostResult> revocarServicio(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/auth/servicios/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<ListResult> listPendientes() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/usuarios/pendientes'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<PostResult> aprobar(int id) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/usuarios/$id/aprobar'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getJson(String path) async {
+    final res = await http.get(Uri.parse('$baseUrl$path'), headers: _headers());
+    return Map<String, dynamic>.from(jsonDecode(res.body));
+  }
+
+  static Future<Map<String, dynamic>> getList(String path) => getJson(path);
 
   static Map<String, String> _headers() {
     final h = <String, String>{'Content-Type': 'application/json'};
@@ -94,14 +189,30 @@ class ApiClient {
     return h;
   }
 
-  /// Performs a GET request and returns the decoded JSON object.
-  static Future<Map<String, dynamic>> getJson(String path) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final res = await http.get(uri, headers: _headers());
-    final body = jsonDecode(res.body);
-    return Map<String, dynamic>.from(body);
+  static Future<PostResult> _post(String path, Map<String, dynamic> body) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl$path'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      if (res.statusCode == 200) {
+        return PostResult(true, _msg(res.body));
+      }
+      return PostResult(false, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
   }
 
-  /// Convenience: returns the decoded body as a raw map (used by lists).
-  static Future<Map<String, dynamic>> getList(String path) => getJson(path);
+  static String _msg(String body) {
+    if (body.isEmpty) return 'Error.';
+    try {
+      final d = jsonDecode(body);
+      if (d is Map && d['message'] != null) return d['message'].toString();
+      return body;
+    } catch (_) {
+      return body;
+    }
+  }
 }

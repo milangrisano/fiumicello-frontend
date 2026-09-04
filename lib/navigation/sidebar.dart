@@ -10,15 +10,16 @@ class Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visible = AppSections.visible();
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
-        for (var i = 0; i < AppSections.labels.length; i++)
+        for (final s in visible)
           ListTile(
-            selected: selectedIndex == i,
-            leading: Icon(AppSections.icons[i]),
-            title: Text(AppSections.labels[i]),
-            onTap: selectedIndex == i ? null : () => onSelect(i),
+            selected: selectedIndex == s.index,
+            leading: Icon(s.icon),
+            title: Text(s.label),
+            onTap: selectedIndex == s.index ? null : () => onSelect(s.index),
           ),
       ],
     );

@@ -12,6 +12,7 @@ class MobileShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visible = AppSections.visible();
     return Scaffold(
       body: SafeArea(child: ActiveView(index: selectedIndex)),
       bottomNavigationBar: NavigationBar(
@@ -19,10 +20,10 @@ class MobileShell extends StatelessWidget {
         onDestinationSelected: onSelect,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: [
-          for (var i = 0; i < AppSections.labels.length; i++)
+          for (final s in visible)
             NavigationDestination(
-              icon: Icon(AppSections.icons[i]),
-              label: AppSections.labels[i],
+              icon: Icon(s.icon),
+              label: s.label,
             ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../views/invoices_view.dart';
 import '../views/pos_sales_view.dart';
 import '../views/summaries_view.dart';
+import '../views/admin_tokens_view.dart';
 import 'app_sections.dart';
 
 /// Returns the widget for the active menu section.
@@ -16,6 +17,8 @@ class ActiveView extends StatelessWidget {
         return const PosSalesView();
       case AppSections.summaries:
         return const SummariesView();
+      case AppSections.admin:
+        return const AdminTokensView();
       default:
         return const InvoicesView();
     }

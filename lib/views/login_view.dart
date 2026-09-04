@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
+import 'register_view.dart';
+import 'forgot_password_view.dart';
 
-/// Login screen shown before the app shell when there is no valid session.
+/// Login screen. The identifier is the user's email. Registration and password
+/// recovery are deliberately subtle — small text links at the bottom.
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
 
@@ -23,19 +26,13 @@ class _LoginViewState extends State<LoginView> {
   }
 
   Future<void> _submit() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     final ok = await ApiClient.login(_user.text.trim(), _pass.text);
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pushReplacementNamed('/app');
     } else {
-      setState(() {
-        _loading = false;
-        _error = 'Usuario o contraseña incorrectos.';
-      });
+      setState(() { _loading = false; _error = 'Email o contraseña incorrectos.'; });
     }
   }
 
@@ -67,9 +64,10 @@ class _LoginViewState extends State<LoginView> {
                 const SizedBox(height: 28),
                 TextField(
                   controller: _user,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Usuario',
-                    prefixIcon: Icon(Icons.person_outline),
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.mail_outline),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -86,22 +84,32 @@ class _LoginViewState extends State<LoginView> {
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
                 ],
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Entrar'),
+                ),
+                const SizedBox(height: 12),
+                // Subtle ancillary links
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RegisterView())),
+                      child: const Text('Crear cuenta'),
+                    ),
+                    const Text('·'),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ForgotPasswordView())),
+                      child: const Text('Recuperar contraseña'),
+                    ),
+                  ],
                 ),
               ],
             ),

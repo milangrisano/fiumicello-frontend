@@ -159,6 +159,15 @@ lib/
 - This frontend is published to Docker Hub (`milangrisano/fiumicello-frontend:latest`) by the CI on
   push to `main`, and served in prod by Nginx (which proxies `/api` to the backend).
 
+### 8.6 Registration, recovery & superadmin tokens
+- `register_view.dart`: single advancing page — email → 6-digit code (sent to email) → password.
+- `forgot_password_view.dart` + `reset_password_view.dart`: password recovery by email.
+- Login identifier is the **email**, with subtle links to register/recover.
+- `admin_tokens_view.dart` (superadmin only): manage service tokens (generate/show once/revoke)
+  and approve pending registrations.
+- Navigation filters the admin section by role via `AppSections.visible()`.
+- Identity: email = user; herb uses a service token (no email/password).
+
 ---
 
 ## 9. Open / pending
