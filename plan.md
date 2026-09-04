@@ -1,25 +1,27 @@
 # Fiumicello Frontend — Development Plan (Trace / Roadmap)
 
 > **Permanent rule: ALL code must be written in ENGLISH. No Spanish in code.**
+> User-facing copy (UI text) is in Spanish (product language).
 > This file keeps the trace of how we plan, think, and structure the frontend.
-> It lives alongside the code so it can be read and committed to git when ready.
+> It lives alongside the code so it can be read and committed to git.
 
 ---
 
 ## 1. Project overview
 
 **Fiumicello** is a restaurant management app. This is the **frontend** (Flutter, web), which
-consumes a NestJS + TypeORM backend that reads the restaurant's accounts
-(`payment_vouchers.db`: supplier invoices, invoice items, payment vouchers).
+consumes a **NestJS + TypeORM backend** backed by **PostgreSQL** (migrated from SQLite).
+The backend exposes a REST API with **JWT authentication and roles** (see `backend/plan.md`).
 
 - **Frontend:** Flutter (web), responsive
-- **Backend:** NestJS + TypeORM, SQLite (read-only on the expense DB)
-- **Orchestration:** Docker Compose (dev containers)
-- **Languistics:** code in English only; user-facing copy in Spanish (product language)
+- **Backend:** NestJS + TypeORM, PostgreSQL (SQLite `payment_vouchers.db` is now only a historical backup)
+- **Auth:** JWT — the app requires login. `admin` (Enrique) and `editor` (herb) roles.
+- **Orchestration:** Docker Compose (dev containers + prod), CI/CD builds images to Docker Hub on push to `main`
+- **Linguistics:** code in English only; user-facing copy in Spanish (product language)
 
-**Goal of this refactor:** reorganize the frontend into a clean, modular, maintainable
+**Goal of this project:** reorganize the frontend into a clean, modular, maintainable
 architecture, with responsive behavior that chooses **one of three app-shells** depending
-on screen width.
+on screen width, and add a login gate (the backend now requires JWT on all routes).
 
 ---
 
@@ -129,7 +131,37 @@ lib/
 - Responsive: resizing width picks the correct shell (mobile/tablet/desktop).
 - Data: Module 1 loads 119 real invoices and payment vouchers from the API.
 
-## 8. Open / pending
+## 8. Implemented changes (auth + fixes) — trace
+
+> Backend now requires JWT on **all** routes (global guard). The frontend was updated to be
+> able to log in and send the token. Code stays in English.
+
+### 8.1 Login gate (`lib/app.dart`, `lib/views/login_view.dart`)
+- `FiumicelloApp` routes: `/` → `_SessionGate` (restores session) → `/login` or `/app`.
+- `LoginView`: username/password form calling `POST /api/auth/login`; on success navigates to the app.
+- Session **persisted** via `shared_preferences` (`auth_token`, `auth_user`) so a reload keeps you logged in.
+
+### 8.2 JWT in the API client (`lib/core/data/api_client.dart`)
+- Added `login()`, `logout()`, `restoreSession()`, `isLoggedIn`, `currentUsername`.
+- `_headers()` attaches `Authorization: Bearer <token>` to every request.
+- `baseUrl` now resolves a **relative** override like `/api` against the app origin (production Nginx proxy).
+
+### 8.3 Money formatting fix (`lib/core/utils/formatters.dart`)
+- Postgres `numeric` columns arrive over the API as **strings** (e.g. `"20200.0000"`).
+- `money()` now parses numeric strings too (it previously only handled `num`, showing `$0`).
+- Bug observed by Enrique on mobile: amounts appeared as `$0`. Fixed by parsing the string.
+
+### 8.4 Mobile navbar icons only (`lib/navigation/mobile_shell.dart`)
+- `NavigationBar` now uses `labelBehavior: alwaysHide`, so the mobile bottom bar shows **only icons**
+  (no text labels under them). Requested by Enrique for a visible change in the deployed version.
+
+### 8.5 Deployment note
+- This frontend is published to Docker Hub (`milangrisano/fiumicello-frontend:latest`) by the CI on
+  push to `main`, and served in prod by Nginx (which proxies `/api` to the backend).
+
+---
+
+## 9. Open / pending
 
 - Approve this plan before executing (Enrique approves in planning mode).
 - After refactor, continue with Module 2 (POS) and Module 3 (Summaries) reusing this pattern.
