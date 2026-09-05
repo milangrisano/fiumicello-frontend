@@ -18,6 +18,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   final _pass = TextEditingController();
   final _confirm = TextEditingController();
   final _otpKey = GlobalKey<OtpInputState>();
+  String? _validatedCode;
   int _step = 1;
   bool _loading = false;
   bool _done = false;
@@ -48,7 +49,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   }
 
   Future<void> _reset() async {
-    final code = _otpKey.currentState?.value ?? '';
+    final code = _validatedCode ?? '';
     if (code.length != 6) {
       setState(() => _error = 'Introduce el código de 6 dígitos.');
       return;
@@ -115,7 +116,10 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                 ],
 
                 if (_step == 2 && !_done) ...[
-                  OtpInput(key: _otpKey, onChanged: (_) {}),
+                  OtpInput(
+                    key: _otpKey,
+                    onChanged: (v) => _validatedCode = v.length == 6 ? v : _validatedCode,
+                  ),
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: _loading ? null : () => setState(() => _step = 3),

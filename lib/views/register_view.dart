@@ -20,6 +20,7 @@ class _RegisterViewState extends State<RegisterView> {
   final _pass = TextEditingController();
   final _confirm = TextEditingController();
   final _otpKey = GlobalKey<OtpInputState>();
+  String? _validatedCode;
   int _step = 1;
   bool _loading = false;
   bool _pendingDone = false;
@@ -61,6 +62,9 @@ class _RegisterViewState extends State<RegisterView> {
     setState(() {
       _loading = false;
       if (r.ok) {
+        // Keep the validated code in state so it survives the step transition
+        // (the OTP widget is unmounted when moving to step 3).
+        _validatedCode = code;
         _step = 3;
       } else {
         _error = r.message;
@@ -69,13 +73,16 @@ class _RegisterViewState extends State<RegisterView> {
   }
 
   Future<void> _createAccount() async {
-    final code = _otpKey.currentState?.value ?? '';
+    if ((_validatedCode ?? '').isEmpty) {
+      setState(() => _error = 'El código no ha sido validado. Regresa e inténtalo.');
+      return;
+    }
     setState(() { _loading = true; _error = null; _info = null; });
     if (_pass.text != _confirm.text) {
       setState(() { _loading = false; _error = 'Las contraseñas no coinciden.'; });
       return;
     }
-    final r = await ApiClient.verify(_email.text.trim(), code, _pass.text);
+    final r = await ApiClient.verify(_email.text.trim(), _validatedCode!, _pass.text);
     if (!mounted) return;
     setState(() {
       _loading = false;
