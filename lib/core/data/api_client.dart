@@ -105,6 +105,9 @@ class ApiClient {
   static Future<PostResult> verify(email, code, password) =>
       _post('/auth/verify', {'email': email, 'code': code, 'password': password});
 
+  static Future<PostResult> verifyCode(String email, String code) =>
+      _post('/auth/verify-code', {'email': email, 'code': code});
+
   static Future<PostResult> forgotPassword(String email) =>
       _post('/auth/forgot-password', {'email': email});
 

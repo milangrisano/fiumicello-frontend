@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
 
-/// Password recovery — confirm step. User lands here with the reset token
-/// (received in the link from the email) and sets a new password.
+/// Password recovery — confirm step.
+///
+/// The user lands here via a link that carried `token` and `email` (from the
+/// email/URL). Only the new password and its confirmation are shown; the
+/// token and email are already known and sent to the backend.
 class ResetPasswordView extends StatefulWidget {
-  const ResetPasswordView({super.key});
+  final String email;
+  final String token;
+
+  const ResetPasswordView({super.key, required this.email, required this.token});
 
   @override
   State<ResetPasswordView> createState() => _ResetPasswordViewState();
 }
 
 class _ResetPasswordViewState extends State<ResetPasswordView> {
-  final _email = TextEditingController();
-  final _token = TextEditingController();
   final _pass = TextEditingController();
   final _confirm = TextEditingController();
   bool _loading = false;
@@ -21,8 +25,6 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
 
   @override
   void dispose() {
-    _email.dispose();
-    _token.dispose();
     _pass.dispose();
     _confirm.dispose();
     super.dispose();
@@ -34,8 +36,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
       return;
     }
     setState(() { _loading = true; _error = null; _message = null; });
-    final r = await ApiClient.resetPassword(
-      _email.text.trim(), _token.text.trim(), _pass.text);
+    final r = await ApiClient.resetPassword(widget.email, widget.token, _pass.text);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -60,23 +61,12 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Restablecer contraseña', style: Theme.of(context).textTheme.titleLarge),
+                const Text('Restablecer contraseña',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Cuenta: ${widget.email}',
+                    style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 24),
-                TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email', prefixIcon: Icon(Icons.mail_outline),
-                    border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _token,
-                  decoration: const InputDecoration(
-                    labelText: 'Token de recuperación', prefixIcon: Icon(Icons.vpn_key_outlined),
-                    border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
                 TextField(
                   controller: _pass, obscureText: true,
                   decoration: const InputDecoration(
@@ -94,7 +84,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
                   const SizedBox(height: 16),
                   Text(_message!, style: const TextStyle(color: Colors.teal)),
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false),
                     child: const Text('Volver a iniciar sesión'),
                   ),
                 ],

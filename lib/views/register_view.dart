@@ -4,8 +4,9 @@ import '../core/data/api_client.dart';
 /// Registration: a single page that advances through 3 discreet steps:
 /// Email -> Code (sent to the email) -> Password.
 ///
-/// Subtle by design: no loud announcement, just a small flow. Success leaves
-/// the user in "pendiente de aprobación" (superadmin approval).
+/// Subtle by design: no loud announcement, just a small flow. The code from
+/// step 2 is validated against the backend before moving on. On success the
+/// account stays "pendiente de aprobación" until a superadmin approves it.
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
 
@@ -20,6 +21,7 @@ class _RegisterViewState extends State<RegisterView> {
   final _confirm = TextEditingController();
   int _step = 1;
   bool _loading = false;
+  bool _pendingDone = false;
   String? _error;
   String? _info;
 
@@ -47,7 +49,21 @@ class _RegisterViewState extends State<RegisterView> {
     });
   }
 
-  Future<void> _verifyAndSet() async {
+  Future<void> _verifyCode() async {
+    setState(() { _loading = true; _error = null; });
+    final r = await ApiClient.verifyCode(_email.text.trim(), _code.text.trim());
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (r.ok) {
+        _step = 3;
+      } else {
+        _error = r.message;
+      }
+    });
+  }
+
+  Future<void> _createAccount() async {
     setState(() { _loading = true; _error = null; _info = null; });
     if (_pass.text != _confirm.text) {
       setState(() { _loading = false; _error = 'Las contraseñas no coinciden.'; });
@@ -58,8 +74,8 @@ class _RegisterViewState extends State<RegisterView> {
     setState(() {
       _loading = false;
       if (r.ok) {
+        _pendingDone = true;
         _info = 'Cuenta creada. Queda pendiente de aprobación.';
-        // stay on step 3 with a done message
       } else {
         _error = r.message;
       }
@@ -81,16 +97,43 @@ class _RegisterViewState extends State<RegisterView> {
               children: [
                 Text('Registro', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
-                Text('Paso $_step de 3 · Email, código y contraseña',
-                    style: const TextStyle(color: Colors.grey)),
-                const SizedBox(height: 24),
+                if (!_pendingDone) ...[
+                  Text('Paso $_step de 3 · Email, código y contraseña',
+                      style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 24),
+                ] else
+                  const SizedBox(height: 16),
 
-                if (_info != null) ...[
+                if (_pendingDone) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.hourglass_top, color: Colors.teal),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Tu cuenta quedó pendiente de aprobación. '
+                            'Te avisaremos cuando sea aprobada.',
+                            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (!_pendingDone && _info != null) ...[
                   Text(_info!, style: const TextStyle(color: Colors.teal)),
                   const SizedBox(height: 16),
                 ],
 
-                if (_step == 1) ...[
+                if (_step == 1 && !_pendingDone) ...[
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
@@ -109,7 +152,7 @@ class _RegisterViewState extends State<RegisterView> {
                   ),
                 ],
 
-                if (_step == 2) ...[
+                if (_step == 2 && !_pendingDone) ...[
                   TextField(
                     controller: _code,
                     keyboardType: TextInputType.number,
@@ -121,14 +164,14 @@ class _RegisterViewState extends State<RegisterView> {
                   ),
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: _loading ? null : () => setState(() => _step = 3),
+                    onPressed: _loading ? null : _verifyCode,
                     child: _loading
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Siguiente'),
+                        : const Text('Verificar código'),
                   ),
                 ],
 
-                if (_step == 3) ...[
+                if (_step == 3 && !_pendingDone) ...[
                   TextField(
                     controller: _pass,
                     obscureText: true,
@@ -150,15 +193,15 @@ class _RegisterViewState extends State<RegisterView> {
                   ),
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: _loading ? null : _verifyAndSet,
+                    onPressed: _loading ? null : _createAccount,
                     child: _loading
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Crear cuenta'),
                   ),
                 ],
 
-                if (_step == 3 && _info != null && _error == null) ...[
-                  const SizedBox(height: 12),
+                if (_pendingDone) ...[
+                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Volver a iniciar sesión'),
