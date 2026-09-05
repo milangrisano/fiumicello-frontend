@@ -4,6 +4,28 @@ import 'navigation/app_shell.dart';
 import 'views/login_view.dart';
 import 'views/reset_password_view.dart';
 
+/// Extracts [k] from the URL query OR from the hash fragment (Flutter web
+/// puts route+query after `#`). This lets a reset link like
+///   /#/?token=X&email=a@b.com
+/// be read even though `Uri.base.queryParameters` doesn't parse hash queries.
+Map<String, String> _urlParams() {
+  final out = <String, String>{};
+  final base = Uri.base;
+  base.queryParameters.forEach((k, v) => out[k] = v);
+  // Parse the fragment (after '#') for key=value pairs too.
+  final frag = base.fragment; // e.g. "/?token=X&email=a@b.com" or "/reset?x=1"
+  if (frag.contains('?')) {
+    final qs = frag.split('?').last;
+    for (final pair in qs.split('&')) {
+      if (pair.contains('=')) {
+        final parts = pair.split('=');
+        if (parts.length == 2) out[parts[0]] = Uri.decodeQueryComponent(parts[1]);
+      }
+    }
+  }
+  return out;
+}
+
 /// Root widget: MaterialApp with the app theme, login gate and top-level shell.
 class FiumicelloApp extends StatelessWidget {
   const FiumicelloApp({super.key});
@@ -21,21 +43,14 @@ class FiumicelloApp extends StatelessWidget {
         '/app': (_) => const AppShell(),
       },
       onGenerateRoute: (settings) {
-        // A password-reset link arrives via the URL query/hash, e.g.
-        //   /#/reset?token=XYZ&email=a@b.com
-        final uri = Uri.base;
-        final token = uri.queryParameters['token'];
-        final email = uri.queryParameters['email'];
+        final params = _urlParams();
+        final token = params['token'];
+        final email = params['email'];
         if (settings.name == '/reset' &&
-            token != null &&
-            token.isNotEmpty &&
-            email != null &&
-            email.isNotEmpty) {
-          return MaterialPageRoute(
-            builder: (_) => ResetPasswordView(email: email, token: token),
-          );
+            token != null && token.isNotEmpty &&
+            email != null && email.isNotEmpty) {
+          return MaterialPageRoute(builder: (_) => ResetPasswordView(email: email, token: token));
         }
-        // Fall back to default routes.
         final widget = _routeWidget(settings.name);
         return MaterialPageRoute(builder: (_) => widget);
       },
@@ -71,16 +86,12 @@ class _SessionGateState extends State<_SessionGate> {
 
   Future<void> _restore() async {
     // If the URL carries a password-reset token, go there instead of login/app.
-    final uri = Uri.base;
-    final token = uri.queryParameters['token'];
-    final email = uri.queryParameters['email'];
+    final params = _urlParams();
+    final token = params['token'];
+    final email = params['email'];
     if (token != null && token.isNotEmpty && email != null && email.isNotEmpty) {
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/reset',
-        (_) => false,
-        arguments: null,
-      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/reset', (_) => false);
       return;
     }
     await ApiClient.restoreSession();
