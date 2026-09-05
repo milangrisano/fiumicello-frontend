@@ -72,9 +72,6 @@ class _AdminTokensViewState extends State<AdminTokensView> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Administración', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 16),
-
         // ---- Generate a new service token (shown once) ----
         const Text('Tokens de servicio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 8),

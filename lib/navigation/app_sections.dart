@@ -10,6 +10,8 @@ class SectionEntry {
 }
 
 /// Application sections shown in the navigation menus.
+/// The menu is dynamic: sections appear based on the logged-in user's
+/// permissions (loaded into ApiClient via `cargarPermisos`).
 class AppSections {
   AppSections._();
 
@@ -32,15 +34,30 @@ class AppSections {
     Icons.admin_panel_settings,
   ];
 
-  /// Whether the current user can see the admin section (superadmin only).
-  static bool get canSeeAdmin => ApiClient.isSuperadmin;
+  /// Permission required to see each section (index-aligned).
+  static const List<String> _permsAll = [
+    'facturas:ver',
+    'ventas:ver',
+    'resumenes:ver',
+    'usuarios:gestionar', // admin section
+  ];
 
-  /// Visible sections for the current user. Non-superadmins do not see admin.
+  /// Whether the current user can see a given real index section.
+  static bool _visible(int index) {
+    if (ApiClient.isSuperadmin) return true;
+    if (index == admin) {
+      // Admin section: shown if the user can manage roles or users.
+      return ApiClient.hasPermiso('roles:gestionar') ||
+          ApiClient.hasPermiso('usuarios:gestionar');
+    }
+    return ApiClient.hasPermiso(_permsAll[index]);
+  }
+
+  /// Visible sections for the current user.
   static List<SectionEntry> visible() {
-    final count = canSeeAdmin ? _labelsAll.length : _labelsAll.length - 1;
     return [
-      for (var i = 0; i < count; i++)
-        SectionEntry(_labelsAll[i], _iconsAll[i], i),
+      for (var i = 0; i < _labelsAll.length; i++)
+        if (_visible(i)) SectionEntry(_labelsAll[i], _iconsAll[i], i),
     ];
   }
 }

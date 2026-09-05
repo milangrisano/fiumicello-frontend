@@ -35,6 +35,24 @@ class ApiClient {
 
   static String? _token;
   static Map<String, dynamic>? _user;
+  static Set<String> _permisos = {};
+
+  static bool get isLoggedIn => _token != null && _token!.isNotEmpty;
+  static String? get currentEmail => _user?['email'] as String?;
+  static String? get currentRol => _user?['rol'] as String?;
+  static bool get isSuperadmin => currentRol == 'superadmin';
+  static bool get isAdmin => currentRol == 'admin';
+  static Set<String> get permisos => _permisos;
+  static bool hasPermiso(String p) => isSuperadmin || _permisos.contains(p);
+
+  /// Loads the current user's permissions from the backend (if logged in).
+  static Future<void> cargarPermisos() async {
+    if (!isLoggedIn) return;
+    final r = await misPermisos();
+    if (r.ok) {
+      _permisos = (r.data?['permisos'] as List? ?? <String>[]).cast<String>().toSet();
+    }
+  }
 
   static String get baseUrl {
     if (_apiBaseOverride.isNotEmpty) {
@@ -54,12 +72,6 @@ class ApiClient {
     return 'http://$host:3000/api';
   }
 
-  static bool get isLoggedIn => _token != null && _token!.isNotEmpty;
-  static String? get currentEmail => _user?['email'] as String?;
-  static String? get currentRol => _user?['rol'] as String?;
-  static bool get isSuperadmin => currentRol == 'superadmin';
-  static bool get isAdmin => currentRol == 'admin';
-
   static Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);
@@ -71,6 +83,7 @@ class ApiClient {
         _user = null;
       }
     }
+    await cargarPermisos();
   }
 
   static Future<bool> login(String email, String password) async {
@@ -88,6 +101,7 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userKey, jsonEncode(_user!));
+    await cargarPermisos(); // load role permissions for the dynamic menu
     return true;
   }
 
@@ -169,6 +183,114 @@ class ApiClient {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/auth/usuarios/$id/aprobar'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  // ---- Users ----
+  static Future<ListResult> listUsuarios() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/usuarios'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<PostResult> asignarRolUsuario(int id, String rol) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/usuarios/$id/rol'),
+        headers: _headers(),
+        body: jsonEncode({'rol': rol}),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  // ---- Permissions & Roles ----
+  static Future<TokenResult> misPermisos() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/mis-permisos'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        return TokenResult(true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
+      }
+      return TokenResult(false, null, _msg(res.body));
+    } catch (e) {
+      return TokenResult(false, null, '$e');
+    }
+  }
+
+  static Future<ListResult> listRoles() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/roles'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<ListResult> catalogoPermisos() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/roles/catalogo'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<PostResult> crearRol(String nombre, String descripcion, List<String> permisos) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/roles'),
+        headers: _headers(),
+        body: jsonEncode({'nombre': nombre, 'descripcion': descripcion, 'permisos': permisos}),
+      );
+      return PostResult(res.statusCode == 200 || res.statusCode == 201, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> actualizarRol(
+      String nombreOriginal, String nombreNuevo, String descripcion, List<String> permisos) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/auth/roles/$nombreOriginal'),
+        headers: _headers(),
+        body: jsonEncode({'nombre': nombreNuevo, 'descripcion': descripcion, 'permisos': permisos}),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> eliminarRol(String nombre) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/auth/roles/$nombre'),
         headers: _headers(),
       );
       return PostResult(res.statusCode == 200, _msg(res.body));
