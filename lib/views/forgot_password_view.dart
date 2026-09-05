@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
+import '../widgets/otp_input.dart';
 
 /// Password recovery — follows the SAME pattern as registration:
 /// Email -> Code (6 digits sent to the email) -> New password.
@@ -14,9 +15,9 @@ class ForgotPasswordView extends StatefulWidget {
 
 class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   final _email = TextEditingController();
-  final _code = TextEditingController();
   final _pass = TextEditingController();
   final _confirm = TextEditingController();
+  final _otpKey = GlobalKey<OtpInputState>();
   int _step = 1;
   bool _loading = false;
   bool _done = false;
@@ -26,7 +27,6 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   @override
   void dispose() {
     _email.dispose();
-    _code.dispose();
     _pass.dispose();
     _confirm.dispose();
     super.dispose();
@@ -48,13 +48,18 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   }
 
   Future<void> _reset() async {
+    final code = _otpKey.currentState?.value ?? '';
+    if (code.length != 6) {
+      setState(() => _error = 'Introduce el código de 6 dígitos.');
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     if (_pass.text != _confirm.text) {
       setState(() { _loading = false; _error = 'Las contraseñas no coinciden.'; });
       return;
     }
     final r = await ApiClient.resetPassword(
-      _email.text.trim(), _code.text.trim(), _pass.text);
+      _email.text.trim(), code, _pass.text);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -110,13 +115,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                 ],
 
                 if (_step == 2 && !_done) ...[
-                  TextField(
-                    controller: _code,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Código (6 dígitos)', prefixIcon: Icon(Icons.pin),
-                      border: OutlineInputBorder()),
-                  ),
+                  OtpInput(key: _otpKey, onChanged: (_) {}),
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: _loading ? null : () => setState(() => _step = 3),

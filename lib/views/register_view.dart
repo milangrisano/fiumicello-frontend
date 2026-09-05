@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
+import '../widgets/otp_input.dart';
 
 /// Registration: a single page that advances through 3 discreet steps:
 /// Email -> Code (sent to the email) -> Password.
@@ -16,9 +17,9 @@ class RegisterView extends StatefulWidget {
 
 class _RegisterViewState extends State<RegisterView> {
   final _email = TextEditingController();
-  final _code = TextEditingController();
   final _pass = TextEditingController();
   final _confirm = TextEditingController();
+  final _otpKey = GlobalKey<OtpInputState>();
   int _step = 1;
   bool _loading = false;
   bool _pendingDone = false;
@@ -28,7 +29,6 @@ class _RegisterViewState extends State<RegisterView> {
   @override
   void dispose() {
     _email.dispose();
-    _code.dispose();
     _pass.dispose();
     _confirm.dispose();
     super.dispose();
@@ -50,8 +50,13 @@ class _RegisterViewState extends State<RegisterView> {
   }
 
   Future<void> _verifyCode() async {
+    final code = _otpKey.currentState?.value ?? '';
+    if (code.length != 6) {
+      setState(() => _error = 'Introduce el código de 6 dígitos.');
+      return;
+    }
     setState(() { _loading = true; _error = null; });
-    final r = await ApiClient.verifyCode(_email.text.trim(), _code.text.trim());
+    final r = await ApiClient.verifyCode(_email.text.trim(), code);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -64,12 +69,13 @@ class _RegisterViewState extends State<RegisterView> {
   }
 
   Future<void> _createAccount() async {
+    final code = _otpKey.currentState?.value ?? '';
     setState(() { _loading = true; _error = null; _info = null; });
     if (_pass.text != _confirm.text) {
       setState(() { _loading = false; _error = 'Las contraseñas no coinciden.'; });
       return;
     }
-    final r = await ApiClient.verify(_email.text.trim(), _code.text.trim(), _pass.text);
+    final r = await ApiClient.verify(_email.text.trim(), code, _pass.text);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -153,15 +159,7 @@ class _RegisterViewState extends State<RegisterView> {
                 ],
 
                 if (_step == 2 && !_pendingDone) ...[
-                  TextField(
-                    controller: _code,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Código (6 dígitos)',
-                      prefixIcon: Icon(Icons.pin),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
+                  OtpInput(key: _otpKey, onChanged: (_) {}),
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: _loading ? null : _verifyCode,
