@@ -31,7 +31,11 @@ class MobileShell extends StatelessWidget {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.restaurant_menu, color: Color(0xFF0969DA)),
+            Image.asset(
+              'assets/logo_fiumicello.png',
+              width: 40,
+              height: 40,
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
