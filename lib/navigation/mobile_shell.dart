@@ -7,7 +7,11 @@ import '../core/data/api_client.dart';
 ///
 /// AppBar with: chef-hat logo button (far left) that navigates to the menu/home
 /// (carta), the logged-in user email centered, and a logout action (right).
-/// Bottom NavigationBar shows only the navigation sections (icons only).
+/// Bottom NavigationBar shows the visible navigation sections (icons only).
+///
+/// IMPORTANT: the NavigationBar works with POSITION indices (0..visible.length-1).
+/// We map position -> the real section index from `visible` so that hidden
+/// sections never desync the selection, and `ActiveView` receives the real index.
 class MobileShell extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -25,10 +29,12 @@ class MobileShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final visible = AppSections.visible();
     final email = ApiClient.currentEmail ?? 'Fiumicello';
+    // Current real index -> its position in `visible` (for selectedIndex marker).
+    final currentPos = visible.indexWhere((s) => s.index == selectedIndex);
+    final safePos = currentPos < 0 ? 0 : currentPos;
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        // Chef-hat logo button at the far left; taps navigate to the menu (carta).
         leading: IconButton(
           tooltip: 'Ver menú',
           icon: Image.asset(
@@ -53,9 +59,14 @@ class MobileShell extends StatelessWidget {
       ),
       body: SafeArea(child: ActiveView(index: selectedIndex)),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
+        selectedIndex: safePos,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-        onDestinationSelected: onSelect,
+        onDestinationSelected: (pos) {
+          // Map position back to the real section index.
+          if (pos >= 0 && pos < visible.length) {
+            onSelect(visible[pos].index);
+          }
+        },
         destinations: [
           for (final s in visible)
             NavigationDestination(
