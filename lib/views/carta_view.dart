@@ -74,8 +74,9 @@ class _CartaViewState extends State<CartaView> {
               ),
             ),
             const SizedBox(height: 6),
-            for (final it in (c['items'] as List? ?? []).cast<Map<String, dynamic>>())
-              _item(it),
+            // Group current category's items by their "tipo" (description) when
+            // it's a short family label (e.g. beverages: charca, té, gaseosa).
+            ..._renderItems(c['items'] as List? ?? const []),
             const SizedBox(height: 20),
           ],
           const SizedBox(height: 12),
@@ -90,6 +91,57 @@ class _CartaViewState extends State<CartaView> {
         ],
       ),
     );
+  }
+
+  /// Renders a category's items. When items carry a short "tipo" label in their
+  /// description (e.g. beverages: Cerveza / Té / Gaseosa / Agua), they are grouped
+  /// under a subheading; otherwise items render in a flat list.
+  List<Widget> _renderItems(List<dynamic> items) {
+    final itemsMap = items.cast<Map<String, dynamic>>();
+    // Detect if descriptions are short tipo-labels (one word-ish) vs recipes.
+    final tipos = <String>{};
+    for (final it in itemsMap) {
+      final d = (it['descripcion'] ?? '').toString().trim();
+      if (d.isNotEmpty && d == d.split(' ').first || d.length <= 12) {
+        tipos.add(d);
+      }
+    }
+    if (tipos.length > 1) {
+      // Group by tipo, preserving order of first appearance.
+      final grupos = <String, List<Map<String, dynamic>>>{};
+      for (final it in itemsMap) {
+        final t = ((it['descripcion'] ?? '').toString().trim());
+        (grupos[t] ??= []).add(it);
+      }
+      final curaciones = <Widget>[];
+      grupos.forEach((tipo, its) {
+        curaciones.add(Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: Text(
+            tipo.isEmpty ? 'Otros' : _pluralize(tipo),
+            style: const TextStyle(
+              color: MarateaColors.goldenSand,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
+        ));
+        curaciones.addAll(its.map(_item));
+      });
+      return curaciones;
+    }
+    // Flat list (no tipo grouping).
+    return itemsMap.map(_item).toList();
+  }
+
+  String _pluralize(String s) {
+    const map = {
+      'Cerveza': 'Cervezas',
+      'Té': 'Tés',
+      'Gaseosa': 'Gaseosas',
+      'Agua': 'Aguas',
+    };
+    return map[s] ?? s;
   }
 
   Widget _item(Map<String, dynamic> it) {
@@ -114,7 +166,7 @@ class _CartaViewState extends State<CartaView> {
                 _precio(money(it['precio'])),
             ],
           ),
-          if (desc != null && desc.isNotEmpty)
+          if (desc != null && desc.isNotEmpty && desc.length > 12)
             Text(desc,
                 style: const TextStyle(color: MarateaColors.goldenSand, fontSize: 13)),
           if (conTamanos)
