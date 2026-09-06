@@ -84,7 +84,7 @@ class MobileShell extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.pink.withOpacity(0.12),
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
