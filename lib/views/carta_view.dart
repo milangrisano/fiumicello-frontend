@@ -116,7 +116,7 @@ class _CartaViewState extends State<CartaView> {
           ),
           if (desc != null && desc.isNotEmpty)
             Text(desc,
-                style: TextStyle(color: MarateaColors.deepBlue.withOpacity(0.7), fontSize: 13)),
+                style: const TextStyle(color: MarateaColors.goldenSand, fontSize: 13)),
           if (conTamanos)
             Padding(
               padding: const EdgeInsets.only(top: 2),
