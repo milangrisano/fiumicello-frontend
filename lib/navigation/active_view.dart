@@ -3,6 +3,7 @@ import '../views/invoices_view.dart';
 import '../views/pos_sales_view.dart';
 import '../views/summaries_view.dart';
 import '../views/admin_view.dart';
+import '../views/carta_view.dart';
 import 'app_sections.dart';
 
 /// Returns the widget for the active menu section.
@@ -13,6 +14,8 @@ class ActiveView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (index) {
+      case AppSections.carta:
+        return const CartaView();
       case AppSections.pos:
         return const PosSalesView();
       case AppSections.summaries:

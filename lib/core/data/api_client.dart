@@ -299,6 +299,92 @@ class ApiClient {
     }
   }
 
+  // ---- Carta (menu) ----
+  /// Public menu — works without a token.
+  static Future<TokenResult> obtenerCarta() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/carta'));
+      if (res.statusCode == 200) {
+        return TokenResult(true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
+      }
+      return TokenResult(false, null, _msg(res.body));
+    } catch (e) {
+      return TokenResult(false, null, '$e');
+    }
+  }
+
+  static Future<PostResult> crearCategoria(String nombre, {int orden = 0}) async {
+    return _postAuth('/carta/categorias', {'nombre': nombre, 'orden': orden});
+  }
+
+  static Future<PostResult> actualizarCategoria(int id, String nombre, {int? orden}) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/carta/categorias/$id'),
+        headers: _headers(),
+        body: jsonEncode({'nombre': nombre, 'orden': orden ?? 0}),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> eliminarCategoria(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/carta/categorias/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> crearItemCarta(Map<String, dynamic> item) async {
+    return _postAuth('/carta/items', item);
+  }
+
+  static Future<PostResult> actualizarItemCarta(int id, Map<String, dynamic> item) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/carta/items/$id'),
+        headers: _headers(),
+        body: jsonEncode(item),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> eliminarItemCarta(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/carta/items/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  /// Authenticated POST (requires bearer token).
+  static Future<PostResult> _postAuth(String path, Map<String, dynamic> body) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers(),
+        body: jsonEncode(body),
+      );
+      return PostResult(res.statusCode == 200 || res.statusCode == 201, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
   static Future<Map<String, dynamic>> getJson(String path) async {
     final res = await http.get(Uri.parse('$baseUrl$path'), headers: _headers());
     return Map<String, dynamic>.from(jsonDecode(res.body));
