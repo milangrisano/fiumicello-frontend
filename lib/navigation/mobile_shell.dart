@@ -58,32 +58,43 @@ class MobileShell extends StatelessWidget {
         ],
       ),
       body: SafeArea(child: ActiveView(index: selectedIndex)),
-      // Floating rounded, near-transparent navigation bar with side/bottom gaps.
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: NavigationBar(
-            selectedIndex: safePos,
-            height: 64,
-            elevation: 0,
-            backgroundColor: Colors.white.withOpacity(0.55),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-            onDestinationSelected: (pos) {
-              // Map position back to the real section index.
-              if (pos >= 0 && pos < visible.length) {
-                onSelect(visible[pos].index);
-              }
-            },
-            destinations: [
-              for (final s in visible)
-                NavigationDestination(
-                  icon: Icon(s.icon),
-                  label: s.label,
-                ),
-            ],
+      // Floating rounded nav bar + app version below it.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: NavigationBar(
+                selectedIndex: safePos,
+                height: 64,
+                elevation: 0,
+                backgroundColor: Colors.white.withOpacity(0.55),
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+                onDestinationSelected: (pos) {
+                  // Map position back to the real section index.
+                  if (pos >= 0 && pos < visible.length) {
+                    onSelect(visible[pos].index);
+                  }
+                },
+                destinations: [
+                  for (final s in visible)
+                    NavigationDestination(
+                      icon: Icon(s.icon),
+                      label: s.label,
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
+          // App version below the navigation bar.
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text('Versión 1.0.0',
+                style: TextStyle(color: Colors.grey, fontSize: 11)),
+          ),
+        ],
       ),
     );
   }
