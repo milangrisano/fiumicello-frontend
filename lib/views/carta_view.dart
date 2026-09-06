@@ -6,6 +6,12 @@ import '../core/theme/maratea_colors.dart';
 /// Public Fiumicello menu (carta). Shown at the app's root `/` and as a section
 /// for authenticated users. Structured: categories with items and prices.
 /// Maratea palette: pure-white background, deep-blue text.
+///
+/// Responsive layout:
+///  - <1200px (mobile/tablet): single column, logo 70px.
+///  - >=1200px (desktop): two columns arranged in rows
+///    (Pizzas | Pizzas de la Casa) and (Lasagnas + Paninis | Bebidas),
+///    logo double size (140px).
 class CartaView extends StatefulWidget {
   const CartaView({super.key});
 
@@ -38,6 +44,9 @@ class _CartaViewState extends State<CartaView> {
     });
   }
 
+  List<Map<String, dynamic>> get _categorias =>
+      (_carta?['categorias'] as List? ?? []).cast<Map<String, dynamic>>();
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -46,51 +55,111 @@ class _CartaViewState extends State<CartaView> {
           child: Text('Error: $_error',
               style: const TextStyle(color: MarateaColors.deepBlue)));
     }
-    final cats =
-        (_carta?['categorias'] as List? ?? []).cast<Map<String, dynamic>>();
-    // Cream background (Maratea) with the transparent logo on top.
+
     return Container(
       color: MarateaColors.cream,
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          // Header: the brand logo only.
-          Center(
-            child: Image.asset(
-              'assets/logo_fiumicello.png',
-              height: 70,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(height: 24),
-          for (final c in cats) ...[
-            Text(
-              c['nombre'] ?? '',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: MarateaColors.deepBlue,
-                letterSpacing: 1,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 1200;
+        final logoH = isDesktop ? 140.0 : 70.0;
+        return ListView(
+          padding: EdgeInsets.all(isDesktop ? 40 : 20),
+          children: [
+            // Header: the brand logo only.
+            Center(
+              child: Image.asset(
+                'assets/logo_fiumicello.png',
+                height: logoH,
+                fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(height: 6),
-            // Group current category's items by their "tipo" (description) when
-            // it's a short family label (e.g. beverages: charca, té, gaseosa).
-            ..._renderItems(c['items'] as List? ?? const []),
-            const SizedBox(height: 20),
+            SizedBox(height: isDesktop ? 32 : 24),
+            if (isDesktop)
+              ..._buildDesktopLayout()
+            else
+              for (final c in _categorias) ..._categoriaWidgets(c),
+            const SizedBox(height: 12),
+            const Center(
+              child: Text('¡BUON APPETITO!',
+                  style: TextStyle(
+                      color: MarateaColors.deepBlue,
+                      fontSize: 18,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: 2)),
+            ),
           ],
-          const SizedBox(height: 12),
-          const Center(
-            child: Text('¡BUON APPETITO!',
-                style: TextStyle(
-                    color: MarateaColors.deepBlue,
-                    fontSize: 18,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 2)),
+        );
+      }),
+    );
+  }
+
+  /// Desktop: arrange categories in the requested two-column rows.
+  List<Widget> _buildDesktopLayout() {
+    Map<String, dynamic>? byName(String n) {
+      for (final c in _categorias) {
+        if ((c['nombre'] ?? '') == n) return c;
+      }
+      return null;
+    }
+
+    final pizzas = byName('Pizzas');
+    final rootCasa = byName('Pizzas de la Casa');
+    final lasagnas = byName('Lasagnas');
+    final paninis = byName('Paninis');
+    final bebidas = byName('Bebidas');
+
+    List<Widget> renderLeftCat(Map<String, dynamic>? a, Map<String, dynamic>? b) {
+      final w = <Widget>[];
+      if (a != null) w.addAll(_categoriaWidgets(a));
+      if (b != null) w.addAll(_categoriaWidgets(b));
+      return w;
+    }
+
+    Widget col(List<Widget> children) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
+        );
+
+    return [
+      // Row 1: Pizzas | Pizzas de la Casa
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          col(renderLeftCat(pizzas, null)),
+          col(renderLeftCat(rootCasa, null)),
         ],
       ),
-    );
+      const SizedBox(height: 20),
+      // Row 2: Lasagnas + Paninis | Bebidas
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          col(renderLeftCat(lasagnas, paninis)),
+          col(renderLeftCat(bebidas, null)),
+        ],
+      ),
+    ];
+  }
+
+  /// Widgets for a whole category: title + grouped items.
+  List<Widget> _categoriaWidgets(Map<String, dynamic> c) {
+    return [
+      Text(
+        c['nombre'] ?? '',
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: MarateaColors.deepBlue,
+          letterSpacing: 1,
+        ),
+      ),
+      const SizedBox(height: 6),
+      // Group current category's items by their "tipo" (description) when
+      // it's a short family label (e.g. beverages: charca, té, gaseosa).
+      ..._renderItems(c['items'] as List? ?? const []),
+      const SizedBox(height: 20),
+    ];
   }
 
   /// Renders a category's items. When items carry a short "tipo" label in their
