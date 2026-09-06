@@ -49,29 +49,10 @@ class _CartaViewState extends State<CartaView> {
         children: [
           // Header with logo + brand
           Center(
-            child: Column(
-              children: [
-                Image.asset('assets/logo_fiumicello.png', height: 60, fit: BoxFit.contain),
-                const SizedBox(height: 8),
-                const Text(
-                  'Fiumicello Trattoria',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const Text('Des 2024 · Bogotá e Ibagué',
-                    style: TextStyle(color: Colors.amber)),
-                const SizedBox(height: 8),
-                const Text('MENÚ',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        letterSpacing: 4)),
-              ],
+            child: Image.asset(
+              'assets/logo_fiumicello.png',
+              height: 70,
+              fit: BoxFit.contain,
             ),
           ),
           const SizedBox(height: 24),
