@@ -7,7 +7,8 @@ import '../core/data/api_client.dart';
 ///
 /// AppBar with: chef-hat logo button (far left) that navigates to the menu/home
 /// (carta), the logged-in user email centered, and a logout action (right).
-/// Bottom NavigationBar shows the visible navigation sections (icons only).
+/// The bottom navigation bar floats OVER the content in a Stack (so there is NO
+/// white band behind it — the background is the body's own, transparent).
 ///
 /// IMPORTANT: the NavigationBar works with POSITION indices (0..visible.length-1).
 /// We map position -> the real section index from `visible` so that hidden
@@ -32,6 +33,51 @@ class MobileShell extends StatelessWidget {
     // Current real index -> its position in `visible` (for selectedIndex marker).
     final currentPos = visible.indexWhere((s) => s.index == selectedIndex);
     final safePos = currentPos < 0 ? 0 : currentPos;
+
+    // Floating capsule bar + version, overlaid on top of the content (Stack),
+    // so there is no opaque white band behind it.
+    final navOverlay = Positioned(
+      left: 16,
+      right: 16,
+      bottom: 0,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: NavigationBar(
+                selectedIndex: safePos,
+                height: 64,
+                elevation: 0,
+                backgroundColor: Colors.grey.shade200,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+                onDestinationSelected: (pos) {
+                  // Map position back to the real section index.
+                  if (pos >= 0 && pos < visible.length) {
+                    onSelect(visible[pos].index);
+                  }
+                },
+                destinations: [
+                  for (final s in visible)
+                    NavigationDestination(
+                      icon: Icon(s.icon),
+                      label: s.label,
+                    ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(6),
+              child: Text('Versión 1.0.0',
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -57,43 +103,12 @@ class MobileShell extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(child: ActiveView(index: selectedIndex)),
-      // Floating rounded nav bar + app version below it.
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: NavigationBar(
-                selectedIndex: safePos,
-                height: 64,
-                elevation: 0,
-                backgroundColor: Colors.grey.shade200,
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-                onDestinationSelected: (pos) {
-                  // Map position back to the real section index.
-                  if (pos >= 0 && pos < visible.length) {
-                    onSelect(visible[pos].index);
-                  }
-                },
-                destinations: [
-                  for (final s in visible)
-                    NavigationDestination(
-                      icon: Icon(s.icon),
-                      label: s.label,
-                    ),
-                ],
-              ),
-            ),
+          Positioned.fill(
+            child: ActiveView(index: selectedIndex),
           ),
-          // App version below the navigation bar.
-          const Padding(
-            padding: EdgeInsets.only(bottom: 6),
-            child: Text('Versión 1.0.0',
-                style: TextStyle(color: Colors.grey, fontSize: 11)),
-          ),
+          navOverlay,
         ],
       ),
     );
