@@ -5,9 +5,9 @@ import '../core/data/api_client.dart';
 
 /// Shell #1 — Mobile app (width < 800).
 ///
-/// AppBar with: Fiumicello logo (left), logged-in user email (center), and a
-/// logout action (right). Bottom NavigationBar shows only the navigation
-/// sections (icons only, no text labels).
+/// AppBar with: chef-hat logo button (far left) that navigates to the menu/home
+/// (carta), the logged-in user email centered, and a logout action (right).
+/// Bottom NavigationBar shows only the navigation sections (icons only).
 class MobileShell extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -27,26 +27,22 @@ class MobileShell extends StatelessWidget {
     final email = ApiClient.currentEmail ?? 'Fiumicello';
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 8,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/gorro_fiumicello.png',
-              height: 40,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                email,
-                style: const TextStyle(fontSize: 16),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
         centerTitle: true,
+        // Chef-hat logo button at the far left; taps navigate to the menu (carta).
+        leading: IconButton(
+          tooltip: 'Ver menú',
+          icon: Image.asset(
+            'assets/gorro_fiumicello.png',
+            height: 40,
+            fit: BoxFit.contain,
+          ),
+          onPressed: () => onSelect(AppSections.carta),
+        ),
+        title: Text(
+          email,
+          style: const TextStyle(fontSize: 16),
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
