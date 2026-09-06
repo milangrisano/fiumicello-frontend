@@ -107,7 +107,7 @@ class _CartaViewState extends State<CartaView> {
               Expanded(
                 child: Text(nombre,
                     style: const TextStyle(
-                        color: MarateaColors.mediterraneanBlue, fontSize: 16, fontWeight: FontWeight.w600)),
+                        color: MarateaColors.mediterraneanGreen, fontSize: 16, fontWeight: FontWeight.w600)),
               ),
               if (conTamanos) const SizedBox.shrink()
               else
