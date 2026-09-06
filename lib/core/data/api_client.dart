@@ -313,6 +313,26 @@ class ApiClient {
     }
   }
 
+  /// Admin: all products (active + disabled) for the products page.
+  static Future<TokenResult> obtenerCartaAdmin() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/carta/administracion'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        return TokenResult(true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
+      }
+      return TokenResult(false, null, _msg(res.body));
+    } catch (e) {
+      return TokenResult(false, null, '$e');
+    }
+  }
+
+  static Future<PostResult> toggleProductoActivo(int id) async {
+    return _postAuth('/carta/items/$id/toggle', const {});
+  }
+
   static Future<PostResult> crearCategoria(String nombre, {int orden = 0}) async {
     return _postAuth('/carta/categorias', {'nombre': nombre, 'orden': orden});
   }
