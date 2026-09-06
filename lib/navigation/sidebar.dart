@@ -37,6 +37,18 @@ class Sidebar extends StatelessWidget {
           ),
         ),
         const Divider(height: 1),
+        // App version above logout.
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.info_outline, size: 14, color: Colors.grey),
+              SizedBox(width: 6),
+              Text('Versión 1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        ),
         ListTile(
           leading: const Icon(Icons.logout),
           title: const Text('Cerrar sesión'),
