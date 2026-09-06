@@ -81,7 +81,7 @@ class MobileShell extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: MarateaColors.cream,
+      backgroundColor: MarateaColors.rockGray,
       appBar: AppBar(
         centerTitle: true,
         backgroundColor: Colors.transparent,
