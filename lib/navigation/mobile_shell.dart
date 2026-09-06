@@ -83,7 +83,8 @@ class MobileShell extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.pink.withOpacity(0.12),
+        surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         leading: IconButton(
