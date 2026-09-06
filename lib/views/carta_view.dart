@@ -48,9 +48,9 @@ class _CartaViewState extends State<CartaView> {
     }
     final cats =
         (_carta?['categorias'] as List? ?? []).cast<Map<String, dynamic>>();
-    // Rock-gray background (Maratea) so the transparent logo's alpha is visible.
+    // Cream background (Maratea) with the transparent logo on top.
     return Container(
-      color: MarateaColors.rockGray,
+      color: MarateaColors.cream,
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
