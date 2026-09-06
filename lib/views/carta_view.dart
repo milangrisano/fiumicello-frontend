@@ -134,5 +134,5 @@ class _CartaViewState extends State<CartaView> {
 
   Widget _precio(String s) => Text(s,
       style: const TextStyle(
-          color: MarateaColors.deepBlue, fontWeight: FontWeight.bold));
+          color: MarateaColors.turquoise, fontWeight: FontWeight.bold));
 }
