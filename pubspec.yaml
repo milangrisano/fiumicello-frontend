@@ -1,7 +1,7 @@
 name: fiumicello_frontend
 description: Frontend financiero Fiumicello (gastos y consultas)
 publish_to: none
-version: 1.0.0
+version: 0.8.5
 
 environment:
   sdk: ">=2.19.0 <4.0.0"
