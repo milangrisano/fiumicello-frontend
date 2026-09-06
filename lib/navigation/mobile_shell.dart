@@ -32,7 +32,7 @@ class MobileShell extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/logo_fiumicello.png',
+              'assets/gorro_fiumicello.png',
               height: 40,
               fit: BoxFit.contain,
             ),
