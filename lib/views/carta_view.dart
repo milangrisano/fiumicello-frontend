@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
 import '../core/utils/formatters.dart';
+import '../core/theme/maratea_colors.dart';
 
 /// Public Fiumicello menu (carta). Shown at the app's root `/` and as a section
-/// for authenticated users. Structured: categories with their items and prices.
+/// for authenticated users. Structured: categories with items and prices.
+/// Styled with the Maratea, Italy palette ("Perla del Tirreno").
 class CartaView extends StatefulWidget {
   const CartaView({super.key});
 
@@ -39,15 +41,22 @@ class _CartaViewState extends State<CartaView> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text('Error: $_error', style: const TextStyle(color: MarateaColors.pureWhite)));
     final cats =
         (_carta?['categorias'] as List? ?? []).cast<Map<String, dynamic>>();
     return Container(
-      color: const Color(0xFF1E1B1A), // dark, textured-like background
+      // Deep Tirreno sea gradient with a turquoise hint and volcanic-black shore.
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [MarateaColors.deepBlue, Color(0xFF16424F), MarateaColors.volcanoBlack],
+        ),
+      ),
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Header with logo + brand
+          // Header: the brand logo only.
           Center(
             child: Image.asset(
               'assets/logo_fiumicello.png',
@@ -62,7 +71,8 @@ class _CartaViewState extends State<CartaView> {
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.amber,
+                color: MarateaColors.goldenSand,
+                letterSpacing: 1,
               ),
             ),
             const SizedBox(height: 6),
@@ -74,7 +84,7 @@ class _CartaViewState extends State<CartaView> {
           const Center(
             child: Text('¡BUON APPETITO!',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: MarateaColors.cream,
                     fontSize: 18,
                     fontStyle: FontStyle.italic,
                     letterSpacing: 2)),
@@ -99,7 +109,7 @@ class _CartaViewState extends State<CartaView> {
               Expanded(
                 child: Text(nombre,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                        color: MarateaColors.brokenWhite, fontSize: 16, fontWeight: FontWeight.w600)),
               ),
               if (conTamanos)
                 _precio('Desde ${money(it['precio_personal'])}')
@@ -108,7 +118,7 @@ class _CartaViewState extends State<CartaView> {
             ],
           ),
           if (desc != null && desc.isNotEmpty)
-            Text(desc, style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+            Text(desc, style: TextStyle(color: MarateaColors.cream.withOpacity(0.7), fontSize: 13)),
           if (conTamanos)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -116,7 +126,7 @@ class _CartaViewState extends State<CartaView> {
                 'Personal ${money(it['precio_personal'])} · '
                 'Mediana ${money(it['precio_mediana'])} · '
                 'Grande ${money(it['precio_grande'])}',
-                style: TextStyle(color: Colors.amber[200], fontSize: 12),
+                style: const TextStyle(color: MarateaColors.turquoise, fontSize: 12),
               ),
             ),
         ],
@@ -125,5 +135,5 @@ class _CartaViewState extends State<CartaView> {
   }
 
   Widget _precio(String s) => Text(s,
-      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold));
+      style: const TextStyle(color: MarateaColors.goldenSand, fontWeight: FontWeight.bold));
 }
