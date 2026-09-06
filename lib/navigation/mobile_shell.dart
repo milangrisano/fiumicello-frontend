@@ -70,7 +70,7 @@ class MobileShell extends StatelessWidget {
                 selectedIndex: safePos,
                 height: 64,
                 elevation: 0,
-                backgroundColor: Colors.white.withOpacity(0.55),
+                backgroundColor: Colors.grey.shade200,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
                 onDestinationSelected: (pos) {
                   // Map position back to the real section index.
