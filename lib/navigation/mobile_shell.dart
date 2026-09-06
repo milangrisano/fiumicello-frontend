@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'app_sections.dart';
 import '../core/data/api_client.dart';
+import '../core/theme/maratea_colors.dart';
 
 /// Shell #1 — Mobile app (width < 800).
 ///
@@ -51,7 +52,7 @@ class MobileShell extends StatelessWidget {
                 selectedIndex: safePos,
                 height: 64,
                 elevation: 0,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: MarateaColors.rockGray.withOpacity(0.55),
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
                 onDestinationSelected: (pos) {
                   // Map position back to the real section index.
@@ -81,6 +82,8 @@ class MobileShell extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           tooltip: 'Ver menú',
           icon: Image.asset(
