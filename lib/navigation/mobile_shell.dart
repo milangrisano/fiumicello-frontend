@@ -33,8 +33,8 @@ class MobileShell extends StatelessWidget {
           children: [
             Image.asset(
               'assets/logo_fiumicello.png',
-              width: 40,
               height: 40,
+              fit: BoxFit.contain,
             ),
             const SizedBox(width: 8),
             Flexible(

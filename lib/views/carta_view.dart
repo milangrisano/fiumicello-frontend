@@ -51,7 +51,7 @@ class _CartaViewState extends State<CartaView> {
           Center(
             child: Column(
               children: [
-                Image.asset('assets/logo_fiumicello.png', width: 72, height: 72),
+                Image.asset('assets/logo_fiumicello.png', height: 60, fit: BoxFit.contain),
                 const SizedBox(height: 8),
                 const Text(
                   'Fiumicello Trattoria',
