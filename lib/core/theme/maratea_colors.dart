@@ -9,6 +9,7 @@ class MarateaColors {
 
   // Nature / sea
   static const Color deepBlue = Color(0xFF0E2A3A); // depth of the Tirreno
+  static const Color mediterraneanBlue = Color(0xFF1F6F8B); // clear Med sky/water
   static const Color turquoise = Color(0xFF2FB9A6); // crystal coves
   static const Color mediterraneanGreen = Color(0xFF2F4F33); // pine-covered mountains
   static const Color volcanoBlack = Color(0xFF2B2620); // dark volcanic sand
