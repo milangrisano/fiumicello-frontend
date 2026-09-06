@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_sections.dart';
 import '../core/data/api_client.dart';
+import '../core/app_version.dart';
 
 /// Reusable lateral menu used by the desktop shell (and optionally as a drawer).
 /// The logout button sits at the bottom of the sidebar.
@@ -45,7 +46,7 @@ class Sidebar extends StatelessWidget {
             children: const [
               Icon(Icons.info_outline, size: 14, color: Colors.grey),
               SizedBox(width: 6),
-              Text('Versión 1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('Versión $APP_VERSION', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         ),

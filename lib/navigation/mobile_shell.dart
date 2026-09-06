@@ -3,6 +3,7 @@ import 'active_view.dart';
 import 'app_sections.dart';
 import '../core/data/api_client.dart';
 import '../core/theme/maratea_colors.dart';
+import '../core/app_version.dart';
 
 /// Shell #1 — Mobile app (width < 800).
 ///
@@ -71,7 +72,7 @@ class MobileShell extends StatelessWidget {
             ),
             const Padding(
               padding: EdgeInsets.all(6),
-              child: Text('Versión 1.0.0',
+              child: Text('Versión $APP_VERSION',
                   style: TextStyle(color: Colors.grey, fontSize: 11)),
             ),
           ],
@@ -83,6 +84,7 @@ class MobileShell extends StatelessWidget {
       appBar: AppBar(
         centerTitle: true,
         backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         leading: IconButton(
           tooltip: 'Ver menú',
