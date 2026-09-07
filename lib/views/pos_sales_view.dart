@@ -55,22 +55,18 @@ class _PosSalesViewState extends State<PosSalesView> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final results = await Future.wait([
-        ApiClient.obtenerCartaAdmin(),
-        ApiClient.listarFormasPago(),
-      ]).timeout(const Duration(seconds: 15));
-
-      final c = results[0] as dynamic;
-      final f = results[1] as dynamic;
+      // Cargar catálogo (carta pública, siempre disponible) y formas de pago.
+      final c = await ApiClient.obtenerCarta().timeout(const Duration(seconds: 15));
+      final f = await ApiClient.listarFormasPago().timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
-        if (c is TokenResult && c.data != null) {
+        if (c.ok && c.data != null) {
           _carta = c.data;
         } else {
-          _error = (c as dynamic).message ?? 'No se pudo cargar la carta.';
+          _error = c.message.isEmpty ? 'No se pudo cargar la carta.' : c.message;
         }
-        if (f is ListResult) {
-          _formas = f.ok ? f.list.cast<Map<String, dynamic>>() : [];
+        if (f.ok) {
+          _formas = f.list.cast<Map<String, dynamic>>();
         }
         if (_formaPagoId == null && _formas.isNotEmpty) {
           _formaPagoId = _formas.first['id'] as int?;
@@ -83,6 +79,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         _loading = false;
         _error = '$e';
       });
+      debugPrint('POS load error: $e');
     }
   }
 
