@@ -184,14 +184,12 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) {
-      return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
-    }
+    // Always render the POS structure. The catalog area shows its own loader
+    // or error; the screen never blocks on an infinite spinner.
     // Responsive: wide => two columns (catalog left, order right).
     return LayoutBuilder(builder: (context, c) {
       final wide = c.maxWidth >= 1000;
-      final catalogo = _catalogoPanel();
+      final catalogo = _catalogoPanel(wide: wide);
       final comanda = _comandaPanel();
       if (wide) {
         return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -235,8 +233,32 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
-  Widget _catalogoPanel() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _catalogoPanel({bool wide = false}) {
+    List<Widget> items;
+    if (_loading) {
+      items = [const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))];
+    } else if (_error != null) {
+      items = [Padding(padding: const EdgeInsets.all(16), child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))];
+    } else {
+      items = [
+        for (final cat in _categorias) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Text(cat['nombre'] ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final it in _filtrados(cat)) _productoBoton(it),
+            ],
+          ),
+        ],
+      ];
+    }
+
+    final body = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: Row(children: [
@@ -259,26 +281,13 @@ class _PosSalesViewState extends State<PosSalesView> {
           ),
         ]),
       ),
-      Expanded(
-        child: ListView(padding: const EdgeInsets.all(8), children: [
-          for (final cat in _categorias) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Text(cat['nombre'] ?? '',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final it in _filtrados(cat))
-                  _productoBoton(it),
-              ],
-            ),
-          ],
-        ]),
-      ),
+      if (wide)
+        Expanded(child: ListView(padding: const EdgeInsets.all(8), children: items))
+      else
+        Padding(padding: const EdgeInsets.all(8), child: Column(children: items)),
     ]);
+
+    return body;
   }
 
   List<Map<String, dynamic>> _filtrados(Map<String, dynamic> cat) {
