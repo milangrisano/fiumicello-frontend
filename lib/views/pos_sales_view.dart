@@ -54,18 +54,36 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
-    final c = await ApiClient.obtenerCartaAdmin();
-    final f = await ApiClient.listarFormasPago();
-    if (!mounted) return;
-    setState(() {
-      _carta = c.ok ? c.data : null;
-      _formas = f.ok ? f.list.cast<Map<String, dynamic>>() : [];
-      if (_formaPagoId == null && _formas.isNotEmpty) {
-        _formaPagoId = _formas.first['id'] as int?;
-      }
-      _loading = false;
-      if (!c.ok) _error = c.message;
-    });
+    try {
+      final results = await Future.wait([
+        ApiClient.obtenerCartaAdmin(),
+        ApiClient.listarFormasPago(),
+      ]).timeout(const Duration(seconds: 15));
+
+      final c = results[0] as dynamic;
+      final f = results[1] as dynamic;
+      if (!mounted) return;
+      setState(() {
+        if (c is TokenResult && c.data != null) {
+          _carta = c.data;
+        } else {
+          _error = (c as dynamic).message ?? 'No se pudo cargar la carta.';
+        }
+        if (f is ListResult) {
+          _formas = f.ok ? f.list.cast<Map<String, dynamic>>() : [];
+        }
+        if (_formaPagoId == null && _formas.isNotEmpty) {
+          _formaPagoId = _formas.first['id'] as int?;
+        }
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '$e';
+      });
+    }
   }
 
   List<Map<String, dynamic>> get _categorias =>
