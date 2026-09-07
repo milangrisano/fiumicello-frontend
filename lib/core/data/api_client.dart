@@ -391,6 +391,75 @@ class ApiClient {
     }
   }
 
+  // ---- Ventas (POS) ----
+  static Future<PostResult> crearVenta(Map<String, dynamic> venta) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/ventas'),
+        headers: _headers(),
+        body: jsonEncode(venta),
+      );
+      return PostResult(res.statusCode == 200 || res.statusCode == 201, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<ListResult> listarVentas() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/ventas?limit=100'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<ListResult> listarFormasPago() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/ventas/formas-pago'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<PostResult> crearFormaPago(String nombre) async {
+    return _postAuth('/ventas/formas-pago', {'nombre': nombre});
+  }
+
+  static Future<PostResult> actualizarFormaPago(int id, String nombre, {bool? activo}) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/ventas/formas-pago/$id'),
+        headers: _headers(),
+        body: jsonEncode({'nombre': nombre, 'activo': activo}),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> eliminarFormaPago(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/ventas/formas-pago/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
   /// Authenticated POST (requires bearer token).
   static Future<PostResult> _postAuth(String path, Map<String, dynamic> body) async {
     try {
