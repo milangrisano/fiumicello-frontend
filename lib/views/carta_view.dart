@@ -71,10 +71,10 @@ class _CartaViewState extends State<CartaView> {
         return ListView(
           padding: EdgeInsets.all(isDesktop ? 40 : 20),
           children: [
-            // Header: the transparent brand logo floats directly on the dark sea.
+            // Header: the transparent brand logo (white variant) floats on the dark sea.
             Center(
               child: Image.asset(
-                'assets/logo_fiumicello.png',
+                'assets/logo_fiumicello_blanco.png',
                 height: logoH == 140 ? 120 : 60,
                 fit: BoxFit.contain,
               ),

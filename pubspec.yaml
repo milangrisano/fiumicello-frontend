@@ -20,4 +20,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo_fiumicello.png
+    - assets/logo_fiumicello_blanco.png
     - assets/gorro_fiumicello.png
