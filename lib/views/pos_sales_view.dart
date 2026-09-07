@@ -45,6 +45,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   bool _cobrando = false;
   String? _error;
   String _busqueda = '';
+  int? _categoriaSel; // selected category for the mobile chips
 
   @override
   void initState() {
@@ -234,32 +235,73 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Widget _catalogoPanel({bool wide = false}) {
-    List<Widget> items;
+    // Mobile: chips (horizontal) + horizontal slider of products.
+    // Desktop: full grid of categories.
+    Widget content;
     if (_loading) {
-      items = [const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))];
+      content = const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
     } else if (_error != null) {
-      items = [Padding(padding: const EdgeInsets.all(16), child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))];
+      content = Padding(padding: const EdgeInsets.all(16), child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
+    } else if (wide) {
+      content = ListView(
+        padding: const EdgeInsets.all(8),
+        children: [
+          for (final cat in _categorias) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(cat['nombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final it in _filtrados(cat))
+                  SizedBox(width: 150, child: _productoBoton(it)),
+              ],
+            ),
+          ],
+        ],
+      );
     } else {
-      items = [
-        for (final cat in _categorias) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Text(cat['nombre'] ?? '',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+      // Mobile: chips to pick a category, then horizontal slider of its products.
+      content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             children: [
-              for (final it in _filtrados(cat))
-                SizedBox(width: 150, child: _productoBoton(it)),
+              for (final c in _categorias)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(c['nombre'] ?? ''),
+                    selected: _categoriaSel == (c['id'] as int?),
+                    onSelected: (_) => setState(() => _categoriaSel = c['id'] as int?),
+                  ),
+                ),
             ],
           ),
-        ],
-      ];
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              for (final it in _itemsDeCategoriaSel())
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: SizedBox(width: 150, child: _productoBoton(it)),
+                ),
+            ],
+          ),
+        ),
+      ]);
     }
 
-    final body = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: Row(children: [
@@ -283,12 +325,31 @@ class _PosSalesViewState extends State<PosSalesView> {
         ]),
       ),
       if (wide)
-        Expanded(child: ListView(padding: const EdgeInsets.all(8), children: items))
+        Expanded(child: content)
       else
-        Padding(padding: const EdgeInsets.all(8), child: Column(children: items)),
+        content,
     ]);
+  }
 
-    return body;
+  /// Products of the selected category (or all if none selected / searching).
+  List<Map<String, dynamic>> _itemsDeCategoriaSel() {
+    if (_categoriaSel == null) {
+      // all categories' items, flattened, filtered by search
+      return _categorias
+          .expand((c) => (c['items'] as List? ?? []).cast<Map<String, dynamic>>())
+          .cast<Map<String, dynamic>>()
+          .where((i) {
+            final n = (i['nombre'] ?? '').toString().toLowerCase();
+            return _busqueda.isEmpty || n.contains(_busqueda.toLowerCase());
+          })
+          .toList();
+    }
+    for (final c in _categorias) {
+      if (c['id'] == _categoriaSel) {
+        return _filtrados(c);
+      }
+    }
+    return [];
   }
 
   List<Map<String, dynamic>> _filtrados(Map<String, dynamic> cat) {
