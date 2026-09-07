@@ -5,13 +5,14 @@ import '../core/theme/maratea_colors.dart';
 
 /// Public Fiumicello menu (carta). Shown at the app's root `/` and as a section
 /// for authenticated users. Structured: categories with items and prices.
-/// Maratea palette: pure-white background, deep-blue text.
+/// Style: "Notte del Tirreno" (Alt. B) — dark deep-sea background, turquoise/gold
+/// accents, pale-yellow size prices. ALL data (names, ingredients, prices) is
+/// preserved exactly.
 ///
-/// Responsive layout:
+/// Responsive:
 ///  - <1200px (mobile/tablet): single column, logo 70px.
-///  - >=1200px (desktop): two columns arranged in rows
-///    (Pizzas | Pizzas de la Casa) and (Lasagnas + Paninis | Bebidas),
-///    logo double size (140px).
+///  - >=1200px (desktop): two columns in rows
+///    (Pizzas | Pizzas de la Casa) and (Lasagnas + Paninis | Bebidas), logo 140px.
 class CartaView extends StatefulWidget {
   const CartaView({super.key});
 
@@ -53,35 +54,58 @@ class _CartaViewState extends State<CartaView> {
     if (_error != null) {
       return Center(
           child: Text('Error: $_error',
-              style: const TextStyle(color: MarateaColors.deepBlue)));
+              style: const TextStyle(color: MarateaColors.pureWhite)));
     }
 
     return Container(
-      color: MarateaColors.cream,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [MarateaColors.deepBlue, MarateaColors.volcanoBlack],
+        ),
+      ),
       child: LayoutBuilder(builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 1200;
         final logoH = isDesktop ? 140.0 : 70.0;
         return ListView(
           padding: EdgeInsets.all(isDesktop ? 40 : 20),
           children: [
-            // Header: the brand logo only.
+            // Header: logo over a soft band so the white asset shows on the dark bg.
             Center(
-              child: Image.asset(
-                'assets/logo_fiumicello.png',
-                height: logoH,
-                fit: BoxFit.contain,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                decoration: BoxDecoration(
+                  color: MarateaColors.brokenWhite,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Image.asset(
+                  'assets/logo_fiumicello.png',
+                  height: logoH == 140 ? 120 : 60,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
-            SizedBox(height: isDesktop ? 32 : 24),
+            const SizedBox(height: 24),
+            // Brand tagline line
+            const Center(
+              child: Text('MENÚ  ·  TRATTORIA',
+                  style: TextStyle(
+                      color: MarateaColors.goldenSand,
+                      letterSpacing: 3,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(height: 16),
             if (isDesktop)
               ..._buildDesktopLayout()
             else
               for (final c in _categorias) ..._categoriaWidgets(c),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             const Center(
               child: Text('¡BUON APPETITO!',
                   style: TextStyle(
-                      color: MarateaColors.deepBlue,
+                      color: MarateaColors.turquoise,
                       fontSize: 18,
                       fontStyle: FontStyle.italic,
                       letterSpacing: 2)),
@@ -115,14 +139,18 @@ class _CartaViewState extends State<CartaView> {
     }
 
     Widget col(List<Widget> children) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: MarateaColors.volcanoBlack,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: MarateaColors.turquoise.withOpacity(0.35), width: 1),
+            ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
         );
 
     return [
-      // Row 1: Pizzas | Pizzas de la Casa
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,7 +159,6 @@ class _CartaViewState extends State<CartaView> {
         ],
       ),
       const SizedBox(height: 20),
-      // Row 2: Lasagnas + Paninis | Bebidas
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -142,32 +169,35 @@ class _CartaViewState extends State<CartaView> {
     ];
   }
 
-  /// Widgets for a whole category: title + grouped items.
+  /// Widgets for a whole category: title (with turquoise filete) + grouped items.
   List<Widget> _categoriaWidgets(Map<String, dynamic> c) {
     return [
-      Text(
-        c['nombre'] ?? '',
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: MarateaColors.deepBlue,
-          letterSpacing: 1,
-        ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 22, height: 3, color: MarateaColors.turquoise),
+          const SizedBox(width: 8),
+          Text(
+            c['nombre'] ?? '',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: MarateaColors.pureWhite,
+              letterSpacing: 1,
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 6),
-      // Group current category's items by their "tipo" (description) when
-      // it's a short family label (e.g. beverages: charca, té, gaseosa).
       ..._renderItems(c['items'] as List? ?? const []),
       const SizedBox(height: 20),
     ];
   }
 
   /// Renders a category's items. When items carry a short "tipo" label in their
-  /// description (e.g. beverages: Cerveza / Té / Gaseosa / Agua), they are grouped
-  /// under a subheading; otherwise items render in a flat list.
+  /// description (e.g. beverages), they are grouped under a subheading.
   List<Widget> _renderItems(List<dynamic> items) {
     final itemsMap = items.cast<Map<String, dynamic>>();
-    // Detect if descriptions are short tipo-labels (one word-ish) vs recipes.
     final tipos = <String>{};
     for (final it in itemsMap) {
       final d = (it['descripcion'] ?? '').toString().trim();
@@ -176,7 +206,6 @@ class _CartaViewState extends State<CartaView> {
       }
     }
     if (tipos.length > 1) {
-      // Group by tipo, preserving order of first appearance.
       final grupos = <String, List<Map<String, dynamic>>>{};
       for (final it in itemsMap) {
         final t = ((it['descripcion'] ?? '').toString().trim());
@@ -199,7 +228,6 @@ class _CartaViewState extends State<CartaView> {
       });
       return curaciones;
     }
-    // Flat list (no tipo grouping).
     return itemsMap.map(_item).toList();
   }
 
@@ -228,7 +256,7 @@ class _CartaViewState extends State<CartaView> {
               Expanded(
                 child: Text(nombre,
                     style: const TextStyle(
-                        color: MarateaColors.terracotta, fontSize: 16, fontWeight: FontWeight.w600)),
+                        color: MarateaColors.pureWhite, fontSize: 16, fontWeight: FontWeight.w600)),
               ),
               if (conTamanos) const SizedBox.shrink()
               else
@@ -237,7 +265,7 @@ class _CartaViewState extends State<CartaView> {
           ),
           if (desc != null && desc.isNotEmpty && desc.length > 12)
             Text(desc,
-                style: const TextStyle(color: MarateaColors.goldenSand, fontSize: 13)),
+                style: const TextStyle(color: MarateaColors.stoneGray, fontSize: 13)),
           if (conTamanos)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -245,7 +273,7 @@ class _CartaViewState extends State<CartaView> {
                 'Personal ${money(it['precio_personal'])} · '
                 'Mediana ${money(it['precio_mediana'])} · '
                 'Grande ${money(it['precio_grande'])}',
-                style: const TextStyle(color: MarateaColors.turquoise, fontSize: 12),
+                style: const TextStyle(color: MarateaColors.paleYellow, fontSize: 12),
               ),
             ),
         ],
