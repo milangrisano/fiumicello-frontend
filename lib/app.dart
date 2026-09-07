@@ -37,11 +37,30 @@ class FiumicelloApp extends StatelessWidget {
 }
 
 /// The public root: shows the carte. Offers access to login / the app.
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key});
 
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  bool _logged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    await ApiClient.restoreSession();
+    if (mounted) {
+      setState(() => _logged = ApiClient.isLoggedIn);
+    }
+  }
+
   Future<void> _go(BuildContext context) async {
-    // If logged in, go to the app; otherwise to login.
     await ApiClient.restoreSession();
     if (context.mounted) {
       Navigator.of(context)
@@ -51,11 +70,25 @@ class HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // In the public home, a small top-right action (not a floating overlay over
+    // the menu content) to enter: 'Ingresar' if not logged, 'Ir a la app' if so.
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _go(context),
-        icon: const Icon(Icons.login),
-        label: const Text('Ingresar'),
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              onPressed: () => _go(context),
+              icon: Icon(_logged ? Icons.dashboard : Icons.login, size: 18),
+              label: Text(_logged ? 'Ir a la app' : 'Ingresar'),
+            ),
+          ),
+        ],
       ),
       body: const SafeArea(child: CartaView()),
     );

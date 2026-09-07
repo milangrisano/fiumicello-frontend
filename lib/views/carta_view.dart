@@ -71,19 +71,12 @@ class _CartaViewState extends State<CartaView> {
         return ListView(
           padding: EdgeInsets.all(isDesktop ? 40 : 20),
           children: [
-            // Header: logo over a soft band so the white asset shows on the dark bg.
+            // Header: the transparent brand logo floats directly on the dark sea.
             Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                decoration: BoxDecoration(
-                  color: MarateaColors.brokenWhite,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Image.asset(
-                  'assets/logo_fiumicello.png',
-                  height: logoH == 140 ? 120 : 60,
-                  fit: BoxFit.contain,
-                ),
+              child: Image.asset(
+                'assets/logo_fiumicello.png',
+                height: logoH == 140 ? 120 : 60,
+                fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 24),
