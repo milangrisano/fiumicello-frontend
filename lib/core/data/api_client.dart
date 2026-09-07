@@ -460,6 +460,56 @@ class ApiClient {
     }
   }
 
+  // ---- Pedidos (POS orders) ----
+  static Future<PostResult> crearPedido(Map<String, dynamic> pedido) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl/pedidos'),
+          headers: _headers(), body: jsonEncode(pedido));
+      return PostResult(res.statusCode == 200 || res.statusCode == 201, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<ListResult> listarPedidos(
+      {String? estado, String? escenario}) async {
+    try {
+      final q = <String>[];
+      if (estado != null) q.add('estado=$estado');
+      if (escenario != null) q.add('escenario=$escenario');
+      final qs = q.isEmpty ? '' : '?${q.join('&')}';
+      final res = await http.get(Uri.parse('$baseUrl/pedidos$qs'), headers: _headers());
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  static Future<TokenResult> obtenerPedido(int id) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/pedidos/$id'), headers: _headers());
+      if (res.statusCode == 200) {
+        return TokenResult(true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
+      }
+      return TokenResult(false, null, _msg(res.body));
+    } catch (e) {
+      return TokenResult(false, null, '$e');
+    }
+  }
+
+  static Future<PostResult> agregarItemsPedido(int id, List<Map<String, dynamic>> items) async {
+    return _postAuth('/pedidos/$id/items', {'items': items});
+  }
+
+  static Future<PostResult> cobrarPedido(int id, int? idFormaPago) async {
+    return _postAuth('/pedidos/$id/cobrar', {'id_forma_pago': idFormaPago});
+  }
+
+  static Future<PostResult> entregarPedido(int id) async {
+    return _postAuth('/pedidos/$id/entregar', const {});
+  }
+
   /// Authenticated POST (requires bearer token).
   static Future<PostResult> _postAuth(String path, Map<String, dynamic> body) async {
     try {
