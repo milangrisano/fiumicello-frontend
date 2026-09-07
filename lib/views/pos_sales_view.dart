@@ -251,7 +251,8 @@ class _PosSalesViewState extends State<PosSalesView> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final it in _filtrados(cat)) _productoBoton(it),
+              for (final it in _filtrados(cat))
+                SizedBox(width: 150, child: _productoBoton(it)),
             ],
           ),
         ],
@@ -338,13 +339,11 @@ class _PosSalesViewState extends State<PosSalesView> {
           }
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 2),
-            Text(conTamanos
-                ? 'Desde ${money(it['precio_personal'])}'
-                : money(it['precio']),
+            Text(money(it['precio_personal'] ?? it['precio']),
                 style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ]),
         ),
