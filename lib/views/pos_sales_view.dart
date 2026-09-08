@@ -280,11 +280,12 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   // ---------- Inicio ----------
   Widget _vistaInicio() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 20),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+        ),
         _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = _Pantalla.comanda; })),
         _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
           await _refreshVivos();
@@ -304,7 +305,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           }
           setState(() => _pantalla = _Pantalla.entregas);
         }),
-      ]),
+      ],
     );
   }
 
