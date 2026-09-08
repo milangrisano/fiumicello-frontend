@@ -258,20 +258,20 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
-    switch (_pantalla) {
-      case _Pantalla.comanda:
-        return _vistaComanda();
-      case _Pantalla.asignacion:
-        return _vistaAsignacion();
-      case _Pantalla.cobro:
-        return _vistaCobro();
-      case _Pantalla.mesas:
-        return _vistaMesas();
-      case _Pantalla.entregas:
-        return _vistaEntregas();
-      default:
-        return _vistaInicio();
-    }
+    // PRUEBA SIMPLE: un boton que hace algo basico, para aislar el bug de toques.
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+        ),
+        FilledButton.icon(
+          onPressed: () => _snack('¡Botón de prueba funcionando!'),
+          icon: const Icon(Icons.check),
+          label: const Text('Probar botón'),
+        ),
+      ],
+    );
   }
 
   Widget _icono(IconData i, {double size = 28}) {
