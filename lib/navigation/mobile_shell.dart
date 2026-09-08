@@ -66,37 +66,41 @@ class MobileShell extends StatelessWidget {
         ],
       ),
       // Native bottom bar — NavigationBar lays out its own hit-area at the bottom.
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: NavigationBar(
-              selectedIndex: safePos,
-              height: 64,
-              elevation: 0,
-              backgroundColor: MarateaColors.rockGray.withOpacity(0.55),
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-              onDestinationSelected: (pos) {
-                if (pos >= 0 && pos < visible.length) {
-                  onSelect(visible[pos].index);
-                }
-              },
-              destinations: [
-                for (final s in visible)
-                  NavigationDestination(
-                    icon: Icon(s.icon),
-                    label: s.label,
-                  ),
-              ],
+      // Side/bottom padding gives a floating look (bar not touching screen edges).
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: NavigationBar(
+                selectedIndex: safePos,
+                height: 64,
+                elevation: 0,
+                backgroundColor: MarateaColors.rockGray.withOpacity(0.55),
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+                onDestinationSelected: (pos) {
+                  if (pos >= 0 && pos < visible.length) {
+                    onSelect(visible[pos].index);
+                  }
+                },
+                destinations: [
+                  for (final s in visible)
+                    NavigationDestination(
+                      icon: Icon(s.icon),
+                      label: s.label,
+                    ),
+                ],
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(6),
-            child: Text('Versión $APP_VERSION',
-                style: TextStyle(color: Colors.grey, fontSize: 11)),
-          ),
-        ],
+            const Padding(
+              padding: EdgeInsets.all(6),
+              child: Text('Versión $APP_VERSION',
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+            ),
+          ],
+        ),
       ),
       body: SafeArea(child: ActiveView(index: selectedIndex)),
     );

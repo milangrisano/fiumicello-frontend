@@ -293,20 +293,12 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Widget _inicioCard(String titulo, IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Theme.of(context).colorScheme.primaryContainer,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
+    return Card(
+      child: ListTile(
+        leading: _icono(icon, size: 28),
+        title: Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        trailing: Icon(Icons.chevron_right),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(children: [
-            _icono(icon, size: 30),
-            const SizedBox(width: 14),
-            Expanded(child: Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
-            Icon(Icons.chevron_right),
-          ]),
-        ),
       ),
     );
   }
@@ -419,11 +411,11 @@ class _PosSalesViewState extends State<PosSalesView> {
   Widget _productoBoton(Map<String, dynamic> it) {
     final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
-    return Material(
-      color: Colors.grey.shade200,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+    return Card(
+      child: ListTile(
+        dense: true,
+        title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        subtitle: Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 12, color: Colors.grey)),
         onTap: () {
           if (conTamanos) {
             showDialog(
@@ -441,14 +433,6 @@ class _PosSalesViewState extends State<PosSalesView> {
             _agregar(it, null);
           }
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const SizedBox(height: 2),
-            Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ]),
-        ),
       ),
     );
   }
@@ -609,19 +593,12 @@ class _PosSalesViewState extends State<PosSalesView> {
       _categorias.expand((c) => (c['items'] as List? ?? []).cast<Map<String, dynamic>>()).cast<Map<String, dynamic>>().toList();
 
   Widget _productoMini(Map<String, dynamic> it) {
-    return Material(
-      color: Colors.grey.shade200,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
+    return Card(
+      child: ListTile(
+        dense: true,
+        title: Text(it['nombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        subtitle: Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 11, color: Colors.grey)),
         onTap: () => Navigator.pop(context, it),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(it['nombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            const SizedBox(height: 2),
-            Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          ]),
-        ),
       ),
     );
   }
