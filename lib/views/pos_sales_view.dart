@@ -328,7 +328,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
-          const SizedBox.expand(),
+          const Spacer(),
           const Text('Etapa 1 · Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         _catalogoPanel(),
@@ -467,7 +467,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.comanda)),
-          const SizedBox.expand(),
+          const Spacer(),
           const Text('Etapa 2 · Asignación', style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         Wrap(spacing: 8, children: [
@@ -506,7 +506,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.asignacion)),
-          const SizedBox.expand(),
+          const Spacer(),
           const Text('Etapa 3 · Cobro', style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 8),
@@ -537,7 +537,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
-          const SizedBox.expand(),
+          const Spacer(),
           Text('Mesas abiertas (${_mesasAbiertas.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 8),
@@ -650,7 +650,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
-          const SizedBox.expand(),
+          const Spacer(),
           Text('Pedidos por entregar (${_pendientes.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
           IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
         ]),
