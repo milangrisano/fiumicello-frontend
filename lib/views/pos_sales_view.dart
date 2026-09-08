@@ -564,12 +564,16 @@ class _PosSalesViewState extends State<PosSalesView> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          _icono(Icons.restaurant, size: 22),
-          const SizedBox(width: 8),
-          Expanded(child: Text('Mesa ${m['numero_mesa'] ?? m['id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-          Text(money(total), style: const TextStyle(fontWeight: FontWeight.bold)),
-        ]),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _icono(Icons.restaurant, size: 22),
+            const SizedBox(width: 8),
+            Flexible(child: Text('Mesa ${m['numero_mesa'] ?? m['id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            const SizedBox(width: 8),
+            Text(money(total), style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
         const SizedBox(height: 6),
         for (final i in items)
           Text('• ${i['nombre']}${i['tamanio'] != null ? ' (${i['tamanio']})' : ''} ×${i['cantidad']}${i['nota'] != null ? ' — ${i['nota']}' : ''}', style: const TextStyle(fontSize: 13)),
@@ -682,12 +686,16 @@ class _PosSalesViewState extends State<PosSalesView> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          _icono(esDomicilio ? Icons.motorcycle : Icons.takeout_dining, size: 22),
-          const SizedBox(width: 8),
-          Expanded(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: const TextStyle(fontWeight: FontWeight.bold))),
-          Text(transcurrido, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-        ]),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _icono(esDomicilio ? Icons.motorcycle : Icons.takeout_dining, size: 22),
+            const SizedBox(width: 8),
+            Flexible(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: const TextStyle(fontWeight: FontWeight.bold))),
+            const SizedBox(width: 8),
+            Text(transcurrido, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          ],
+        ),
         const SizedBox(height: 2),
         Text('Cliente: $nombre', style: const TextStyle(fontWeight: FontWeight.w600)),
         if (p['direccion'] != null) Text('Dirección: ${p['direccion']}', style: const TextStyle(fontSize: 13)),
