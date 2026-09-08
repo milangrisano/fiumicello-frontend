@@ -258,37 +258,21 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
-    // PRUEBA: boton que navega a la vista comanda (como "Nueva comanda").
-    if (_pantalla == _Pantalla.comanda) {
-      return Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('VISTA COMANDA — se renderiza', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          FilledButton(
-            onPressed: () => setState(() => _pantalla = _Pantalla.inicio),
-            child: const Text('Volver'),
-          ),
-        ],
-      );
+    // Renderizado por pantalla del flujo POS.
+    switch (_pantalla) {
+      case _Pantalla.comanda:
+        return _vistaComanda();
+      case _Pantalla.asignacion:
+        return _vistaAsignacion();
+      case _Pantalla.cobro:
+        return _vistaCobro();
+      case _Pantalla.mesas:
+        return _vistaMesas();
+      case _Pantalla.entregas:
+        return _vistaEntregas();
+      default:
+        return _vistaInicio();
     }
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-        ),
-        FilledButton.icon(
-          onPressed: () => setState(() {
-            _comanda.clear();
-            _pantalla = _Pantalla.comanda;
-          }),
-          icon: const Icon(Icons.check),
-          label: const Text('Ir a Comanda (setState)'),
-        ),
-      ],
-    );
   }
 
   Widget _icono(IconData i, {double size = 28}) {
