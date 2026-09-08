@@ -136,7 +136,11 @@ class _PosSalesViewState extends State<PosSalesView> {
     return _num(item['precio'] ?? item['precio_personal']);
   }
 
-  double _num(dynamic v) => (v ?? 0).toDouble();
+  double _num(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.trim()) ?? 0.0;
+    return 0.0;
+  }
 
   void _snack(String m) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
