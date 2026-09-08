@@ -286,19 +286,35 @@ class _PosSalesViewState extends State<PosSalesView> {
         const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
         const SizedBox(height: 20),
         _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = _Pantalla.comanda; })),
-        _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async { await _refreshVivos(); if (mounted) setState(() => _pantalla = _Pantalla.mesas); }),
-        _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async { await _refreshVivos(); if (mounted) setState(() => _pantalla = _Pantalla.entregas); }),
+        _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
+          await _refreshVivos();
+          if (!mounted) return;
+          if (_mesasAbiertas.isEmpty) {
+            _snack('No hay mesas abiertas en este momento.');
+            return;
+          }
+          setState(() => _pantalla = _Pantalla.mesas);
+        }),
+        _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async {
+          await _refreshVivos();
+          if (!mounted) return;
+          if (_pendientes.isEmpty) {
+            _snack('No hay pedidos pendientes de entrega.');
+            return;
+          }
+          setState(() => _pantalla = _Pantalla.entregas);
+        }),
       ]),
     );
   }
 
   Widget _inicioCard(String titulo, IconData icon, VoidCallback onTap) {
-    return Card(
-      child: ListTile(
-        leading: _icono(icon, size: 28),
-        title: Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        trailing: Icon(Icons.chevron_right),
-        onTap: onTap,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: FilledButton.icon(
+        onPressed: onTap,
+        icon: _icono(icon, size: 24),
+        label: Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -411,28 +427,33 @@ class _PosSalesViewState extends State<PosSalesView> {
   Widget _productoBoton(Map<String, dynamic> it) {
     final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
-    return Card(
-      child: ListTile(
-        dense: true,
-        title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        onTap: () {
-          if (conTamanos) {
-            showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: Text(nombre),
-                content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  ListTile(title: const Text('Personal'), subtitle: Text(money(it['precio_personal'])), onTap: () { Navigator.pop(context); _agregar(it, 'personal'); }),
-                  ListTile(title: const Text('Mediana'), subtitle: Text(money(it['precio_mediana'])), onTap: () { Navigator.pop(context); _agregar(it, 'mediana'); }),
-                  ListTile(title: const Text('Grande'), subtitle: Text(money(it['precio_grande'])), onTap: () { Navigator.pop(context); _agregar(it, 'grande'); }),
-                ]),
-              ),
-            );
-          } else {
-            _agregar(it, null);
-          }
-        },
+    return FilledButton(
+      onPressed: () {
+        if (conTamanos) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text(nombre),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'personal'); }, child: Text('Personal · ${money(it['precio_personal'])}')),
+                const SizedBox(height: 6),
+                FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'mediana'); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
+                const SizedBox(height: 6),
+                FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'grande'); }, child: Text('Grande · ${money(it['precio_grande'])}')),
+              ]),
+            ),
+          );
+        } else {
+          _agregar(it, null);
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          const SizedBox(height: 2),
+          Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 12)),
+        ]),
       ),
     );
   }
@@ -593,12 +614,15 @@ class _PosSalesViewState extends State<PosSalesView> {
       _categorias.expand((c) => (c['items'] as List? ?? []).cast<Map<String, dynamic>>()).cast<Map<String, dynamic>>().toList();
 
   Widget _productoMini(Map<String, dynamic> it) {
-    return Card(
-      child: ListTile(
-        dense: true,
-        title: Text(it['nombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        subtitle: Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        onTap: () => Navigator.pop(context, it),
+    return FilledButton(
+      onPressed: () => Navigator.pop(context, it),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(it['nombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 2),
+          Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 11)),
+        ]),
       ),
     );
   }
