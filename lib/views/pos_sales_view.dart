@@ -258,7 +258,21 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
-    // PRUEBA SIMPLE: un boton que hace algo basico, para aislar el bug de toques.
+    // PRUEBA: boton que navega a la vista comanda (como "Nueva comanda").
+    if (_pantalla == _Pantalla.comanda) {
+      return Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('VISTA COMANDA — se renderiza', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          FilledButton(
+            onPressed: () => setState(() => _pantalla = _Pantalla.inicio),
+            child: const Text('Volver'),
+          ),
+        ],
+      );
+    }
     return Column(
       children: [
         Padding(
@@ -266,9 +280,12 @@ class _PosSalesViewState extends State<PosSalesView> {
           child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
         ),
         FilledButton.icon(
-          onPressed: () => _snack('¡Botón de prueba funcionando!'),
+          onPressed: () => setState(() {
+            _comanda.clear();
+            _pantalla = _Pantalla.comanda;
+          }),
           icon: const Icon(Icons.check),
-          label: const Text('Probar botón'),
+          label: const Text('Ir a Comanda (setState)'),
         ),
       ],
     );
