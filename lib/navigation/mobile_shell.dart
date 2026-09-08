@@ -9,8 +9,8 @@ import '../core/app_version.dart';
 ///
 /// AppBar with: chef-hat logo button (far left) that navigates to the menu/home
 /// (carta), the logged-in user email centered, and a logout action (right).
-/// The bottom navigation bar floats OVER the content in a Stack (so there is NO
-/// white band behind it — the background is the body's own, transparent).
+/// The bottom navigation uses the native Scaffold.bottomNavigationBar (a
+/// NavigationBar widget), which Flutter lays out and handles its own hit-area.
 ///
 /// IMPORTANT: the NavigationBar works with POSITION indices (0..visible.length-1).
 /// We map position -> the real section index from `visible` so that hidden
@@ -32,53 +32,8 @@ class MobileShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final visible = AppSections.visible();
     final email = ApiClient.currentEmail ?? 'Fiumicello';
-    // Current real index -> its position in `visible` (for selectedIndex marker).
     final currentPos = visible.indexWhere((s) => s.index == selectedIndex);
     final safePos = currentPos < 0 ? 0 : currentPos;
-
-    // Floating capsule bar + version, overlaid on top of the content (Stack),
-    // so there is no opaque white band behind it.
-    final navOverlay = Positioned(
-      left: 16,
-      right: 16,
-      bottom: 0,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: NavigationBar(
-                selectedIndex: safePos,
-                height: 64,
-                elevation: 0,
-                backgroundColor: MarateaColors.rockGray.withOpacity(0.55),
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-                onDestinationSelected: (pos) {
-                  // Map position back to the real section index.
-                  if (pos >= 0 && pos < visible.length) {
-                    onSelect(visible[pos].index);
-                  }
-                },
-                destinations: [
-                  for (final s in visible)
-                    NavigationDestination(
-                      icon: Icon(s.icon),
-                      label: s.label,
-                    ),
-                ],
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(6),
-              child: Text('Versión $APP_VERSION',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-            ),
-          ],
-        ),
-      ),
-    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -110,14 +65,40 @@ class MobileShell extends StatelessWidget {
           ),
         ],
       ),
-      body: Stack(
+      // Native bottom bar — NavigationBar lays out its own hit-area at the bottom.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Positioned.fill(
-            child: ActiveView(index: selectedIndex),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: NavigationBar(
+              selectedIndex: safePos,
+              height: 64,
+              elevation: 0,
+              backgroundColor: MarateaColors.rockGray.withOpacity(0.55),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+              onDestinationSelected: (pos) {
+                if (pos >= 0 && pos < visible.length) {
+                  onSelect(visible[pos].index);
+                }
+              },
+              destinations: [
+                for (final s in visible)
+                  NavigationDestination(
+                    icon: Icon(s.icon),
+                    label: s.label,
+                  ),
+              ],
+            ),
           ),
-          navOverlay,
+          const Padding(
+            padding: EdgeInsets.all(6),
+            child: Text('Versión $APP_VERSION',
+                style: TextStyle(color: Colors.grey, fontSize: 11)),
+          ),
         ],
       ),
+      body: SafeArea(child: ActiveView(index: selectedIndex)),
     );
   }
 }
