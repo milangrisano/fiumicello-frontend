@@ -421,34 +421,20 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Widget _catalogoPanel({double gap = 16.0, double borde = 16.0}) {
-    // Cards cuadradas en grid (Wrap): el lado se calcula del ancho real para
-    // que se vean varios productos; se acomodan a N columnas sin scroll.
+    // Cards cuadradas en Wrap (flujo natural a N columnas, sin scroll ni
+    // calculo de columnas fragil). El lado es fijo y las cards se repiten.
     Widget content;
     if (_error != null) {
       content = Text('Error: $_error', style: const TextStyle(color: Colors.red));
     } else {
-      content = LayoutBuilder(builder: (context, c) {
-        final an = c.maxWidth;
-        final lado = 110.0; // base cuadrada; ajustada por contenido del nombre
-        final cols = ((an - borde * 2 + gap) / (lado + gap)).floor().clamp(1, 4);
-        final cards = [
+      content = Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
           for (final it in _itemsDeCategoriaSel())
-            Padding(padding: EdgeInsets.all(gap / 2), child: _productoBoton(it, lado: lado)),
-        ];
-        return ListView(
-          padding: EdgeInsets.all(borde),
-          children: [
-            for (final fila in _slice(cards, cols))
-              Padding(
-                padding: EdgeInsets.only(bottom: gap),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: fila,
-                ),
-              ),
-          ],
-        );
-      });
+            _productoBoton(it, lado: 120),
+        ],
+      );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
@@ -501,14 +487,6 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   /// Divide una lista de widgets en filas de a `cols` (para el grid).
-  List<List<Widget>> _slice(List<Widget> items, int cols) {
-    final out = <List<Widget>>[];
-    for (int i = 0; i < items.length; i += cols) {
-      out.add(items.skip(i).take(cols).toList());
-    }
-    return out;
-  }
-
   Widget _productoBoton(Map<String, dynamic> it, {double lado = 120}) {
     final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
