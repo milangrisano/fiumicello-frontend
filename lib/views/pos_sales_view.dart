@@ -523,7 +523,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Text('Total: ${money(_totalComanda)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         DropdownButtonFormField<int?>(
-          value: _cobroFormaPago,
+          initialValue: _cobroFormaPago,
           decoration: const InputDecoration(labelText: 'Forma de pago', border: OutlineInputBorder(), isDense: true),
           items: [for (final f in _formas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
           onChanged: (v) => setState(() => _cobroFormaPago = v),

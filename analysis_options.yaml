@@ -1,4 +1,8 @@
 # Analyzer configuration for the Fiumicello frontend.
+analyzer:
+  exclude:
+    - build/**
+    - web/**
 linter:
   rules:
     - avoid_print

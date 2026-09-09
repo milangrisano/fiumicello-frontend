@@ -265,7 +265,7 @@ class _ProductEditViewState extends State<ProductEditView> {
         padding: const EdgeInsets.all(16),
         children: [
           DropdownButtonFormField<int>(
-            value: _categoria,
+            initialValue: _categoria,
             decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
             items: [
               for (final c in widget.categorias)

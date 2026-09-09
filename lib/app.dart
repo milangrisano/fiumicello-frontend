@@ -20,7 +20,7 @@ class FiumicelloApp extends StatelessWidget {
     return MaterialApp(
       title: 'Fiumicello',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF0969DA), useMaterial3: true),
+      theme: ThemeData(colorSchemeSeed: const Color(0xFF0969DA)),
       initialRoute: '/',
       routes: {
         '/': (_) => const HomeView(),

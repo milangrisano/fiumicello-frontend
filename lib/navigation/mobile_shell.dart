@@ -78,7 +78,7 @@ class MobileShell extends StatelessWidget {
                 selectedIndex: safePos,
                 height: 64,
                 elevation: 0,
-                backgroundColor: MarateaColors.rockGray.withOpacity(0.55),
+                backgroundColor: MarateaColors.rockGray.withValues(alpha: 0.55),
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
                 onDestinationSelected: (pos) {
                   if (pos >= 0 && pos < visible.length) {

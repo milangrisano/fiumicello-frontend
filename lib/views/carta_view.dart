@@ -137,7 +137,7 @@ class _CartaViewState extends State<CartaView> {
             decoration: BoxDecoration(
               color: MarateaColors.volcanoBlack,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: MarateaColors.turquoise.withOpacity(0.35), width: 1),
+              border: Border.all(color: MarateaColors.turquoise.withValues(alpha: 0.35), width: 1),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
