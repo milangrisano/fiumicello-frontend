@@ -285,42 +285,68 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   // ---------- Inicio ----------
   Widget _vistaInicio() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-        ),
+    // Responsive: PC (ancho >= 900) -> 4 cards en fila centradas y uniformes.
+    // Mobile/tablet -> 4 cards apiladas a lo ancho.
+    return LayoutBuilder(builder: (context, c) {
+      final wide = c.maxWidth >= 900;
+      final cards = <Widget>[
         _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = _Pantalla.comanda; })),
         _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
           await _refreshVivos();
           if (!mounted) return;
-          if (_mesasAbiertas.isEmpty) {
-            _snack('No hay mesas abiertas en este momento.');
-            return;
-          }
+          if (_mesasAbiertas.isEmpty) { _snack('No hay mesas abiertas en este momento.'); return; }
           setState(() => _pantalla = _Pantalla.mesas);
         }),
         _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async {
           await _refreshVivos();
           if (!mounted) return;
-          if (_pendientes.isEmpty) {
-            _snack('No hay pedidos pendientes de entrega.');
-            return;
-          }
+          if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
           setState(() => _pantalla = _Pantalla.entregas);
         }),
-      ],
-    );
+        _inicioCard('Resumen de ventas', Icons.insights, () => _snack('Resumen de ventas (próximamente)')),
+      ];
+      final body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+          ),
+          if (wide)
+            Center(child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final card in cards)
+                  Padding(padding: const EdgeInsets.fromLTRB(0, 0, 16, 0), child: SizedBox(width: 200, child: card)),
+              ],
+            ))
+          else
+            for (final card in cards)
+              Padding(padding: const EdgeInsets.fromLTRB(8, 8, 8, 12), child: card),
+        ],
+      );
+      return body;
+    });
   }
 
   Widget _inicioCard(String titulo, IconData icon, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: FilledButton.icon(
-        onPressed: onTap,
-        icon: _icono(icon, size: 24),
-        label: Text(titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 40, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 12),
+              Flexible(child: Text(titulo, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+            ],
+          ),
+        ),
       ),
     );
   }
