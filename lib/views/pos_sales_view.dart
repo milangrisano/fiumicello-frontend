@@ -421,40 +421,34 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Widget _catalogoPanel({double gap = 16.0, double borde = 16.0}) {
-    // Productos: alto compacto para que se vean varios a la vez; pista de scroll
-    // lateral (fade a la derecha) para que el usuario sepa que puede deslizar.
+    // Cards cuadradas en grid (Wrap): el lado se calcula del ancho real para
+    // que se vean varios productos; se acomodan a N columnas sin scroll.
     Widget content;
     if (_error != null) {
       content = Text('Error: $_error', style: const TextStyle(color: Colors.red));
     } else {
-      final productos = ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        children: [
+      content = LayoutBuilder(builder: (context, c) {
+        final an = c.maxWidth;
+        final lado = 110.0; // base cuadrada; ajustada por contenido del nombre
+        final cols = ((an - borde * 2 + gap) / (lado + gap)).floor().clamp(1, 4);
+        final cards = [
           for (final it in _itemsDeCategoriaSel())
-            Padding(padding: const EdgeInsets.only(right: 10), child: SizedBox(width: 140, child: _productoBoton(it))),
-        ],
-      );
-      // Pista de scroll: gradiente oscuro a la derecha sobre el slider.
-      content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: SizedBox(
-            height: 108,
-            child: Stack(children: [
-              Positioned.fill(child: productos),
-              Positioned(
-                right: 0,
-                width: 28,
-                height: 108,
-                child: Container(
-                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
+            Padding(padding: EdgeInsets.all(gap / 2), child: _productoBoton(it, lado: lado)),
+        ];
+        return ListView(
+          padding: EdgeInsets.all(borde),
+          children: [
+            for (final fila in _slice(cards, cols))
+              Padding(
+                padding: EdgeInsets.only(bottom: gap),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: fila,
                 ),
               ),
-            ]),
-          ),
-        ),
-      ]);
+          ],
+        );
+      });
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
@@ -506,42 +500,59 @@ class _PosSalesViewState extends State<PosSalesView> {
     return its.where((i) => (i['nombre'] ?? '').toString().toLowerCase().contains(b)).toList();
   }
 
-  Widget _productoBoton(Map<String, dynamic> it) {
+  /// Divide una lista de widgets en filas de a `cols` (para el grid).
+  List<List<Widget>> _slice(List<Widget> items, int cols) {
+    final out = <List<Widget>>[];
+    for (int i = 0; i < items.length; i += cols) {
+      out.add(items.skip(i).take(cols).toList());
+    }
+    return out;
+  }
+
+  Widget _productoBoton(Map<String, dynamic> it, {double lado = 120}) {
     final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
-    return FilledButton(
-      onPressed: () {
-        if (conTamanos) {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: Text(nombre),
-              content: Column(mainAxisSize: MainAxisSize.min, children: [
-                FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'personal'); }, child: Text('Personal · ${money(it['precio_personal'])}')),
-                const SizedBox(height: 6),
-                FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'mediana'); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
-                const SizedBox(height: 6),
-                FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'grande'); }, child: Text('Grande · ${money(it['precio_grande'])}')),
-              ]),
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          if (conTamanos) {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: Text(nombre),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'personal'); }, child: Text('Personal · ${money(it['precio_personal'])}')),
+                  const SizedBox(height: 6),
+                  FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'mediana'); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
+                  const SizedBox(height: 6),
+                  FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'grande'); }, child: Text('Grande · ${money(it['precio_grande'])}')),
+                ]),
+              ),
+            );
+          } else {
+            _agregar(it, null);
+          }
+        },
+        child: SizedBox(
+          width: lado,
+          height: lado,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Flexible(child: Text(nombre, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+                if (!conTamanos) ...[
+                  const SizedBox(height: 2),
+                  Text(money(it['precio']), style: const TextStyle(fontSize: 12)),
+                ],
+              ],
             ),
-          );
-        } else {
-          _agregar(it, null);
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Flexible(child: Text(nombre, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
-            // Precio abajo SOLO en productos sin variantes de tamaño.
-            if (!conTamanos) ...[
-              const SizedBox(height: 2),
-              Text(money(it['precio']), style: const TextStyle(fontSize: 12)),
-            ],
-          ],
+          ),
         ),
       ),
     );
