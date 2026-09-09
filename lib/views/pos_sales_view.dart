@@ -285,47 +285,53 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   // ---------- Inicio ----------
   Widget _vistaInicio() {
-    // Responsive: PC (ancho >= 900) -> 4 cards en fila centradas y uniformes.
-    // Mobile/tablet -> 4 cards apiladas a lo ancho.
+    // Uniforme en TODAS las vistas: las 4 cards reparten el ancho disponible
+    // (mismo tamaño flex), con gap uniforme y margen simétrico a los bordes.
+    // Ancho grande -> 4 en fila; tablet/móvil -> se acomodan en cuadrícula, nunca
+    // quedan flotando en espacio extra.
+    final cards = <Widget>[
+      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = _Pantalla.comanda; })),
+      _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
+        await _refreshVivos();
+        if (!mounted) return;
+        if (_mesasAbiertas.isEmpty) { _snack('No hay mesas abiertas en este momento.'); return; }
+        setState(() => _pantalla = _Pantalla.mesas);
+      }),
+      _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async {
+        await _refreshVivos();
+        if (!mounted) return;
+        if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
+        setState(() => _pantalla = _Pantalla.entregas);
+      }),
+      _inicioCard('Resumen de ventas', Icons.insights, () => _snack('Resumen de ventas (próximamente)')),
+    ];
+    // Grid: mismo ancho para cada card, se acomoda por columnas según el espacio.
     return LayoutBuilder(builder: (context, c) {
-      final wide = c.maxWidth >= 900;
-      final cards = <Widget>[
-        _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = _Pantalla.comanda; })),
-        _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
-          await _refreshVivos();
-          if (!mounted) return;
-          if (_mesasAbiertas.isEmpty) { _snack('No hay mesas abiertas en este momento.'); return; }
-          setState(() => _pantalla = _Pantalla.mesas);
-        }),
-        _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async {
-          await _refreshVivos();
-          if (!mounted) return;
-          if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
-          setState(() => _pantalla = _Pantalla.entregas);
-        }),
-        _inicioCard('Resumen de ventas', Icons.insights, () => _snack('Resumen de ventas (próximamente)')),
-      ];
-      final body = Column(
+      final ancho = c.maxWidth;
+      final gap = ancho >= 200 * 4 ? 24.0 : 16.0;
+      final borde = ancho >= 200 * 4 ? 24.0 : 16.0;
+      final cols = ancho >= 200 * 4 ? 4 : (ancho >= 200 * 2 ? 2 : 1);
+      final cardW = ((ancho - borde * 2 - gap * (cols - 1)) / cols);
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
             child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
           ),
-          if (wide)
-            Center(child: Row(
-              mainAxisSize: MainAxisSize.min,
+          Padding(
+            padding: EdgeInsets.all(borde),
+            child: Wrap(
+              spacing: gap,
+              runSpacing: gap,
               children: [
                 for (final card in cards)
-                  Padding(padding: const EdgeInsets.fromLTRB(0, 0, 16, 0), child: SizedBox(width: 200, child: card)),
+                  SizedBox(width: cardW, child: card),
               ],
-            ))
-          else
-            for (final card in cards)
-              Padding(padding: const EdgeInsets.fromLTRB(8, 8, 8, 12), child: card),
+            ),
+          ),
         ],
       );
-      return body;
     });
   }
 
