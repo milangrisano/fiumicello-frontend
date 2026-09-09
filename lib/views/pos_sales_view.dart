@@ -303,7 +303,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
         setState(() => _pantalla = _Pantalla.entregas);
       }),
-      _inicioCard('Resumen de ventas', Icons.insights, () => _snack('Resumen de ventas (próximamente)')),
+      _inicioCard('Resumen de ventas', Icons.pie_chart, () => _snack('Resumen de ventas (próximamente)')),
     ];
     // Grid: mismo ancho para cada card, se acomoda por columnas según el espacio.
     return LayoutBuilder(builder: (context, c) {
@@ -311,25 +311,25 @@ class _PosSalesViewState extends State<PosSalesView> {
       final gap = ancho >= 200 * 4 ? 24.0 : 16.0;
       final borde = ancho >= 200 * 4 ? 24.0 : 16.0;
       final cols = ancho >= 200 * 4 ? 4 : (ancho >= 200 * 2 ? 2 : 1);
-      final cardW = ((ancho - borde * 2 - gap * (cols - 1)) / cols);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-          ),
-          Padding(
-            padding: EdgeInsets.all(borde),
-            child: Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final card in cards)
-                  SizedBox(width: cardW, child: card),
-              ],
-            ),
-          ),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                    child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                  ),
+                  SizedBox(
+                    height: 220,
+                    child: GridView(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        mainAxisSpacing: gap,
+                        crossAxisSpacing: gap,
+                      ),
+                      padding: EdgeInsets.all(borde),
+                      children: cards,
+                    ),
+                  ),
         ],
       );
     });
