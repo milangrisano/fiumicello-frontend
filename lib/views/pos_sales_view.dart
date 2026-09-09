@@ -361,85 +361,125 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   // ---------- Etapa 1: Comanda ----------
   Widget _vistaComanda() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
-            const Text('Etapa 1 · Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        _catalogoPanel(),
-        const Divider(),
-        const Text('Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-        if (_comanda.isEmpty)
-          const Text('Sin productos aún.', style: TextStyle(color: Colors.grey)),
-        for (final l in _comanda)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
-            subtitle: Text('${money(l.precio)} ×${l.cantidad}${l.nota.isEmpty ? '' : ' · nota: ${l.nota}'}'),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); }), visualDensity: VisualDensity.compact),
-              IconButton(icon: const Icon(Icons.create), tooltip: 'Nota', onPressed: () async { final n = await _dialogNota('${l.nombre} — Nota'); if (n != null) { if (mounted) setState(() => l.nota = n); } }, visualDensity: VisualDensity.compact),
-              IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => l.cantidad++), visualDensity: VisualDensity.compact),
-            ]),
+    return LayoutBuilder(builder: (context, c) {
+      final gap = 16.0;
+      final borde = c.maxWidth >= 900 ? 24.0 : 16.0;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
+              const Text('Nueva comanda', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
           ),
-        const Divider(),
-        Text('Total: ${money(_totalComanda)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        FilledButton.icon(
-          onPressed: _siguienteEtapa,
-          icon: const Icon(Icons.arrow_forward),
-          label: const Text('Continuar → Asignación'),
-        ),
-      ]),
-    );
+          SizedBox(height: gap),
+          _catalogoPanel(gap: gap, borde: borde),
+          SizedBox(height: gap),
+          const Divider(),
+          SizedBox(height: gap / 2),
+          // Resumen compacto de la comanda.
+          if (_comanda.isEmpty)
+            const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
+          else
+            for (final l in _comanda)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
+                subtitle: Text('${money(l.precio)} ×${l.cantidad}${l.nota.isEmpty ? '' : ' · nota: ${l.nota}'}'),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); }), visualDensity: VisualDensity.compact),
+                  IconButton(icon: const Icon(Icons.create), tooltip: 'Nota', onPressed: () async { final n = await _dialogNota('${l.nombre} — Nota'); if (n != null) { if (mounted) setState(() => l.nota = n); } }, visualDensity: VisualDensity.compact),
+                  IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => l.cantidad++), visualDensity: VisualDensity.compact),
+                ]),
+              ),
+          Divider(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              Text(money(_totalComanda), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              SizedBox(width: borde, child: SizedBox.shrink()),
+              FilledButton.icon(
+                onPressed: _comanda.isEmpty ? null : _siguienteEtapa,
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('Continuar'),
+              ),
+            ],
+          ),
+        ],
+      );
+    });
   }
 
-  Widget _catalogoPanel() {
+  Widget _catalogoPanel({double gap = 16.0, double borde = 16.0}) {
+    // Productos: alto compacto para que se vean varios a la vez; pista de scroll
+    // lateral (fade a la derecha) para que el usuario sepa que puede deslizar.
     Widget content;
     if (_error != null) {
       content = Text('Error: $_error', style: const TextStyle(color: Colors.red));
     } else {
+      final productos = ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: [
+          for (final it in _itemsDeCategoriaSel())
+            Padding(padding: const EdgeInsets.only(right: 10), child: SizedBox(width: 140, child: _productoBoton(it))),
+        ],
+      );
+      // Pista de scroll: gradiente oscuro a la derecha sobre el slider.
       content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: [
-              for (final c in _categorias)
-                Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
-                  label: Text(c['nombre'] ?? ''),
-                  selected: _categoriaSel == (c['id'] as int?),
-                  onSelected: (_) => setState(() => _categoriaSel = c['id'] as int?),
-                )),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 130,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: [
-              for (final it in _itemsDeCategoriaSel())
-                Padding(padding: const EdgeInsets.only(right: 8), child: SizedBox(width: 150, child: _productoBoton(it))),
-            ],
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 108,
+            child: Stack(children: [
+              Positioned.fill(child: productos),
+              Positioned(
+                right: 0,
+                width: 28,
+                height: 108,
+                child: Container(
+                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
+                ),
+              ),
+            ]),
           ),
         ),
       ]);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      TextField(
-        onChanged: (v) => setState(() => _busqueda = v),
-        decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+      Padding(
+        padding: EdgeInsets.fromLTRB(0, 0, 0, gap),
+        child: TextField(
+          onChanged: (v) => setState(() => _busqueda = v),
+          decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+        ),
       ),
+      SizedBox(
+        height: 46,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          children: [
+            for (final c in _categorias)
+              Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
+                label: Text(c['nombre'] ?? ''),
+                selected: _categoriaSel == (c['id'] as int?),
+                onSelected: (_) => setState(() => _categoriaSel = c['id'] as int?),
+              )),
+          ],
+        ),
+      ),
+      SizedBox(height: 8),
       content,
     ]);
   }
@@ -490,12 +530,19 @@ class _PosSalesViewState extends State<PosSalesView> {
         }
       },
       child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          const SizedBox(height: 2),
-          Text(money(it['precio_personal'] ?? it['precio']), style: const TextStyle(fontSize: 12)),
-        ]),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(child: Text(nombre, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+            // Precio abajo SOLO en productos sin variantes de tamaño.
+            if (!conTamanos) ...[
+              const SizedBox(height: 2),
+              Text(money(it['precio']), style: const TextStyle(fontSize: 12)),
+            ],
+          ],
+        ),
       ),
     );
   }
