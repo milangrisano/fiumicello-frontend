@@ -305,31 +305,33 @@ class _PosSalesViewState extends State<PosSalesView> {
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => _snack('Resumen de ventas (próximamente)')),
     ];
-    // Grid: mismo ancho para cada card, se acomoda por columnas según el espacio.
+    // Wrap uniforme: cards del mismo ancho (según ancho real de pantalla)
+    // y mismo alto (IntrinsicHeight dentro de un alto fijo), gaps uniformes y
+    // margen simétrico. Se acomoda a 4/2/1 columnas según el espacio.
     return LayoutBuilder(builder: (context, c) {
       final ancho = c.maxWidth;
-      final gap = ancho >= 200 * 4 ? 24.0 : 16.0;
-      final borde = ancho >= 200 * 4 ? 24.0 : 16.0;
-      final cols = ancho >= 200 * 4 ? 4 : (ancho >= 200 * 2 ? 2 : 1);
+      final gap = 20.0;
+      final borde = 20.0;
+      final cols = ancho >= 240 * 4 ? 4 : (ancho >= 240 * 2 ? 2 : 1);
+      final cardAncho = (ancho - borde * 2 - gap * (cols - 1)) / cols;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                    child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-                  ),
-                  SizedBox(
-                    height: 220,
-                    child: GridView(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cols,
-                        mainAxisSpacing: gap,
-                        crossAxisSpacing: gap,
-                      ),
-                      padding: EdgeInsets.all(borde),
-                      children: cards,
-                    ),
-                  ),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+          ),
+          Padding(
+            padding: EdgeInsets.all(borde),
+            child: Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final card in cards)
+                  SizedBox(width: cardAncho, child: card),
+              ],
+            ),
+          ),
         ],
       );
     });
