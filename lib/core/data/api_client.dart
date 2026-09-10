@@ -429,7 +429,7 @@ class ApiClient {
       }
       final res = await http.get(Uri.parse(uri), headers: _headers());
       if (res.statusCode == 200) {
-        return (true, jsonDecode(res.body) as Map<String, dynamic>, '');
+        return (true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
       }
       return (false, null, _msg(res.body));
     } catch (e) {
