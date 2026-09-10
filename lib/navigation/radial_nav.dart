@@ -56,8 +56,9 @@ class _RadialNavState extends State<RadialNav> {
 
   @override
   Widget build(BuildContext context) {
-    final radio = 170.0; // radio del arco (más grande para separar los íconos)
-    final m = 130.0; // margen reservado para el FAB (esquina) + holgura
+    final radio = 130.0; // radio moderado: separación circunferencial uniforme entre
+    // íconos sin que se salgan de la pantalla ni se encimen.
+    final m = 130.0;
     final iconos = _arcos(radio, m);
 
     return Stack(children: [
