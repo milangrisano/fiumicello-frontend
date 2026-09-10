@@ -187,10 +187,10 @@ class ComandaView extends StatelessWidget {
         // Chips en doble línea (Wrap), fijos fuera del scroll. Letra menor y bordes
         // más ovalados (radio grande) para que ocupen menos espacio.
         final chipsFijos = Padding(
-          padding: EdgeInsets.fromLTRB(borde, 4, borde, 4),
+          padding: EdgeInsets.fromLTRB(borde, 2, borde, 2),
           child: Wrap(
             spacing: 6,
-            runSpacing: 6,
+            runSpacing: 4,
             children: [
               ChoiceChip(
                 label: const Text('Todos', style: TextStyle(fontSize: 12)),
