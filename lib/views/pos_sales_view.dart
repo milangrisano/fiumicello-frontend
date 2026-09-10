@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
 import '../core/utils/formatters.dart';
+import 'pos_facturacion/pos_models.dart';
+import 'pos_facturacion/pos_utils.dart'
+    show numVal, precioDe;
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -11,46 +14,16 @@ class PosSalesView extends StatefulWidget {
   State<PosSalesView> createState() => _PosSalesViewState();
 }
 
-/// A product line being composed (stage 1).
-class _Linea {
-  final int idProducto;
-  final String nombre;
-  final String? tamanio;
-  final double precio;
-  int cantidad;
-  String nota;
-
-  _Linea({
-    required this.idProducto,
-    required this.nombre,
-    this.tamanio,
-    required this.precio,
-    this.cantidad = 1,
-    this.nota = '',
-  });
-
-  double get subtotal => precio * cantidad;
-}
-
-class _Pantalla {
-  static const int inicio = 0;
-  static const int comanda = 1;
-  static const int asignacion = 2;
-  static const int cobro = 3;
-  static const int mesas = 4;
-  static const int entregas = 5;
-}
-
 class _PosSalesViewState extends State<PosSalesView> {
   Map<String, dynamic>? _carta;
   List<Map<String, dynamic>> _formas = [];
-  final List<_Linea> _comanda = [];
+  final List<Linea> _comanda = [];
   String _escenario = 'mesa';
   String _numeroMesa = '';
   String _clienteNombre = '';
   String _direccion = '';
   String _telefono = '';
-  int _pantalla = _Pantalla.inicio;
+  int _pantalla = Pantalla.inicio;
 
   List<Map<String, dynamic>> _mesasAbiertas = [];
   List<Map<String, dynamic>> _pendientes = [];
@@ -111,7 +84,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   void _agregar(Map<String, dynamic> item, String? tamanio) {
-    final precio = _precioDe(item, tamanio);
+    final precio = precioDe(item, tamanio);
     setState(() {
       for (final l in _comanda) {
         if (l.idProducto == (item['id'] as int?) && l.tamanio == tamanio) {
@@ -119,27 +92,13 @@ class _PosSalesViewState extends State<PosSalesView> {
           return;
         }
       }
-      _comanda.add(_Linea(
+      _comanda.add(Linea(
         idProducto: item['id'] as int,
         nombre: item['nombre'] ?? '',
         tamanio: tamanio,
         precio: precio,
       ));
     });
-  }
-
-  double _precioDe(Map<String, dynamic> item, String? tamanio) {
-    final t = tamanio?.toLowerCase() ?? '';
-    if (t == 'personal') return _num(item['precio_personal']);
-    if (t == 'mediana') return _num(item['precio_mediana']);
-    if (t == 'grande') return _num(item['precio_grande']);
-    return _num(item['precio'] ?? item['precio_personal']);
-  }
-
-  double _num(dynamic v) {
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v.trim()) ?? 0.0;
-    return 0.0;
   }
 
   void _snack(String m) {
@@ -161,7 +120,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       _snack('Agrega al menos un producto.');
       return;
     }
-    setState(() => _pantalla = _Pantalla.asignacion);
+    setState(() => _pantalla = Pantalla.asignacion);
   }
 
   Future<void> _crearPedido() async {
@@ -198,7 +157,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_escenario == 'mesa') {
       _snack('Mesa ${_numeroMesa.trim()} abierta.');
       setState(() {
-        _pantalla = _Pantalla.mesas;
+        _pantalla = Pantalla.mesas;
         _comanda.clear();
         _numeroMesa = '';
       });
@@ -206,7 +165,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     } else {
       setState(() {
         _cobroPedidoId = id;
-        _pantalla = _Pantalla.cobro;
+        _pantalla = Pantalla.cobro;
       });
     }
   }
@@ -228,7 +187,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     _snack(r.ok ? 'Cobrado: ${r.message}' : r.message);
     if (r.ok) {
       setState(() {
-        _pantalla = _Pantalla.inicio;
+        _pantalla = Pantalla.inicio;
         _comanda.clear();
         _numeroMesa = '';
         _clienteNombre = '';
@@ -264,22 +223,22 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
     // Renderizado por pantalla del flujo POS.
     switch (_pantalla) {
-      case _Pantalla.comanda:
+      case Pantalla.comanda:
         return _vistaComanda();
-      case _Pantalla.asignacion:
+      case Pantalla.asignacion:
         return _vistaAsignacion();
-      case _Pantalla.cobro:
+      case Pantalla.cobro:
         return _vistaCobro();
-      case _Pantalla.mesas:
+      case Pantalla.mesas:
         return _vistaMesas();
-      case _Pantalla.entregas:
+      case Pantalla.entregas:
         return _vistaEntregas();
       default:
         return _vistaInicio();
     }
   }
 
-  Widget _icono(IconData i, {double size = 28}) {
+  Widget appIcon(IconData i, {double size = 28}) {
     return Icon(i, size: size, color: Theme.of(context).colorScheme.primary);
   }
 
@@ -290,18 +249,18 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Ancho grande -> 4 en fila; tablet/móvil -> se acomodan en cuadrícula, nunca
     // quedan flotando en espacio extra.
     final cards = <Widget>[
-      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = _Pantalla.comanda; })),
+      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = Pantalla.comanda; })),
       _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
         await _refreshVivos();
         if (!mounted) return;
         if (_mesasAbiertas.isEmpty) { _snack('No hay mesas abiertas en este momento.'); return; }
-        setState(() => _pantalla = _Pantalla.mesas);
+        setState(() => _pantalla = Pantalla.mesas);
       }),
       _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async {
         await _refreshVivos();
         if (!mounted) return;
         if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
-        setState(() => _pantalla = _Pantalla.entregas);
+        setState(() => _pantalla = Pantalla.entregas);
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => _snack('Resumen de ventas (próximamente)')),
     ];
@@ -371,7 +330,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
+            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
             const Text('Nueva comanda', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
@@ -612,7 +571,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.comanda)),
+          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.comanda)),
           const Text('Etapa 2 · Asignación', style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         Wrap(spacing: 8, children: [
@@ -652,7 +611,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.asignacion)),
+          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.asignacion)),
           const Text('Etapa 3 · Cobro', style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 8),
@@ -684,7 +643,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
+          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
           Text('Mesas abiertas (${_mesasAbiertas.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 8),
@@ -692,7 +651,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           const Padding(padding: EdgeInsets.all(16), child: Text('No hay mesas abiertas.', style: TextStyle(color: Colors.grey))),
         for (final m in _mesasAbiertas) _mesaCard(m),
         const SizedBox(height: 12),
-        FilledButton.icon(onPressed: () => setState(() => _pantalla = _Pantalla.comanda), icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
+        FilledButton.icon(onPressed: () => setState(() => _pantalla = Pantalla.comanda), icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
       ]),
     );
   }
@@ -700,7 +659,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   Widget _mesaCard(Map<String, dynamic> m) {
     final id = m['id'] as int;
     final items = (m['items'] as List? ?? []).cast<Map<String, dynamic>>();
-    final total = _num(m['total']);
+    final total = numVal(m['total']);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -709,7 +668,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _icono(Icons.restaurant, size: 22),
+            appIcon(Icons.restaurant, size: 22),
             const SizedBox(width: 8),
             Flexible(child: Text('Mesa ${m['numero_mesa'] ?? m['id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             const SizedBox(width: 8),
@@ -802,7 +761,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
+          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
           Text('Pedidos por entregar (${_pendientes.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
           IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
         ]),
@@ -831,7 +790,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _icono(esDomicilio ? Icons.motorcycle : Icons.takeout_dining, size: 22),
+            appIcon(esDomicilio ? Icons.motorcycle : Icons.takeout_dining, size: 22),
             const SizedBox(width: 8),
             Flexible(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: const TextStyle(fontWeight: FontWeight.bold))),
             const SizedBox(width: 8),
@@ -841,7 +800,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         const SizedBox(height: 2),
         Text('Cliente: $nombre', style: const TextStyle(fontWeight: FontWeight.w600)),
         if (p['direccion'] != null) Text('Dirección: ${p['direccion']}', style: const TextStyle(fontSize: 13)),
-        Text('Total: ${money(_num(p['total']))}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text('Total: ${money(numVal(p['total']))}', style: const TextStyle(fontWeight: FontWeight.w600)),
         if (p['numero_factura'] != null) Text('Factura: ${p['numero_factura']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 6),
         FilledButton.icon(

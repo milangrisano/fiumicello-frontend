@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'placeholder_view.dart';
+import '../placeholder_view.dart';
 
 /// Module 3 — Summaries and accounting consolidation (placeholder for now).
 class SummariesView extends StatelessWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../core/data/api_client.dart';
-import '../core/utils/formatters.dart';
-import '../core/theme/maratea_colors.dart';
+import '../../core/data/api_client.dart';
+import '../../core/utils/formatters.dart';
+import '../../core/theme/maratea_colors.dart';
 
 /// Public Fiumicello menu (carta). Shown at the app's root `/` and as a section
 /// for authenticated users. Structured: categories with items and prices.

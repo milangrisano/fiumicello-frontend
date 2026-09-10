@@ -3,7 +3,7 @@ import 'core/data/api_client.dart';
 import 'navigation/app_shell.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
-import 'views/carta_view.dart';
+import 'views/carta/carta_view.dart';
 
 /// Root widget. Clean, explicit named routes.
 ///   /         -> public carte (CartaView) — the restaurant menu

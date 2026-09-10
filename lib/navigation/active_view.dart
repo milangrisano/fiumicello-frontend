@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../views/invoices_view.dart';
+import '../views/facturas/invoices_view.dart';
 import '../views/pos_sales_view.dart';
-import '../views/summaries_view.dart';
+import '../views/resumenes/summaries_view.dart';
 import '../views/admin_view.dart';
-import '../views/carta_view.dart';
+import '../views/carta/carta_view.dart';
 import 'app_sections.dart';
 
 /// Returns the widget for the active menu section.

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/data/api_client.dart';
-import '../core/utils/formatters.dart';
+import '../../core/data/api_client.dart';
+import '../../core/utils/formatters.dart';
 
 /// Module 1 — Invoices and payment vouchers.
 ///
