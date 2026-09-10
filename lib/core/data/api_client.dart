@@ -418,6 +418,25 @@ class ApiClient {
     }
   }
 
+  /// Resumen contable agregado (totales, ítems, KPIs) para un período.
+  /// Devuelve (ok, data o null, mensaje).
+  static Future<(bool, Map<String, dynamic>?, String)> obtenerResumen(
+      String periodo, String? referencia) async {
+    try {
+      var uri = '$baseUrl/resumenes?periodo=$periodo';
+      if (referencia != null && referencia.isNotEmpty) {
+        uri += '&referencia=$referencia';
+      }
+      final res = await http.get(Uri.parse(uri), headers: _headers());
+      if (res.statusCode == 200) {
+        return (true, jsonDecode(res.body) as Map<String, dynamic>, '');
+      }
+      return (false, null, _msg(res.body));
+    } catch (e) {
+      return (false, null, '$e');
+    }
+  }
+
   static Future<ListResult> listarFormasPago() async {
     try {
       final res = await http.get(
