@@ -167,20 +167,20 @@ class ComandaView extends StatelessWidget {
         // Móvil/tablet: cabecera fija (flecha + buscador reducido) + chips fijos en
         // doble línea, fuera del scroll. Abajo: scroll con productos (3 cols) +
         // comanda + total + botón. Sin "Nueva comanda".
-        final buscadorReducido = SizedBox(
-          width: 200,
-          child: TextField(
-            onChanged: onBuscar,
-            decoration: const InputDecoration(hintText: 'Buscar…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
-          ),
-        );
         final cabeceraMovil = Padding(
           padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               IconButton(icon: const Icon(Icons.arrow_back), onPressed: onVolver),
-              buscadorReducido,
+              SizedBox(width: 6),
+              // El buscador ocupa TODO el espacio sobrante (Flexible).
+              Flexible(
+                child: TextField(
+                  onChanged: onBuscar,
+                  decoration: const InputDecoration(hintText: 'Buscar…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+                ),
+              ),
             ],
           ),
         );
