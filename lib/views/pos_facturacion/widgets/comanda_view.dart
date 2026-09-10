@@ -168,12 +168,12 @@ class ComandaView extends StatelessWidget {
         // doble línea, fuera del scroll. Abajo: scroll con productos (3 cols) +
         // comanda + total + botón. Sin "Nueva comanda".
         final cabeceraMovil = Padding(
-          padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
+          padding: EdgeInsets.fromLTRB(borde, 4, borde, 0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               IconButton(icon: const Icon(Icons.arrow_back), onPressed: onVolver),
-              SizedBox(width: 6),
+              SizedBox(width: 4),
               // El buscador ocupa TODO el espacio sobrante (Flexible).
               Flexible(
                 child: TextField(
@@ -184,13 +184,13 @@ class ComandaView extends StatelessWidget {
             ],
           ),
         );
-        // Chips en doble línea (Wrap), fijos fuera del scroll. Letra menor y bordes
-        // más ovalados (radio grande) para que ocupen menos espacio.
+        // Chips en doble línea (Wrap), fijos, sin espacio entre ellos ni vertical.
+        // Solo se conservan los márgenes laterales (borde).
         final chipsFijos = Padding(
           padding: EdgeInsets.fromLTRB(borde, 0, borde, 0),
           child: Wrap(
-            spacing: 6,
-            runSpacing: 4,
+            spacing: 0,
+            runSpacing: 0,
             children: [
               ChoiceChip(
                 label: const Text('Todos', style: TextStyle(fontSize: 12)),
