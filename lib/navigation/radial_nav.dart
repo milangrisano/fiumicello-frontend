@@ -32,10 +32,9 @@ class _RadialNavState extends State<RadialNav> {
     final n = widget.sections.length;
     final out = <_ArcoIcono>[];
     if (n == 0) return out;
-    // Ángulo inset FIJO en grados, para que ni el primer ni el último ícono
-    // toquen los bordes (top y lateral). Con 5 íconos y margen ~22°, quedan
-    // repartidos en 90-44 = ~46° útiles, bien separados.
-    final insetDeg = m >= 200 ? 24.0 : (m >= 130 ? 18.0 : 14.0);
+    // Con botones mini de ~32px, para no montarse necesitamos separación angular.
+    // Abrimos el arco en ~70° útiles (inset 10°) y usado radio moderado.
+    final insetDeg = 10.0;
     final angMin = insetDeg;
     final angMax = 90.0 - insetDeg;
     for (int i = 0; i < n; i++) {
@@ -79,14 +78,18 @@ class _RadialNavState extends State<RadialNav> {
           Positioned(
             right: 16 + ic.x,
             bottom: 16 + ic.y,
-            child: FloatingActionButton(
-              mini: true,
-              shape: const CircleBorder(),
-              onPressed: () {
-                setState(() => _abierto = false);
-                widget.onSelect(ic.index);
-              },
-              child: Icon(ic.icon, color: Theme.of(context).colorScheme.primary),
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: FloatingActionButton(
+                mini: true,
+                shape: const CircleBorder(),
+                onPressed: () {
+                  setState(() => _abierto = false);
+                  widget.onSelect(ic.index);
+                },
+                child: Icon(ic.icon, size: 18, color: Theme.of(context).colorScheme.primary),
+              ),
             ),
           ),
     ]);
