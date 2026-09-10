@@ -109,6 +109,7 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final monto = _num(totales['monto']);
     final ventas = _num(totales['ventas']).toInt();
     final promedio = _num(totales['promedio']);
+    final ventaDiaria = _num(totales['venta_promedio_diaria']);
 
     // Tarjetas de totales
     Widget kpiCard(String etiqueta, String valor, IconData icon) {
@@ -137,7 +138,8 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
       Center(child: Wrap(spacing: gap, runSpacing: gap, children: [
         SizedBox(width: 140, child: kpiCard('Monto', money(monto), Icons.attach_money)),
         SizedBox(width: 140, child: kpiCard('Ventas', '$ventas', Icons.receipt_long)),
-        SizedBox(width: 140, child: kpiCard('Promedio', money(promedio), Icons.calculate)),
+        SizedBox(width: 140, child: kpiCard('Ticket promedio', money(promedio), Icons.calculate)),
+        SizedBox(width: 140, child: kpiCard('Venta prom. diaria', money(ventaDiaria), Icons.calendar_today)),
       ])),
       SizedBox(height: gap),
       const Text('Lo más vendido', style: TextStyle(fontWeight: FontWeight.w600)),
