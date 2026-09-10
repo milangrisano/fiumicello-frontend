@@ -41,7 +41,7 @@ class TabletShell extends StatelessWidget {
           ),
         ],
       ),
-      body: ActiveView(index: selectedIndex),
+      body: ActiveView(index: selectedIndex, onNavegar: onSelect),
     );
   }
 }

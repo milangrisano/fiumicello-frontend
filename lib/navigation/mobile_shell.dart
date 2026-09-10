@@ -61,7 +61,7 @@ class MobileShell extends StatelessWidget {
       // El body superpone el contenido y el FAB radial (navegación inferior).
       body: SafeArea(
         child: Stack(children: [
-          Positioned.fill(child: ActiveView(index: selectedIndex)),
+          Positioned.fill(child: ActiveView(index: selectedIndex, onNavegar: onSelect)),
           // FAB radial de navegación, esquina inferior derecha (sin barra).
           RadialNav(
             sections: visible,

@@ -6,10 +6,13 @@ import 'pos_facturacion/pos_models.dart';
 import 'pos_facturacion/pos_utils.dart'
     show numVal, precioDe;
 import 'pos_facturacion/widgets/comanda_view.dart';
+import 'pos_facturacion/widgets/resumen_ventas_view.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
-  const PosSalesView({super.key});
+  /// Callback para navegar a otra sección (p. ej. el Resumen de ventas).
+  final ValueChanged<int>? onNavegar;
+  const PosSalesView({super.key, this.onNavegar});
 
   @override
   State<PosSalesView> createState() => _PosSalesViewState();
@@ -263,6 +266,8 @@ class _PosSalesViewState extends State<PosSalesView> {
         return _vistaMesas();
       case Pantalla.entregas:
         return _vistaEntregas();
+      case Pantalla.resumen:
+        return const ResumenVentasView();
       default:
         return _vistaInicio();
     }
@@ -292,7 +297,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
         setState(() => _pantalla = Pantalla.entregas);
       }),
-      _inicioCard('Resumen de ventas', Icons.pie_chart, () => _snack('Resumen de ventas (próximamente)')),
+      _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
     ];
     // Wrap uniforme: cards del mismo ancho (según ancho real de pantalla)
     // y mismo alto (IntrinsicHeight dentro de un alto fijo), gaps uniformes y

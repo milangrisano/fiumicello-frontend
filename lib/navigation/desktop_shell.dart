@@ -46,7 +46,7 @@ class _DesktopShellState extends State<DesktopShell> {
               ),
             ),
           const VerticalDivider(width: 1),
-          Expanded(child: ActiveView(index: widget.selectedIndex)),
+          Expanded(child: ActiveView(index: widget.selectedIndex, onNavegar: widget.onSelect)),
         ],
       ),
     );

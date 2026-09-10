@@ -9,7 +9,9 @@ import 'app_sections.dart';
 /// Returns the widget for the active menu section.
 class ActiveView extends StatelessWidget {
   final int index;
-  const ActiveView({super.key, required this.index});
+  /// Callback para que una vista (p. ej. el POS) navegue a otra sección.
+  final ValueChanged<int>? onNavegar;
+  const ActiveView({super.key, required this.index, this.onNavegar});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +19,7 @@ class ActiveView extends StatelessWidget {
       case AppSections.carta:
         return const CartaView();
       case AppSections.pos:
-        return const PosSalesView();
+        return PosSalesView(onNavegar: onNavegar);
       case AppSections.summaries:
         return const SummariesView();
       case AppSections.admin:

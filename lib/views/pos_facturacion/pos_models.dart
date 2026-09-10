@@ -34,4 +34,5 @@ class Pantalla {
   static const int cobro = 3;
   static const int mesas = 4;
   static const int entregas = 5;
+  static const int resumen = 6;
 }
