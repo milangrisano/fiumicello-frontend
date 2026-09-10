@@ -164,12 +164,47 @@ class ComandaView extends StatelessWidget {
             ],
           );
         }
-        // Móvil/tablet: scroll fluido UNO — todo (catálogo + comanda + total + botón)
-        // en una sola columna que scrollea. Sin paneles fijos encimados.
+        // Móvil/tablet: cabecera fija (flecha + buscador reducido) + chips fijos en
+        // doble línea, fuera del scroll. Abajo: scroll con productos (3 cols) +
+        // comanda + total + botón. Sin "Nueva comanda".
+        final buscadorReducido = SizedBox(
+          width: 200,
+          child: TextField(
+            onChanged: onBuscar,
+            decoration: const InputDecoration(hintText: 'Buscar…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+          ),
+        );
+        final cabeceraMovil = Padding(
+          padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(icon: const Icon(Icons.arrow_back), onPressed: onVolver),
+              buscadorReducido,
+            ],
+          ),
+        );
+        // Chips en doble línea (Wrap), fijos fuera del scroll.
+        final chipsFijos = Padding(
+          padding: EdgeInsets.fromLTRB(borde, 4, borde, 4),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final c in categorias)
+                ChoiceChip(
+                  label: Text(c['nombre'] ?? ''),
+                  selected: categoriaSel == (c['id'] as int?),
+                  onSelected: (_) => onCategoria(c['id'] as int?),
+                ),
+            ],
+          ),
+        );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            header,
+            cabeceraMovil,
+            chipsFijos,
             SizedBox(height: gap / 2),
             Flexible(
               child: SingleChildScrollView(
@@ -177,7 +212,7 @@ class ComandaView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _catalogoPanel(context, gap, borde),
+                    _catalogoPanel(context, gap, borde, movil: true),
                     SizedBox(height: gap),
                     const Divider(),
                     SizedBox(height: 4),
@@ -220,8 +255,10 @@ class ComandaView extends StatelessWidget {
     );
   }
 
-  Widget _catalogoPanel(BuildContext context, double gap, double borde) {
+  Widget _catalogoPanel(BuildContext context, double gap, double borde, {bool movil = false}) {
     final itemsSel = _itemsDeCategoriaSel();
+    // En móvil: 3 columnas (lado ~98); en PC: mantenemos lado 120 (Wrap natural).
+    final lado = movil ? 98.0 : 120.0;
     Widget content;
     if (error != null) {
       content = Text('Error: $error', style: const TextStyle(color: Colors.red));
@@ -232,11 +269,13 @@ class ComandaView extends StatelessWidget {
           runSpacing: gap,
           children: [
             for (final it in itemsSel)
-              _productoBoton(context, it, lado: 120),
+              _productoBoton(context, it, lado: lado),
           ],
         ),
       );
     }
+    // En móvil el buscador y los chips ya van en la cabecera fija; aquí solo productos.
+    if (movil) return content;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: EdgeInsets.fromLTRB(0, 0, 0, gap),
