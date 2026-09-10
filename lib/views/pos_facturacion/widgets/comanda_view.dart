@@ -164,27 +164,56 @@ class ComandaView extends StatelessWidget {
             ],
           );
         }
-        final altoComanda = alto - 260;
-        final panelMovil = SizedBox(
-          height: 300,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(borde, 4, borde, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: (altoComanda < 80 ? 80 : altoComanda) - 90, child: listaComanda),
-                pie,
-              ],
-            ),
-          ),
-        );
+        // Móvil/tablet: scroll fluido UNO — todo (catálogo + comanda + total + botón)
+        // en una sola columna que scrollea. Sin paneles fijos encimados.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             header,
             SizedBox(height: gap / 2),
-            Flexible(child: cuerpo),
-            panelMovil,
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(borde, 0, borde, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _catalogoPanel(context, gap, borde),
+                    SizedBox(height: gap),
+                    const Divider(),
+                    SizedBox(height: 4),
+                    if (items.isEmpty)
+                      const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
+                    else
+                      for (final l in items)
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
+                          subtitle: Text('${money(l.precio)} ×${l.cantidad}${l.nota.isEmpty ? '' : ' · nota: ${l.nota}'}'),
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => onQuitar(l), visualDensity: VisualDensity.compact),
+                            IconButton(icon: const Icon(Icons.create), tooltip: 'Nota', onPressed: () => onNota(l), visualDensity: VisualDensity.compact),
+                            IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => onSumar(l), visualDensity: VisualDensity.compact),
+                          ]),
+                        ),
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text(money(total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed: items.isEmpty ? null : onContinuar,
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('Continuar'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         );
       },
