@@ -32,20 +32,20 @@ class _RadialNavState extends State<RadialNav> {
     final n = widget.sections.length;
     final out = <_ArcoIcono>[];
     if (n == 0) return out;
-    // Ángulo de inserción para que el primer/último ícono no toque el borde.
-    // Empírico razonable: dejar un margen ~1.15 * tamaño ícono.
-    final inset = (m / (n == 1 ? 8 : 6)) * 0.5;
-    final angMin = inset; // > 0
-    final angMax = 90.0 - inset; // < 90
+    // Ángulo inset FIJO en grados, para que ni el primer ni el último ícono
+    // toquen los bordes (top y lateral). Con 5 íconos y margen ~22°, quedan
+    // repartidos en 90-44 = ~46° útiles, bien separados.
+    final insetDeg = m >= 200 ? 24.0 : (m >= 130 ? 18.0 : 14.0);
+    final angMin = insetDeg;
+    final angMax = 90.0 - insetDeg;
     for (int i = 0; i < n; i++) {
       final t = n == 1 ? 0.5 : (i / (n - 1));
-      final ang = angMin + (angMax - angMin) * t; // en grados (0 arriba, 90 izquierda)
+      // ang: 0° = arriba, 90° = izquierda (arco hacia arriba-izquierda).
+      final ang = angMin + (angMax - angMin) * t;
       final rad = ang * 3.14159265 / 180.0;
-      // Desde la esquina inferior-derecha hacia arriba-izquierda:
-      // x a la izquierda del borde, y hacia arriba del borde.
       out.add(_ArcoIcono(
-        x: radio * cos(rad),
-        y: radio * sin(rad),
+        x: radio * sin(rad), // hacia la izquierda (ignora, ver posición)
+        y: radio * cos(rad), // hacia arriba
         icon: widget.sections[i].icon,
         index: widget.sections[i].index,
         label: widget.sections[i].label,
@@ -56,8 +56,8 @@ class _RadialNavState extends State<RadialNav> {
 
   @override
   Widget build(BuildContext context) {
-    final radio = 120.0; // radio del arco
-    final m = 72.0; // margen reservado para el FAB (esquina) + holgura
+    final radio = 170.0; // radio del arco (más grande para separar los íconos)
+    final m = 130.0; // margen reservado para el FAB (esquina) + holgura
     final iconos = _arcos(radio, m);
 
     return Stack(children: [
