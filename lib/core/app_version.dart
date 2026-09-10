@@ -2,4 +2,4 @@
 ///
 /// Bump this on every meaningful UI/deploy change so the on-screen version can
 /// be checked against what is actually deployed (no more cache ambiguity).
-const String APP_VERSION = '0.13.10';
+const String APP_VERSION = '0.13.11';

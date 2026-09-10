@@ -184,12 +184,11 @@ class ComandaView extends StatelessWidget {
             ],
           ),
         );
-        // Chips en doble línea (Wrap), fijos, sin espacio entre ellos ni vertical.
-        // Solo se conservan los márgenes laterales (borde).
+        // Chips: espacio HORIZONTAL entre ellos (6), sin espacio VERTICAL (runSpacing 0).
         final chipsFijos = Padding(
           padding: EdgeInsets.fromLTRB(borde, 0, borde, 0),
           child: Wrap(
-            spacing: 0,
+            spacing: 6,
             runSpacing: 0,
             children: [
               ChoiceChip(
