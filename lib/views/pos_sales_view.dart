@@ -364,6 +364,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     return LayoutBuilder(builder: (context, c) {
       final gap = 16.0;
       final borde = c.maxWidth >= 900 ? 24.0 : 16.0;
+      final alto = c.maxHeight;
       // Header fijo (flecha atrás + título).
       final header = Padding(
         padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
@@ -375,9 +376,8 @@ class _PosSalesViewState extends State<PosSalesView> {
           ],
         ),
       );
-      // Comanda + total + botón, FIJOS al final (nunca se pierden al hacer scroll).
-      final pie = Padding(
-        padding: EdgeInsets.fromLTRB(borde, 8, borde, 8),
+      // Lista de la comanda (items) con scroll interno propio.
+      final listaComanda = SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -396,31 +396,90 @@ class _PosSalesViewState extends State<PosSalesView> {
                     IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => l.cantidad++), visualDensity: VisualDensity.compact),
                   ]),
                 ),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                Text(money(_totalComanda), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: _comanda.isEmpty ? null : _siguienteEtapa,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Continuar'),
-            ),
           ],
         ),
       );
-      // Cuerpo: catálogo scrollable (ocupa todo el ancho con padding simétrico).
+      // Pie (total + botón) siempre visible, minima.
+      final pie = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Divider(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              Text(money(_totalComanda), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _comanda.isEmpty ? null : _siguienteEtapa,
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('Continuar'),
+          ),
+        ],
+      );
+
+      // Catálogo de productos con scroll propio (nunca lo achica la comanda).
       final cuerpo = SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(borde, 0, borde, 16),
         child: _catalogoPanel(gap: gap, borde: borde),
       );
+
+      // En PC: dos paneles (productos | comanda). En móvil/tablet: productos arriba
+      // + comanda abajo en barra fija con alto acotado y scroll interno.
+      if (c.maxWidth >= 900) {
+        final panelComanda = Padding(
+          padding: EdgeInsets.fromLTRB(borde, 0, borde, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 4),
+              Flexible(child: listaComanda),
+              pie,
+            ],
+          ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            SizedBox(height: gap),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(flex: 3, child: cuerpo),
+                SizedBox(width: 8),
+                SizedBox(width: 380, child: panelComanda),
+              ],
+            ),
+          ],
+        );
+      }
+      // Móvil/tablet: comanda abajo con alto maximo (no cubre los productos).
+      final altoComanda = alto >= 300 ? (alto * 0.40) : alto;
+      final panelComandaMovil = SizedBox(
+        height: altoComanda,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(borde, 4, borde, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Flexible(child: listaComanda),
+              pie,
+            ],
+          ),
+        ),
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [header, SizedBox(height: gap), Flexible(child: cuerpo), pie],
+        children: [
+          header,
+          SizedBox(height: gap / 2),
+          Flexible(child: cuerpo),
+          panelComandaMovil,
+        ],
       );
     });
   }
