@@ -426,8 +426,8 @@ class _PosSalesViewState extends State<PosSalesView> {
         child: _catalogoPanel(gap: gap, borde: borde),
       );
 
-      // En PC: dos paneles (productos | comanda). En móvil/tablet: productos arriba
-      // + comanda abajo en barra fija con alto acotado y scroll interno.
+      // En PC: dos paneles (productos | comanda). La comanda: header de lista
+      // con alto fijo + pie (total+botón) siempre visible.
       if (c.maxWidth >= 900) {
         final panelComanda = Padding(
           padding: EdgeInsets.fromLTRB(borde, 0, borde, 8),
@@ -436,7 +436,7 @@ class _PosSalesViewState extends State<PosSalesView> {
             children: [
               const Text('Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 4),
-              Flexible(child: listaComanda),
+              SizedBox(height: alto - 220, child: listaComanda), // alto fijo -> scroll interno
               pie,
             ],
           ),
@@ -457,16 +457,18 @@ class _PosSalesViewState extends State<PosSalesView> {
           ],
         );
       }
-      // Móvil/tablet: comanda abajo con alto maximo (no cubre los productos).
-      final altoComanda = alto >= 300 ? (alto * 0.40) : alto;
+      // Móvil/tablet: productos arriba (scroll) + comanda abajo en barra fija.
+      // La lista de la comanda tiene alto acotado (scroll interno); el pie
+      // (total+botón) queda SIEMPRE visible.
+      final altoComanda = alto - 260; // reserva para header + lista + pie
       final panelComandaMovil = SizedBox(
-        height: altoComanda,
+        height: 300,
         child: Padding(
           padding: EdgeInsets.fromLTRB(borde, 4, borde, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Flexible(child: listaComanda),
+              SizedBox(height: (altoComanda < 80 ? 80 : altoComanda) - 90, child: listaComanda),
               pie,
             ],
           ),
