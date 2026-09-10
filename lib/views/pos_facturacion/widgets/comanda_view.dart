@@ -187,7 +187,7 @@ class ComandaView extends StatelessWidget {
         // Chips en doble línea (Wrap), fijos fuera del scroll. Letra menor y bordes
         // más ovalados (radio grande) para que ocupen menos espacio.
         final chipsFijos = Padding(
-          padding: EdgeInsets.fromLTRB(borde, 2, borde, 2),
+          padding: EdgeInsets.fromLTRB(borde, 0, borde, 0),
           child: Wrap(
             spacing: 6,
             runSpacing: 4,
