@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/data/api_client.dart';
-import '../core/utils/formatters.dart';
+import '../../core/data/api_client.dart';
+import '../../core/utils/formatters.dart';
 
 /// SuperAdmin/Admin screen: manage menu products (active/disabled), edit them,
 /// create/delete. Uses the carta items (single catalog).

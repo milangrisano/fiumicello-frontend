@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/data/api_client.dart';
+import '../../core/data/api_client.dart';
 
 /// Superadmin admin panel: manage service tokens (herb and future services)
 /// and approve pending user registrations.

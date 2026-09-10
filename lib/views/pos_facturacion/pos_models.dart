@@ -6,16 +6,14 @@ class Linea {
   final String nombre;
   final String? tamanio;
   final double precio;
-  int cantidad;
-  String nota;
+  int cantidad = 1;
+  String nota = '';
 
   Linea({
     required this.idProducto,
     required this.nombre,
     this.tamanio,
     required this.precio,
-    this.cantidad = 1,
-    this.nota = '',
   });
 
   double get subtotal => precio * cantidad;

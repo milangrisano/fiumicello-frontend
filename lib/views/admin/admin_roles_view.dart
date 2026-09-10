@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/data/api_client.dart';
+import '../../core/data/api_client.dart';
 
 /// Superadmin/Admin screen: manage roles and their permissions dynamically.
 ///
