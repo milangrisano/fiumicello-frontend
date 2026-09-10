@@ -364,58 +364,63 @@ class _PosSalesViewState extends State<PosSalesView> {
     return LayoutBuilder(builder: (context, c) {
       final gap = 16.0;
       final borde = c.maxWidth >= 900 ? 24.0 : 16.0;
+      // Header fijo (flecha atrás + título).
+      final header = Padding(
+        padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
+            const Text('Nueva comanda', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+      // Comanda + total + botón, FIJOS al final (nunca se pierden al hacer scroll).
+      final pie = Padding(
+        padding: EdgeInsets.fromLTRB(borde, 8, borde, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_comanda.isEmpty)
+              const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
+            else
+              for (final l in _comanda)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
+                  subtitle: Text('${money(l.precio)} ×${l.cantidad}${l.nota.isEmpty ? '' : ' · nota: ${l.nota}'}'),
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); }), visualDensity: VisualDensity.compact),
+                    IconButton(icon: const Icon(Icons.create), tooltip: 'Nota', onPressed: () async { final n = await _dialogNota('${l.nombre} — Nota'); if (n != null) { if (mounted) setState(() => l.nota = n); } }, visualDensity: VisualDensity.compact),
+                    IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => l.cantidad++), visualDensity: VisualDensity.compact),
+                  ]),
+                ),
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(money(_totalComanda), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _comanda.isEmpty ? null : _siguienteEtapa,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Continuar'),
+            ),
+          ],
+        ),
+      );
+      // Cuerpo: catálogo scrollable (ocupa todo el ancho con padding simétrico).
+      final cuerpo = SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(borde, 0, borde, 16),
+        child: _catalogoPanel(gap: gap, borde: borde),
+      );
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = _Pantalla.inicio)),
-              const Text('Nueva comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          SizedBox(height: gap),
-          _catalogoPanel(gap: gap, borde: borde),
-          SizedBox(height: gap),
-          const Divider(),
-          SizedBox(height: gap / 2),
-          // Resumen compacto de la comanda.
-          if (_comanda.isEmpty)
-            const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
-          else
-            for (final l in _comanda)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
-                subtitle: Text('${money(l.precio)} ×${l.cantidad}${l.nota.isEmpty ? '' : ' · nota: ${l.nota}'}'),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); }), visualDensity: VisualDensity.compact),
-                  IconButton(icon: const Icon(Icons.create), tooltip: 'Nota', onPressed: () async { final n = await _dialogNota('${l.nombre} — Nota'); if (n != null) { if (mounted) setState(() => l.nota = n); } }, visualDensity: VisualDensity.compact),
-                  IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => l.cantidad++), visualDensity: VisualDensity.compact),
-                ]),
-              ),
-          Divider(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              Text(money(_totalComanda), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              SizedBox(width: borde, child: SizedBox.shrink()),
-              FilledButton.icon(
-                onPressed: _comanda.isEmpty ? null : _siguienteEtapa,
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('Continuar'),
-              ),
-            ],
-          ),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [header, SizedBox(height: gap), Flexible(child: cuerpo), pie],
       );
     });
   }
@@ -427,13 +432,15 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_error != null) {
       content = Text('Error: $_error', style: const TextStyle(color: Colors.red));
     } else {
-      content = Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: [
-          for (final it in _itemsDeCategoriaSel())
-            _productoBoton(it, lado: 120),
-        ],
+      content = Center(
+        child: Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final it in _itemsDeCategoriaSel())
+              _productoBoton(it, lado: 120),
+          ],
+        ),
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
