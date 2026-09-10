@@ -111,12 +111,13 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   List<Map<String, dynamic>> get _itemsComandaJson => [
         for (final l in _comanda)
-          {
-            'id_producto': l.idProducto,
-            'tamanio': l.tamanio,
-            'cantidad': l.cantidad,
-            'nota': l.nota.isEmpty ? null : l.nota,
-          }
+          if (!l.yaEnMesa) // no re-enviar los productos que ya estaban en la mesa
+            {
+              'id_producto': l.idProducto,
+              'tamanio': l.tamanio,
+              'cantidad': l.cantidad,
+              'nota': l.nota.isEmpty ? null : l.nota,
+            }
       ];
 
   Future<void> _siguienteEtapa() async {
@@ -127,6 +128,11 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Modo "agregar a mesa abierta": añade la comanda a ese pedido y vuelve a
     // las mesas (sin pasar por la asignación, que ya se hizo la primera vez).
     if (_modoAgregarMesaId != null) {
+      final nuevos = _comanda.where((l) => !l.yaEnMesa).toList();
+      if (nuevos.isEmpty) {
+        _snack('Agrega al menos un producto nuevo.');
+        return;
+      }
       setState(() => _cobrando = true);
       final r = await ApiClient.agregarItemsPedido(_modoAgregarMesaId!, _itemsComandaJson);
       if (!mounted) return;
@@ -501,10 +507,22 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Future<void> _agregarProductoMesa(Map<String, dynamic> m) async {
-    // Va a la comanda en modo "agregar a esta mesa": al continuar se añaden los
-    // productos al pedido existente (sin pasar por la asignación).
+    // Va a la comanda en modo "agregar a esta mesa": carga los productos que la
+    // mesa YA tiene ordenados (para ver el contexto) y al continuar se añaden
+    // los nuevos al pedido existente (sin pasar por la asignación).
     setState(() {
       _comanda.clear();
+      for (final it in (m['items'] as List? ?? []).cast<Map<String, dynamic>>()) {
+        _comanda.add(Linea(
+          idProducto: (it['id_producto'] ?? it['id']) as int,
+          nombre: it['nombre'] ?? '',
+          tamanio: it['tamanio'] as String?,
+          precio: numVal(it['precio_unitario'] ?? it['precio']),
+          cantidad: (it['cantidad'] as int?) ?? 1,
+          nota: it['nota'] as String? ?? '',
+          yaEnMesa: true,
+        ));
+      }
       _modoAgregarMesaId = m['id'] as int?;
       _pantalla = Pantalla.comanda;
     });

@@ -8,12 +8,19 @@ class Linea {
   final double precio;
   int cantidad = 1;
   String nota = '';
+  /// true si esta línea ya existe en la mesa/pedido (se cargó al editar);
+  /// los nuevos productos van con false. Sirve para no re-enviar los ya
+  /// existentes al agregar más a la misma mesa.
+  bool yaEnMesa = false;
 
   Linea({
     required this.idProducto,
     required this.nombre,
     this.tamanio,
     required this.precio,
+    this.cantidad = 1,
+    this.nota = '',
+    this.yaEnMesa = false,
   });
 
   double get subtotal => precio * cantidad;
