@@ -5,6 +5,7 @@ import '../core/utils/formatters.dart';
 import 'pos_facturacion/pos_models.dart';
 import 'pos_facturacion/pos_utils.dart'
     show numVal, precioDe;
+import 'pos_facturacion/widgets/comanda_view.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -320,250 +321,38 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   // ---------- Etapa 1: Comanda ----------
   Widget _vistaComanda() {
-    return LayoutBuilder(builder: (context, c) {
-      final gap = 16.0;
-      final borde = c.maxWidth >= 900 ? 24.0 : 16.0;
-      final alto = c.maxHeight;
-      // Header fijo (flecha atrás + título).
-      final header = Padding(
-        padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
-            const Text('Nueva comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      );
-      // Lista de la comanda (items) con scroll interno propio.
-      final listaComanda = SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_comanda.isEmpty)
-              const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
-            else
-              for (final l in _comanda)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
-                  subtitle: Text('${money(l.precio)} ×${l.cantidad}${l.nota.isEmpty ? '' : ' · nota: ${l.nota}'}'),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); }), visualDensity: VisualDensity.compact),
-                    IconButton(icon: const Icon(Icons.create), tooltip: 'Nota', onPressed: () async { final n = await _dialogNota('${l.nombre} — Nota'); if (n != null) { if (mounted) setState(() => l.nota = n); } }, visualDensity: VisualDensity.compact),
-                    IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => l.cantidad++), visualDensity: VisualDensity.compact),
-                  ]),
-                ),
-          ],
-        ),
-      );
-      // Pie (total + botón) siempre visible, minima.
-      final pie = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Divider(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              Text(money(_totalComanda), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _comanda.isEmpty ? null : _siguienteEtapa,
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Continuar'),
-          ),
-        ],
-      );
-
-      // Catálogo de productos con scroll propio (nunca lo achica la comanda).
-      final cuerpo = SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(borde, 0, borde, 16),
-        child: _catalogoPanel(gap: gap, borde: borde),
-      );
-
-      // En PC: dos paneles (productos | comanda). La comanda: header de lista
-      // con alto fijo + pie (total+botón) siempre visible.
-      if (c.maxWidth >= 900) {
-        final panelComanda = Padding(
-          padding: EdgeInsets.fromLTRB(borde, 0, borde, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-              SizedBox(height: 4),
-              SizedBox(height: alto - 220, child: listaComanda), // alto fijo -> scroll interno
-              pie,
-            ],
-          ),
-        );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            header,
-            SizedBox(height: gap),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Flexible(flex: 3, child: cuerpo),
-                SizedBox(width: 8),
-                SizedBox(width: 380, child: panelComanda),
-              ],
-            ),
-          ],
-        );
-      }
-      // Móvil/tablet: productos arriba (scroll) + comanda abajo en barra fija.
-      // La lista de la comanda tiene alto acotado (scroll interno); el pie
-      // (total+botón) queda SIEMPRE visible.
-      final altoComanda = alto - 260; // reserva para header + lista + pie
-      final panelComandaMovil = SizedBox(
-        height: 300,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(borde, 4, borde, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: (altoComanda < 80 ? 80 : altoComanda) - 90, child: listaComanda),
-              pie,
-            ],
-          ),
-        ),
-      );
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          header,
-          SizedBox(height: gap / 2),
-          Flexible(child: cuerpo),
-          panelComandaMovil,
-        ],
-      );
-    });
-  }
-
-  Widget _catalogoPanel({double gap = 16.0, double borde = 16.0}) {
-    // Cards cuadradas en Wrap (flujo natural a N columnas, sin scroll ni
-    // calculo de columnas fragil). El lado es fijo y las cards se repiten.
-    Widget content;
-    if (_error != null) {
-      content = Text('Error: $_error', style: const TextStyle(color: Colors.red));
-    } else {
-      content = Center(
-        child: Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final it in _itemsDeCategoriaSel())
-              _productoBoton(it, lado: 120),
-          ],
-        ),
-      );
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: EdgeInsets.fromLTRB(0, 0, 0, gap),
-        child: TextField(
-          onChanged: (v) => setState(() => _busqueda = v),
-          decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
-        ),
-      ),
-      SizedBox(
-        height: 46,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          children: [
-            for (final c in _categorias)
-              Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
-                label: Text(c['nombre'] ?? ''),
-                selected: _categoriaSel == (c['id'] as int?),
-                onSelected: (_) => setState(() => _categoriaSel = c['id'] as int?),
-              )),
-          ],
-        ),
-      ),
-      SizedBox(height: 8),
-      content,
-    ]);
-  }
-
-  List<Map<String, dynamic>> _itemsDeCategoriaSel() {
-    final b = _busqueda.toLowerCase();
-    if (_categoriaSel == null) {
-      return _categorias
-          .expand((c) => (c['items'] as List? ?? []).cast<Map<String, dynamic>>())
-          .cast<Map<String, dynamic>>()
-          .where((i) => b.isEmpty || (i['nombre'] ?? '').toString().toLowerCase().contains(b))
-          .toList();
-    }
-    for (final c in _categorias) {
-      if (c['id'] == _categoriaSel) return _filtrados(c);
-    }
-    return [];
-  }
-
-  List<Map<String, dynamic>> _filtrados(Map<String, dynamic> cat) {
-    final its = (cat['items'] as List? ?? []).cast<Map<String, dynamic>>();
-    if (_busqueda.isEmpty) return its;
-    final b = _busqueda.toLowerCase();
-    return its.where((i) => (i['nombre'] ?? '').toString().toLowerCase().contains(b)).toList();
-  }
-
-  /// Divide una lista de widgets en filas de a `cols` (para el grid).
-  Widget _productoBoton(Map<String, dynamic> it, {double lado = 120}) {
-    final conTamanos = it['precio_personal'] != null;
-    final nombre = it['nombre'] ?? '';
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          if (conTamanos) {
-            showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: Text(nombre),
-                content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'personal'); }, child: Text('Personal · ${money(it['precio_personal'])}')),
-                  const SizedBox(height: 6),
-                  FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'mediana'); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
-                  const SizedBox(height: 6),
-                  FilledButton(onPressed: () { Navigator.pop(context); _agregar(it, 'grande'); }, child: Text('Grande · ${money(it['precio_grande'])}')),
-                ]),
-              ),
-            );
-          } else {
-            _agregar(it, null);
-          }
-        },
-        child: SizedBox(
-          width: lado,
-          height: lado,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Flexible(child: Text(nombre, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
-                if (!conTamanos) ...[
-                  const SizedBox(height: 2),
-                  Text(money(it['precio']), style: const TextStyle(fontSize: 12)),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
+    return ComandaView(
+      items: _comanda.toList(),
+      total: _totalComanda,
+      categorias: _categorias,
+      busqueda: _busqueda,
+      categoriaSel: _categoriaSel,
+      error: _error,
+      onAgregar: (it, tam) => _agregar(it, tam),
+      onBuscar: (v) => setState(() => _busqueda = v),
+      onCategoria: (id) => setState(() => _categoriaSel = id),
+      onQuitar: _quitarLinea,
+      onNota: _editarNota,
+      onSumar: _sumarLinea,
+      onContinuar: _siguienteEtapa,
+      onVolver: () => setState(() => _pantalla = Pantalla.inicio),
     );
   }
 
-  // ---------- Etapa 2: Asignación ----------
+  void _quitarLinea(Linea l) {
+    setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); });
+  }
+
+  Future<void> _editarNota(Linea l) async {
+    final n = await _dialogNota('${l.nombre} — Nota');
+    if (n != null && mounted) setState(() => l.nota = n);
+  }
+
+  void _sumarLinea(Linea l) {
+    setState(() => l.cantidad++);
+  }
+
+// ---------- Etapa 2: Asignación ----------
   Widget _vistaAsignacion() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
