@@ -48,6 +48,18 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     return 0.0;
   }
 
+  /// Convierte un valor (Map<Object,Object> de jsonDecode o Map) a Map<String,dyn>.
+  Map<String, dynamic> _map(dynamic v) {
+    if (v is Map<String, dynamic>) return v as Map<String, dynamic>;
+    if (v is Map) return Map<String, dynamic>.from(v as Map);
+    return <String, dynamic>{};
+  }
+
+  List<dynamic> _list(dynamic v) {
+    if (v is List) return v as List;
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     final borde = 20.0;
@@ -91,9 +103,9 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
   }
 
   Widget _renderResumen(BuildContext context, double borde, double gap) {
-    final totales = (_data?['totales'] ?? {}) as Map<String, dynamic>;
-    final kpis = (_data?['kpis'] ?? {}) as Map<String, dynamic>;
-    final items = (_data?['items'] ?? []) as List;
+    final totales = _map(_data?['totales']);
+    final kpis = _map(_data?['kpis']);
+    final items = _list(_data?['items']);
     final monto = _num(totales['monto']);
     final ventas = _num(totales['ventas']).toInt();
     final promedio = _num(totales['promedio']);
@@ -116,9 +128,9 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     }
 
     // KPIs
-    final masV = (kpis['mas_vendido'] ?? {}) as Map<String, dynamic>;
-    final semM = (kpis['semana_mayor'] ?? {}) as Map<String, dynamic>;
-    final diaM = (kpis['dia_mayor'] ?? {}) as Map<String, dynamic>;
+    final masV = _map(kpis['mas_vendido']);
+    final semM = _map(kpis['semana_mayor']);
+    final diaM = _map(kpis['dia_mayor']);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // Totales
