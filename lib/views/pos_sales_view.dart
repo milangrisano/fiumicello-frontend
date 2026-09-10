@@ -25,6 +25,9 @@ class _PosSalesViewState extends State<PosSalesView> {
   String _direccion = '';
   String _telefono = '';
   int _pantalla = Pantalla.inicio;
+  // Modo "agregar a mesa abierta": si no es null, la comanda se agrega a ese
+  // pedido (mesa) al continuar, sin pasar por la etapa de asignación.
+  int? _modoAgregarMesaId;
 
   List<Map<String, dynamic>> _mesasAbiertas = [];
   List<Map<String, dynamic>> _pendientes = [];
@@ -119,6 +122,26 @@ class _PosSalesViewState extends State<PosSalesView> {
   Future<void> _siguienteEtapa() async {
     if (_comanda.isEmpty) {
       _snack('Agrega al menos un producto.');
+      return;
+    }
+    // Modo "agregar a mesa abierta": añade la comanda a ese pedido y vuelve a
+    // las mesas (sin pasar por la asignación, que ya se hizo la primera vez).
+    if (_modoAgregarMesaId != null) {
+      setState(() => _cobrando = true);
+      final r = await ApiClient.agregarItemsPedido(_modoAgregarMesaId!, _itemsComandaJson);
+      if (!mounted) return;
+      setState(() => _cobrando = false);
+      if (!r.ok) {
+        _snack(r.message);
+        return;
+      }
+      _snack('Productos agregados a la mesa.');
+      setState(() {
+        _pantalla = Pantalla.mesas;
+        _comanda.clear();
+        _modoAgregarMesaId = null;
+      });
+      await _refreshVivos();
       return;
     }
     setState(() => _pantalla = Pantalla.asignacion);
@@ -250,7 +273,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Ancho grande -> 4 en fila; tablet/móvil -> se acomodan en cuadrícula, nunca
     // quedan flotando en espacio extra.
     final cards = <Widget>[
-      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _pantalla = Pantalla.comanda; })),
+      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; })),
       _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
         await _refreshVivos();
         if (!mounted) return;
@@ -440,7 +463,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           const Padding(padding: EdgeInsets.all(16), child: Text('No hay mesas abiertas.', style: TextStyle(color: Colors.grey))),
         for (final m in _mesasAbiertas) _mesaCard(m),
         const SizedBox(height: 12),
-        FilledButton.icon(onPressed: () => setState(() => _pantalla = Pantalla.comanda), icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
+        FilledButton.icon(onPressed: () => setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }), icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
       ]),
     );
   }
@@ -478,17 +501,13 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Future<void> _agregarProductoMesa(Map<String, dynamic> m) async {
-    final nombre = m['numero_mesa'] ?? m['id'];
-    final it = await _dialogElegirProducto('Agregar a mesa $nombre');
-    if (it == null) return;
-    final conTamanos = it['precio_personal'] != null;
-    if (conTamanos) {
-      final tam = await _dialogTamanio(it);
-      if (tam == null) return;
-      await _agregarAMesa(m['id'] as int, it, tam);
-    } else {
-      await _agregarAMesa(m['id'] as int, it, null);
-    }
+    // Va a la comanda en modo "agregar a esta mesa": al continuar se añaden los
+    // productos al pedido existente (sin pasar por la asignación).
+    setState(() {
+      _comanda.clear();
+      _modoAgregarMesaId = m['id'] as int?;
+      _pantalla = Pantalla.comanda;
+    });
   }
 
   Future<Map<String, dynamic>?> _dialogElegirProducto(String titulo) async {
