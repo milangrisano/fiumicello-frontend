@@ -78,7 +78,7 @@ class _CierreCajaViewState extends State<CierreCajaView> {
     final faltante = _num(a['faltante']);
     final puedeCerrar = a['puedeCerrar'] == true;
     return Scaffold(
-      appBar: AppBar(title: const Text('Cierre de caja')),
+      appBar: AppBar(title: Text('Cierre de caja — Turno ${widget.turno['numero_dia'] ?? ''}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

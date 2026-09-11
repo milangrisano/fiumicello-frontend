@@ -254,6 +254,16 @@ class _PosSalesViewState extends State<PosSalesView> {
     await _refreshVivos();
   }
 
+  String _fechaTurno(dynamic fecha) {
+    if (fecha == null) return '';
+    try {
+      final d = DateTime.parse(fecha.toString());
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return fecha.toString();
+    }
+  }
+
   Future<void> _cargarTurno() async {
     final r = await ApiClient.cajaActiva();
     if (!mounted) return;
@@ -390,6 +400,14 @@ class _PosSalesViewState extends State<PosSalesView> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
             child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
           ),
+          if (_turno != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Chip(
+                avatar: const Icon(Icons.account_balance_wallet, size: 18),
+                label: Text('Turno ${_turno!['numero_dia']} · ${_fechaTurno(_turno!['fecha'])}'),
+              ),
+            ),
           Padding(
             padding: EdgeInsets.all(borde),
             child: Wrap(
