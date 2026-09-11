@@ -405,13 +405,14 @@ class _PosSalesViewState extends State<PosSalesView> {
       final borde = 20.0;
       final cols = ancho >= 240 * 4 ? 4 : (ancho >= 240 * 2 ? 2 : 1);
       final cardAncho = (ancho - borde * 2 - gap * (cols - 1)) / cols;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-          ),
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+            ),
           if (_turno != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -432,6 +433,7 @@ class _PosSalesViewState extends State<PosSalesView> {
             ),
           ),
         ],
+      ),
       );
     });
   }
