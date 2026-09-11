@@ -8,6 +8,8 @@ import 'pos_facturacion/pos_utils.dart'
 import 'pos_facturacion/widgets/comanda_view.dart';
 import 'pos_facturacion/widgets/resumen_ventas_view.dart';
 import 'pos_facturacion/widgets/cierre_caja_view.dart';
+import 'pos_facturacion/widgets/movimientos_caja_view.dart';
+import 'pos_facturacion/widgets/pago_propina_view.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -382,6 +384,16 @@ class _PosSalesViewState extends State<PosSalesView> {
           MaterialPageRoute(builder: (_) => CierreCajaView(turno: _turno!)),
         );
         if (cerrado == true) await _cargarTurno();
+      }),
+      _inicioCard('Movimientos de caja', Icons.swap_horiz, () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => MovimientosCajaView(turno: _turno!)),
+        );
+      }),
+      _inicioCard('Pago de propinas', Icons.redeem, () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PagoPropinaView()),
+        );
       }),
     ];
     // Wrap uniforme: cards del mismo ancho (según ancho real de pantalla)

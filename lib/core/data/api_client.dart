@@ -718,6 +718,51 @@ class ApiClient {
       return PostResult(false, '$e');
     }
   }
+
+  static Future<ListResult> listarUsuarios() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/usuarios'), headers: _headers());
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
+      }
+      return ListResult(false, [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, [], '$e');
+    }
+  }
+
+  static Future<ListResult> cajaMovimientos(int idTurno) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/caja/movimiento/$idTurno'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
+      }
+      return ListResult(false, [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, [], '$e');
+    }
+  }
+
+  static Future<ListResult> cajaPagosPropina() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/caja/propina/pagos'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
+      }
+      return ListResult(false, [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, [], '$e');
+    }
+  }
 }
 
 class MapResult {
