@@ -7,6 +7,7 @@ import 'pos_facturacion/pos_utils.dart'
     show numVal, precioDe;
 import 'pos_facturacion/widgets/comanda_view.dart';
 import 'pos_facturacion/widgets/resumen_ventas_view.dart';
+import 'pos_facturacion/widgets/cierre_caja_view.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -43,6 +44,10 @@ class _PosSalesViewState extends State<PosSalesView> {
   int? _cobroFormaPago;
   int? _cobroPedidoId;
 
+  // Caja / turno activo
+  Map<String, dynamic>? _turno;
+  bool _cajaCargando = false;
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +70,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         _loading = false;
       });
       await _refreshVivos();
+      await _cargarTurno();
     } catch (e) {
       if (!mounted) return;
       setState(() { _loading = false; _error = '$e'; });
@@ -248,12 +254,75 @@ class _PosSalesViewState extends State<PosSalesView> {
     await _refreshVivos();
   }
 
+  Future<void> _cargarTurno() async {
+    final r = await ApiClient.cajaActiva();
+    if (!mounted) return;
+    setState(() => _turno = (r.ok && r.data != null && r.data!.isNotEmpty) ? r.data : null);
+  }
+
+  Future<void> _abrirCaja(double efectivoInicial) async {
+    setState(() => _cajaCargando = true);
+    final r = await ApiClient.cajaAbrir(efectivoInicial);
+    if (!mounted) return;
+    setState(() => _cajaCargando = false);
+    if (r.ok) {
+      _snack('Caja abierta.');
+      await _cargarTurno();
+    } else {
+      _snack(r.message);
+    }
+  }
+
+  Widget _pantallaAbrirCaja() {
+    final ctrl = TextEditingController();
+    return Center(
+      child: Card(
+        margin: const EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Abrir caja', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                const Text('Contabilice y registre el efectivo con el que recibe la caja para poder facturar.'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: ctrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Efectivo inicial', prefixText: '\$'),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: _cajaCargando
+                      ? null
+                      : () {
+                          final v = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
+                          _abrirCaja(v);
+                        },
+                  child: _cajaCargando
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Abrir caja y empezar a facturar'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
+    // Gate de caja: sin turno abierto no se puede facturar.
+    if (_turno == null) return _pantallaAbrirCaja();
     // Renderizado por pantalla del flujo POS.
     switch (_pantalla) {
       case Pantalla.comanda:
@@ -298,6 +367,12 @@ class _PosSalesViewState extends State<PosSalesView> {
         setState(() => _pantalla = Pantalla.entregas);
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
+      _inicioCard('Cerrar turno (arqueo)', Icons.account_balance_wallet, () async {
+        final cerrado = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => CierreCajaView(turno: _turno!)),
+        );
+        if (cerrado == true) await _cargarTurno();
+      }),
     ];
     // Wrap uniforme: cards del mismo ancho (según ancho real de pantalla)
     // y mismo alto (IntrinsicHeight dentro de un alto fijo), gaps uniformes y

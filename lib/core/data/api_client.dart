@@ -584,4 +584,145 @@ class ApiClient {
       return body;
     }
   }
+
+  // ===================== CAJA / TURNOS =====================
+
+  static Future<MapResult> cajaActiva() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/caja/activo'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return MapResult(true, d is Map<String, dynamic> ? d : <String, dynamic>{}, '');
+      }
+      if (res.statusCode == 404 || res.body.contains('null')) {
+        return MapResult(true, <String, dynamic>{}, '');
+      }
+      return MapResult(false, null, _msg(res.body));
+    } catch (e) {
+      return MapResult(false, null, '$e');
+    }
+  }
+
+  static Future<MapResult> cajaAbrir(double efectivoInicial) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/caja/abrir'),
+        headers: _headers(),
+        body: jsonEncode({'efectivo_inicial': efectivoInicial}),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return MapResult(true, jsonDecode(res.body) as Map<String, dynamic>, '');
+      }
+      return MapResult(false, null, _msg(res.body));
+    } catch (e) {
+      return MapResult(false, null, '$e');
+    }
+  }
+
+  static Future<MapResult> cajaArqueo(int idTurno) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/caja/$idTurno/arqueo'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        return MapResult(true, jsonDecode(res.body) as Map<String, dynamic>, '');
+      }
+      return MapResult(false, null, _msg(res.body));
+    } catch (e) {
+      return MapResult(false, null, '$e');
+    }
+  }
+
+  static Future<MapResult> cajaCerrar(int idTurno, double efectivoFinal,
+      double propinaEfectivo, double propinaOtros) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/caja/$idTurno/cerrar'),
+        headers: _headers(),
+        body: jsonEncode({
+          'efectivo_final': efectivoFinal,
+          'propina_efectivo': propinaEfectivo,
+          'propina_otros': propinaOtros,
+        }),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return MapResult(true, jsonDecode(res.body) as Map<String, dynamic>, '');
+      }
+      return MapResult(false, null, _msg(res.body));
+    } catch (e) {
+      return MapResult(false, null, '$e');
+    }
+  }
+
+  static Future<PostResult> cajaEgreso(int idTurno, String concepto, double monto) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/caja/movimiento/egreso'),
+        headers: _headers(),
+        body: jsonEncode({'id_turno': idTurno, 'concepto': concepto, 'monto': monto}),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return PostResult(true, '');
+      }
+      return PostResult(false, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> cajaIngreso(int idTurno, String concepto, double monto, int autorizadoPor) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/caja/movimiento/ingreso'),
+        headers: _headers(),
+        body: jsonEncode({
+          'id_turno': idTurno,
+          'concepto': concepto,
+          'monto': monto,
+          'autorizado_por': autorizadoPor,
+        }),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return PostResult(true, '');
+      }
+      return PostResult(false, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  static Future<PostResult> cajaPagarPropina(String fechaPago, double montoEfectivo,
+      double montoOtros, int? turnosDesde, int? turnosHasta, String notas) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/caja/propina/pago'),
+        headers: _headers(),
+        body: jsonEncode({
+          'fecha_pago': fechaPago,
+          'monto_efectivo': montoEfectivo,
+          'monto_otros': montoOtros,
+          'turnos_desde': turnosDesde,
+          'turnos_hasta': turnosHasta,
+          'notas': notas,
+        }),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return PostResult(true, '');
+      }
+      return PostResult(false, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+}
+
+class MapResult {
+  final bool ok;
+  final Map<String, dynamic>? data;
+  final String message;
+  MapResult(this.ok, this.data, this.message);
 }
