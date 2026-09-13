@@ -721,7 +721,7 @@ class ApiClient {
 
   static Future<ListResult> listarUsuarios() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/usuarios'), headers: _headers());
+      final res = await http.get(Uri.parse('$baseUrl/auth/usuarios'), headers: _headers());
       if (res.statusCode == 200) {
         final d = jsonDecode(res.body);
         return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
