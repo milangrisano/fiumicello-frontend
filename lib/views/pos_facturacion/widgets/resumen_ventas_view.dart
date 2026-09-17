@@ -92,7 +92,11 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Resúmenes contables', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+          Row(children: [
+            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop()),
+            const SizedBox(width: 8),
+            const Text('Resumen de ventas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+          ]),
           SizedBox(height: 2),
           Text('Periodo: ${(_data == null ? '' : (_data!['etiqueta'] ?? ''))}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
           SizedBox(height: gap),
