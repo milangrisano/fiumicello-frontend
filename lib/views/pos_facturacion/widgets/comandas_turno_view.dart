@@ -42,6 +42,16 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     });
   }
 
+  String _fecha(dynamic fecha) {
+    if (fecha == null) return '';
+    try {
+      final d = DateTime.parse(fecha.toString());
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
+  }
+
   String _hora(dynamic fecha) {
     if (fecha == null) return '';
     try {
@@ -116,11 +126,13 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                             child: Table(
                               border: TableBorder.all(color: cs.outlineVariant, width: 1),
                               columnWidths: const {
-                                0: FlexColumnWidth(2.2), // Factura / Hora
-                                1: FlexColumnWidth(1.4), // Mesa / Escenario
-                                2: FlexColumnWidth(1.3), // Forma de pago
-                                3: FlexColumnWidth(4.2), // Ítems
-                                4: FlexColumnWidth(1.3), // Total
+                                0: FlexColumnWidth(2.0), // Factura
+                                1: FlexColumnWidth(1.2), // Fecha
+                                2: FlexColumnWidth(1.0), // Hora
+                                3: FlexColumnWidth(1.4), // Mesa / Escenario
+                                4: FlexColumnWidth(1.3), // Forma de pago
+                                5: FlexColumnWidth(4.2), // Ítems
+                                6: FlexColumnWidth(1.3), // Total
                               },
                               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                               children: [
@@ -128,7 +140,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                 TableRow(
                                   decoration: BoxDecoration(color: cs.surfaceContainerHighest),
                                   children: [
-                                    _th(cs, 'Factura / Hora'),
+                                    _th(cs, 'Factura'),
+                                    _th(cs, 'Fecha'),
+                                    _th(cs, 'Hora'),
                                     _th(cs, 'Mesa'),
                                     _th(cs, 'Pago'),
                                     _th(cs, 'Ítems'),
@@ -139,11 +153,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                 for (final v in _ventas)
                                   TableRow(
                                     children: [
-                                      _celda(
-                                        cs,
-                                        '${v['numero_factura'] ?? v['id']}\n${_hora(v['fecha'])}',
-                                        negrita: true,
-                                      ),
+                                      _celda(cs, '${v['numero_factura'] ?? v['id']}', negrita: true),
+                                      _celda(cs, _fecha(v['fecha'])),
+                                      _celda(cs, _hora(v['fecha'])),
                                       _celda(
                                         cs,
                                         [
