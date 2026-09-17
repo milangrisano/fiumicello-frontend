@@ -137,8 +137,8 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
             Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 6),
-            Text(valor, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            Text(etiqueta, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            Text(valor, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), textAlign: TextAlign.center),
+            Text(etiqueta, style: const TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
           ]),
         ),
       );
@@ -149,18 +149,18 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final semM = _map(kpis['semana_mayor']);
     final diaM = _map(kpis['dia_mayor']);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Totales
-      Center(child: Wrap(spacing: gap, runSpacing: gap, children: [
-        SizedBox(width: 140, child: kpiCard('Monto', money(monto), Icons.attach_money)),
-        SizedBox(width: 140, child: kpiCard('Ventas', '$ventas', Icons.receipt_long)),
-        SizedBox(width: 140, child: kpiCard('Ticket promedio', money(promedio), Icons.calculate)),
-        SizedBox(width: 140, child: kpiCard('Venta prom. diaria', money(ventaDiaria), Icons.calendar_today)),
-      ])),
-      SizedBox(height: gap),
-      const Text('Lo más vendido', style: TextStyle(fontWeight: FontWeight.w600)),
-      SizedBox(height: 6),
-      if (items.isNotEmpty)
+    Widget seccion(String titulo, List<Widget> hijos) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        const SizedBox(height: 6),
+        ...hijos,
+      ]);
+    }
+
+    final loMasVendido = seccion('Lo más vendido', [
+      if (items.isEmpty)
+        const Text('Sin datos.', style: TextStyle(color: Colors.grey))
+      else
         for (final it in items.take(8))
           ListTile(
             dense: true,
@@ -168,9 +168,9 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
             title: Text('${it['nombre']}${it['tamanio'] != null ? ' (${it['tamanio']})' : ''}'),
             subtitle: Text('×${it['cantidad']} · ${money(_num(it['subtotal']))}'),
           ),
-      SizedBox(height: gap),
-      const Text('KPIs', style: TextStyle(fontWeight: FontWeight.w600)),
-      SizedBox(height: 6),
+    ]);
+
+    final kpisLista = seccion('KPIs', [
       if (masV.isNotEmpty)
         ListTile(dense: true, contentPadding: EdgeInsets.zero,
           title: const Text('Producto más vendido'),
@@ -184,5 +184,46 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           title: const Text('Día de mayor venta'),
           subtitle: Text('${diaM['dia']} — ${money(_num(diaM['monto']))}')),
     ]);
+
+    // Layout responsivo: se adapta al ancho real sin dejar espacio desperdiciado.
+    return LayoutBuilder(builder: (context, c) {
+      final ancho = c.maxWidth;
+      // Nº de columnas de los KPI según el ancho disponible (llena el ancho).
+      final kpiCols = ancho >= 720 ? 4 : (ancho >= 400 ? 2 : 1);
+      // Dos paneles lado a lado en pantallas anchas, apilados en las angostas.
+      final dosPaneles = ancho >= 720;
+
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        GridView.count(
+          crossAxisCount: kpiCols,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: gap,
+          crossAxisSpacing: gap,
+          childAspectRatio: 1.8,
+          children: [
+            kpiCard('Monto', money(monto), Icons.attach_money),
+            kpiCard('Ventas', '$ventas', Icons.receipt_long),
+            kpiCard('Ticket promedio', money(promedio), Icons.calculate),
+            kpiCard('Venta prom. diaria', money(ventaDiaria), Icons.calendar_today),
+          ],
+        ),
+        SizedBox(height: gap),
+        if (dosPaneles)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: loMasVendido),
+              SizedBox(width: gap),
+              Expanded(child: kpisLista),
+            ],
+          )
+        else ...[
+          loMasVendido,
+          SizedBox(height: gap),
+          kpisLista,
+        ],
+      ]);
+    });
   }
 }
