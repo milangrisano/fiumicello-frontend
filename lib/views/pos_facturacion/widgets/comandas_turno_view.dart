@@ -5,9 +5,8 @@ import '../../../core/utils/formatters.dart';
 /// Lista las comandas (ventas cobradas) de un turno de caja concreto.
 /// Se llega desde las cards del POS; el turno se elige en el selector del POS.
 ///
-/// Diseño: toda la información visible en línea (sin diálogos ocultos). Cada
-/// comanda es una tarjeta con factura, mesa/escenario, forma de pago, hora y
-/// total, y sus ítems listados debajo.
+/// Diseño: TABLA con columnas (Factura/Hora, Mesa, Forma de pago, Ítems, Total).
+/// Toda la info visible en línea, sin diálogos ocultos, sin espacio desperdiciado.
 class ComandasTurnoView extends StatefulWidget {
   final int idTurno;
   final Map<String, dynamic>? turno;
@@ -63,6 +62,15 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     }
   }
 
+  String _resumenItems(List<dynamic> items) {
+    return items.map((it) {
+      final cant = _num(it['cantidad']).toInt();
+      final nombre = it['nombre'] ?? '';
+      final tam = it['tamanio'] != null ? ' (${it['tamanio']})' : '';
+      return '$cant×$nombre$tam';
+    }).join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -89,7 +97,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                       children: [
                         if (turnoFecha.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                             child: Row(
                               children: [
                                 Icon(Icons.history, size: 16, color: cs.onSurfaceVariant),
@@ -103,101 +111,73 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                             ),
                           ),
                         Expanded(
-                          child: ListView.separated(
+                          child: SingleChildScrollView(
                             padding: const EdgeInsets.all(12),
-                            itemCount: _ventas.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (_, i) {
-                              final v = _ventas[i];
-                              final items = (v['items'] as List? ?? []).cast<Map<String, dynamic>>();
-                              final esc = (v['escenario'] ?? '').toString();
-                              final mesa = v['numero_mesa'];
-                              final subtitulo = [
-                                if (mesa != null) 'Mesa $mesa',
-                                if (esc.isNotEmpty && esc != 'mesa') esc,
-                              ].where((e) => e.isNotEmpty).join(' · ');
-                              return Card(
-                                elevation: 0,
-                                color: cs.surfaceContainerHighest,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Table(
+                              border: TableBorder.all(color: cs.outlineVariant, width: 1),
+                              columnWidths: const {
+                                0: FlexColumnWidth(2.2), // Factura / Hora
+                                1: FlexColumnWidth(1.4), // Mesa / Escenario
+                                2: FlexColumnWidth(1.3), // Forma de pago
+                                3: FlexColumnWidth(4.2), // Ítems
+                                4: FlexColumnWidth(1.3), // Total
+                              },
+                              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                              children: [
+                                // Encabezado
+                                TableRow(
+                                  decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+                                  children: [
+                                    _th(cs, 'Factura / Hora'),
+                                    _th(cs, 'Mesa'),
+                                    _th(cs, 'Pago'),
+                                    _th(cs, 'Ítems'),
+                                    _th(cs, 'Total'),
+                                  ],
+                                ),
+                                // Filas
+                                for (final v in _ventas)
+                                  TableRow(
                                     children: [
-                                      // Fila principal: factura + hora a la izquierda, total a la derecha.
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text('Factura #${v['numero_factura'] ?? v['id']}',
-                                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                                if (subtitulo.isNotEmpty)
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 2),
-                                                    child: Text(subtitulo,
-                                                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: [
-                                              Text(money(_num(v['total'])),
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                              if (_hora(v['fecha']).isNotEmpty)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 2),
-                                                  child: Text(_hora(v['fecha']),
-                                                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
+                                      _celda(
+                                        cs,
+                                        '${v['numero_factura'] ?? v['id']}\n${_hora(v['fecha'])}',
+                                        negrita: true,
                                       ),
-                                      const SizedBox(height: 6),
-                                      // Forma de pago.
-                                      if (v['forma_pago_nombre'] != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: cs.primaryContainer,
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text('${v['forma_pago_nombre']}',
-                                              style: TextStyle(color: cs.onPrimaryContainer, fontSize: 12)),
-                                        ),
-                                      const SizedBox(height: 8),
-                                      // Ítems (toda la info visible, sin tap).
-                                      ...items.map((it) => Padding(
-                                            padding: const EdgeInsets.symmetric(vertical: 1),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    '${it['cantidad']} × ${it['nombre']}${it['tamanio'] != null ? ' (${it['tamanio']})' : ''}',
-                                                    style: const TextStyle(fontSize: 13),
-                                                  ),
-                                                ),
-                                                Text(money(_num(it['subtotal'])),
-                                                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                                              ],
-                                            ),
-                                          )),
+                                      _celda(
+                                        cs,
+                                        [
+                                          if (v['numero_mesa'] != null) 'Mesa ${v['numero_mesa']}',
+                                          if (v['escenario'] != null && v['escenario'] != 'mesa') '${v['escenario']}',
+                                        ].where((e) => e.isNotEmpty).join('\n'),
+                                      ),
+                                      _celda(cs, '${v['forma_pago_nombre'] ?? '—'}'),
+                                      _celda(cs, _resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>())),
+                                      _celda(cs, money(_num(v['total'])), alinear: true, negrita: true),
                                     ],
                                   ),
-                                ),
-                              );
-                            },
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
     );
   }
+
+  Widget _th(ColorScheme cs, String t) => Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(t, style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontSize: 13)),
+      );
+
+  Widget _celda(ColorScheme cs, String t, {bool negrita = false, bool alinear = false}) => Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          t,
+          textAlign: alinear ? TextAlign.right : TextAlign.left,
+          style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: negrita ? FontWeight.w600 : FontWeight.normal),
+        ),
+      );
 
   double _num(dynamic v) {
     if (v is num) return v.toDouble();

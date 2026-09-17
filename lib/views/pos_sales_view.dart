@@ -309,9 +309,19 @@ class _PosSalesViewState extends State<PosSalesView> {
     final t = await ApiClient.cajaTurnos();
     if (!mounted) return;
     if (t.ok) {
+      final lista = t.list.cast<Map<String, dynamic>>();
+      // Si hay un turno abierto, lo ponemos primero y lo seleccionamos por defecto.
+      final abiertoIdx = lista.indexWhere((x) => x['estado'] == 'abierto');
       setState(() {
-        _turnos = t.list.cast<Map<String, dynamic>>();
-        _turnoSelIdx = 0; // por defecto: último turno (el más reciente)
+        if (abiertoIdx > 0) {
+          final abierto = lista.removeAt(abiertoIdx);
+          lista.insert(0, abierto);
+          _turnos = lista;
+          _turnoSelIdx = 0;
+        } else {
+          _turnos = lista;
+          _turnoSelIdx = abiertoIdx == 0 ? 0 : 0;
+        }
       });
     }
   }
