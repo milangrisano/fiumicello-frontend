@@ -17,15 +17,40 @@ class ResumenVentasView extends StatefulWidget {
 
 class _ResumenVentasViewState extends State<ResumenVentasView> {
   String _periodo = 'día';
-  String? _referencia; // fecha ISO (pasado al backend según el periodo)
+  // Fecha de referencia local (YYYY-MM-DD del dispositivo, no UTC del servidor).
+  String _referencia = _fechaLocalHoy();
+  DateTime _fecha = DateTime.now(); // fecha local elegida (para el picker)
   bool _loading = false;
   String? _error;
   Map<String, dynamic>? _data;
+
+  /// Fecha actual en la zona horaria local del dispositivo (YYYY-MM-DD).
+  static String _fechaLocalHoy() {
+    final n = DateTime.now();
+    return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+  }
 
   @override
   void initState() {
     super.initState();
     _cargar();
+  }
+
+  /// Abre el selector de fecha y recarga el resumen con la fecha elegida.
+  Future<void> _elegirFecha() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _fecha = picked;
+      _referencia =
+          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    });
+    await _cargar();
   }
 
   Future<void> _cargar() async {
@@ -68,15 +93,26 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final borde = 20.0;
     final gap = 16.0;
 
-    final chips = Wrap(spacing: 8, runSpacing: 8, children: [
-      for (final p in ['día', 'semana', 'mes', 'año'])
-        ChoiceChip(
-          label: Text(p),
-          selected: _periodo == p,
-          shape: const StadiumBorder(),
-          onSelected: (_) => setState(() { _periodo = p; _cargar(); }),
+    final chips = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final p in ['día', 'semana', 'mes', 'año'])
+          ChoiceChip(
+            label: Text(p),
+            selected: _periodo == p,
+            shape: const StadiumBorder(),
+            onSelected: (_) => setState(() { _periodo = p; _cargar(); }),
+          ),
+        // Botón para elegir una fecha específica (buscar facturación por día).
+        IconButton(
+          icon: const Icon(Icons.calendar_month),
+          tooltip: 'Elegir fecha',
+          onPressed: _elegirFecha,
         ),
-    ]);
+      ],
+    );
 
     final contenido = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(padding: EdgeInsets.only(bottom: gap), child: chips),
