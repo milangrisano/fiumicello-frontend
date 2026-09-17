@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'app_sections.dart';
 import '../core/data/api_client.dart';
+import '../core/theme/theme_controller.dart';
 
 /// Shell #2 — Tablet app (800 <= width < 1200).
 /// AppBar with ONLY icons in the actions; the title is fixed.
@@ -34,6 +35,15 @@ class TabletShell extends StatelessWidget {
               onPressed: () => onSelect(s.index),
             ),
           const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Cambiar tema',
+            icon: AnimatedBuilder(
+              animation: ThemeController.instance,
+              builder: (context, _) =>
+                  Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
+            ),
+            onPressed: () => ThemeController.instance.toggle(),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),

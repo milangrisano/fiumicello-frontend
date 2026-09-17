@@ -3,6 +3,7 @@ import 'active_view.dart';
 import 'app_sections.dart';
 import 'radial_nav.dart';
 import '../core/data/api_client.dart';
+import '../core/theme/theme_controller.dart';
 
 /// Shell #1 — Mobile app (width < 800).
 ///
@@ -29,7 +30,7 @@ class MobileShell extends StatelessWidget {
     final email = ApiClient.currentEmail ?? 'Fiumicello';
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
         backgroundColor: Colors.transparent,
@@ -51,6 +52,15 @@ class MobileShell extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          IconButton(
+            tooltip: 'Cambiar tema',
+            icon: AnimatedBuilder(
+              animation: ThemeController.instance,
+              builder: (context, _) =>
+                  Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
+            ),
+            onPressed: () => ThemeController.instance.toggle(),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),

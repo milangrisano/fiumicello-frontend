@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/theme/maratea_colors.dart';
+import '../../core/theme/app_themes.dart';
 
 /// Public Fiumicello menu (carta). Shown at the app's root `/` and as a section
 /// for authenticated users. Structured: categories with items and prices.
-/// Style: "Notte del Tirreno" (Alt. B) — dark deep-sea background, turquoise/gold
-/// accents, pale-yellow size prices. ALL data (names, ingredients, prices) is
-/// preserved exactly.
+///
+/// Sigue el tema activo de la app:
+///  - DARK  ("Calidez Mediterránea"): fondo azul profundo / negro volcánico,
+///    texto amarillo pálido, acentos turquesa/dorado.
+///  - LIGHT ("Tierra Volcánica"): fondo blanco roto / crema, texto negro
+///    volcánico, acentos terracotta/dorado.
 ///
 /// Responsive:
 ///  - <1200px (mobile/tablet): single column, logo 70px.
@@ -48,21 +51,30 @@ class _CartaViewState extends State<CartaView> {
   List<Map<String, dynamic>> get _categorias =>
       (_carta?['categorias'] as List? ?? []).cast<Map<String, dynamic>>();
 
+  bool get _esOscuro => Theme.of(context).brightness == Brightness.dark;
+
+  // Colores del tema activo (carta dinámica).
+  Color get _fondoA => _esOscuro ? AppPalette.darkBackground : AppPalette.lightBackground;
+  Color get _fondoB => _esOscuro ? AppPalette.darkCard : AppPalette.lightCard;
+  Color get _titulo => _esOscuro ? AppPalette.darkOnSurface : AppPalette.lightOnSurface;
+  Color get _texto => _esOscuro ? AppPalette.darkOnSurfaceVariant : AppPalette.lightOnSurface;
+  Color get _accento => _esOscuro ? AppPalette.darkPrimary : AppPalette.lightPrimary;
+  Color get _dorado => _esOscuro ? AppPalette.darkSecondary : AppPalette.lightSecondary;
+  Color get _precioColor => _esOscuro ? AppPalette.darkPrimary : AppPalette.lightPrimary;
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
-      return Center(
-          child: Text('Error: $_error',
-              style: const TextStyle(color: MarateaColors.pureWhite)));
+      return Center(child: Text('Error: $_error', style: TextStyle(color: _texto)));
     }
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [MarateaColors.deepBlue, MarateaColors.volcanoBlack],
+          colors: [_fondoA, _fondoB],
         ),
       ),
       child: LayoutBuilder(builder: (context, constraints) {
@@ -71,20 +83,18 @@ class _CartaViewState extends State<CartaView> {
         return ListView(
           padding: EdgeInsets.all(isDesktop ? 40 : 20),
           children: [
-            // Header: the transparent brand logo (white variant) floats on the dark sea.
             Center(
               child: Image.asset(
-                'assets/logo_fiumicello_blanco.png',
+                _esOscuro ? 'assets/logo_fiumicello_blanco.png' : 'assets/logo_fiumicello.png',
                 height: logoH == 140 ? 120 : 60,
                 fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 24),
-            // Brand tagline line
-            const Center(
+            Center(
               child: Text('MENÚ  ·  TRATTORIA',
                   style: TextStyle(
-                      color: MarateaColors.goldenSand,
+                      color: _dorado,
                       letterSpacing: 3,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
@@ -95,10 +105,10 @@ class _CartaViewState extends State<CartaView> {
             else
               for (final c in _categorias) ..._categoriaWidgets(c),
             const SizedBox(height: 20),
-            const Center(
+            Center(
               child: Text('¡BUON APPETITO!',
                   style: TextStyle(
-                      color: MarateaColors.turquoise,
+                      color: _accento,
                       fontSize: 18,
                       fontStyle: FontStyle.italic,
                       letterSpacing: 2)),
@@ -135,9 +145,9 @@ class _CartaViewState extends State<CartaView> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: MarateaColors.volcanoBlack,
+              color: _fondoB,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: MarateaColors.turquoise.withValues(alpha: 0.35), width: 1),
+              border: Border.all(color: _accento.withValues(alpha: 0.35), width: 1),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
           ),
@@ -162,20 +172,20 @@ class _CartaViewState extends State<CartaView> {
     ];
   }
 
-  /// Widgets for a whole category: title (with turquoise filete) + grouped items.
+  /// Widgets for a whole category: title (with accent filete) + grouped items.
   List<Widget> _categoriaWidgets(Map<String, dynamic> c) {
     return [
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 22, height: 3, color: MarateaColors.turquoise),
+          Container(width: 22, height: 3, color: _accento),
           const SizedBox(width: 8),
           Text(
             c['nombre'] ?? '',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: MarateaColors.pureWhite,
+              color: _titulo,
               letterSpacing: 1,
             ),
           ),
@@ -210,8 +220,8 @@ class _CartaViewState extends State<CartaView> {
           padding: const EdgeInsets.only(top: 10, bottom: 4),
           child: Text(
             tipo.isEmpty ? 'Otros' : _pluralize(tipo),
-            style: const TextStyle(
-              color: MarateaColors.goldenSand,
+            style: TextStyle(
+              color: _dorado,
               fontWeight: FontWeight.w600,
               fontSize: 15,
             ),
@@ -248,8 +258,8 @@ class _CartaViewState extends State<CartaView> {
             children: [
               Expanded(
                 child: Text(nombre,
-                    style: const TextStyle(
-                        color: MarateaColors.pureWhite, fontSize: 16, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: _titulo, fontSize: 16, fontWeight: FontWeight.w600)),
               ),
               if (conTamanos) const SizedBox.shrink()
               else
@@ -258,7 +268,7 @@ class _CartaViewState extends State<CartaView> {
           ),
           if (desc != null && desc.isNotEmpty && desc.length > 12)
             Text(desc,
-                style: const TextStyle(color: MarateaColors.stoneGray, fontSize: 13)),
+                style: TextStyle(color: _esOscuro ? Colors.white70 : AppPalette.lightOnSurfaceVariant, fontSize: 13)),
           if (conTamanos)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -266,7 +276,7 @@ class _CartaViewState extends State<CartaView> {
                 'Personal ${money(it['precio_personal'])} · '
                 'Mediana ${money(it['precio_mediana'])} · '
                 'Grande ${money(it['precio_grande'])}',
-                style: const TextStyle(color: MarateaColors.paleYellow, fontSize: 12),
+                style: TextStyle(color: _dorado, fontSize: 12),
               ),
             ),
         ],
@@ -275,6 +285,6 @@ class _CartaViewState extends State<CartaView> {
   }
 
   Widget _precio(String s) => Text(s,
-      style: const TextStyle(
-          color: MarateaColors.turquoise, fontWeight: FontWeight.bold));
+      style: TextStyle(
+          color: _precioColor, fontWeight: FontWeight.bold));
 }

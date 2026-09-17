@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'app_sections.dart';
 import '../core/data/api_client.dart';
 import '../core/app_version.dart';
+import '../core/theme/theme_controller.dart';
 
 /// Reusable lateral menu used by the desktop shell (and optionally as a drawer).
 /// The logout button sits at the bottom of the sidebar.
@@ -38,6 +39,21 @@ class Sidebar extends StatelessWidget {
           ),
         ),
         const Divider(height: 1),
+        // Alternar tema (claro/oscuro) — sigue al sistema por defecto; el toggle
+        // permite forzar light o dark.
+        AnimatedBuilder(
+          animation: ThemeController.instance,
+          builder: (context, _) {
+            final ctrl = ThemeController.instance;
+            final oscuro = Theme.of(context).brightness == Brightness.dark;
+            return ListTile(
+              leading: Icon(oscuro ? Icons.light_mode : Icons.dark_mode),
+              title: const Text('Tema'),
+              subtitle: const Text('Claro / Oscuro', style: TextStyle(fontSize: 12)),
+              onTap: () => ctrl.toggle(),
+            );
+          },
+        ),
         // App version above logout.
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),

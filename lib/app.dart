@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/data/api_client.dart';
+import 'core/theme/app_themes.dart';
+import 'core/theme/theme_controller.dart';
 import 'navigation/app_shell.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
@@ -17,20 +19,30 @@ class FiumicelloApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fiumicello',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF0969DA)),
-      initialRoute: '/',
-      routes: {
-        '/': (_) => const HomeView(),
-        '/login': (_) => const LoginView(),
-        '/register': (_) => const RegisterView(),
-        '/app': (_) => const AppShell(),
-      },
-      onGenerateRoute: (settings) {
-        // Unknown route -> home (public carte).
-        return MaterialPageRoute(builder: (_) => const HomeView());
+    // Carga la preferencia de tema una sola vez al arrancar.
+    ThemeController.instance.load();
+    return AnimatedBuilder(
+      animation: ThemeController.instance,
+      builder: (context, _) {
+        final ctrl = ThemeController.instance;
+        return MaterialApp(
+          title: 'Fiumicello',
+          debugShowCheckedModeBanner: false,
+          theme: buildLightTheme(),
+          darkTheme: buildDarkTheme(),
+          themeMode: ctrl.mode,
+          initialRoute: '/',
+          routes: {
+            '/': (_) => const HomeView(),
+            '/login': (_) => const LoginView(),
+            '/register': (_) => const RegisterView(),
+            '/app': (_) => const AppShell(),
+          },
+          onGenerateRoute: (settings) {
+            // Unknown route -> home (public carte).
+            return MaterialPageRoute(builder: (_) => const HomeView());
+          },
+        );
       },
     );
   }
