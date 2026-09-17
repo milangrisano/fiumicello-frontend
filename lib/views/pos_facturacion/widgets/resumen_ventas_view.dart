@@ -181,9 +181,11 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     }
 
     // KPIs
-    final masV = _map(kpis['mas_vendido']);
+    final masCant = _map(kpis['mas_vendido_cantidad']);
+    final masMonto = _map(kpis['mas_vendido_monto']);
     final semM = _map(kpis['semana_mayor']);
     final diaM = _map(kpis['dia_mayor']);
+    final mesM = _map(kpis['mes_mayor']);
 
     Widget seccion(String titulo, List<Widget> hijos) {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -193,32 +195,59 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
       ]);
     }
 
-    final loMasVendido = seccion('Lo más vendido', [
-      if (items.isEmpty)
+    // Top 3 por cantidad (descendente)
+    final porCantidad = [...items]..sort((a, b) => (_num(b['cantidad']) - _num(a['cantidad'])).toInt());
+    final topCant = porCantidad.take(3).toList();
+    // Top 3 por monto (descendente) — items ya viene ordenado por subtotal, pero re-ordenamos por claridad
+    final porMonto = [...items]..sort((a, b) => (_num(b['subtotal']) - _num(a['subtotal'])).toInt());
+    final topMonto = porMonto.take(3).toList();
+
+    // KPI extra según período
+    final kpisExtras = <Widget>[];
+    if (_periodo == 'semana' && diaM.isNotEmpty) {
+      kpisExtras.add(ListTile(dense: true, contentPadding: EdgeInsets.zero,
+        title: const Text('Día de mayor venta'),
+        subtitle: Text('${diaM['dia']} — ${money(_num(diaM['monto']))}')));
+    } else if (_periodo == 'mes' && semM.isNotEmpty) {
+      kpisExtras.add(ListTile(dense: true, contentPadding: EdgeInsets.zero,
+        title: const Text('Semana de mayor venta'),
+        subtitle: Text('${semM['semana']} — ${money(_num(semM['monto']))}')));
+    } else if (_periodo == 'año' && mesM.isNotEmpty) {
+      kpisExtras.add(ListTile(dense: true, contentPadding: EdgeInsets.zero,
+        title: const Text('Mes de mayor venta'),
+        subtitle: Text('${mesM['mes']} — ${money(_num(mesM['monto']))}')));
+    }
+
+    final topPorCantidad = seccion('Top 3 por cantidad', [
+      if (topCant.isEmpty)
         const Text('Sin datos.', style: TextStyle(color: Colors.grey))
       else
-        for (final it in items.take(8))
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
+        for (final it in topCant)
+          ListTile(dense: true, contentPadding: EdgeInsets.zero,
             title: Text('${it['nombre']}${it['tamanio'] != null ? ' (${it['tamanio']})' : ''}'),
-            subtitle: Text('×${it['cantidad']} · ${money(_num(it['subtotal']))}'),
-          ),
+            subtitle: Text('×${_num(it['cantidad']).toInt()} · ${money(_num(it['subtotal']))}')),
+    ]);
+
+    final topPorMonto = seccion('Top 3 por monto', [
+      if (topMonto.isEmpty)
+        const Text('Sin datos.', style: TextStyle(color: Colors.grey))
+      else
+        for (final it in topMonto)
+          ListTile(dense: true, contentPadding: EdgeInsets.zero,
+            title: Text('${it['nombre']}${it['tamanio'] != null ? ' (${it['tamanio']})' : ''}'),
+            subtitle: Text('${money(_num(it['subtotal']))} · ×${_num(it['cantidad']).toInt()}')),
     ]);
 
     final kpisLista = seccion('KPIs', [
-      if (masV.isNotEmpty)
+      if (masCant.isNotEmpty)
         ListTile(dense: true, contentPadding: EdgeInsets.zero,
-          title: const Text('Producto más vendido'),
-          subtitle: Text('${masV['nombre']} ×${_num(masV['cantidad']).toInt()} — ${money(_num(masV['subtotal']))}')),
-      if (semM.isNotEmpty)
+          title: const Text('Producto más vendido (cantidad)'),
+          subtitle: Text('${masCant['nombre']} ×${_num(masCant['cantidad']).toInt()} — ${money(_num(masCant['subtotal']))}')),
+      if (masMonto.isNotEmpty)
         ListTile(dense: true, contentPadding: EdgeInsets.zero,
-          title: const Text('Semana de mayor venta'),
-          subtitle: Text('${semM['semana']} — ${money(_num(semM['monto']))}')),
-      if (diaM.isNotEmpty)
-        ListTile(dense: true, contentPadding: EdgeInsets.zero,
-          title: const Text('Día de mayor venta'),
-          subtitle: Text('${diaM['dia']} — ${money(_num(diaM['monto']))}')),
+          title: const Text('Producto más vendido (monto)'),
+          subtitle: Text('${masMonto['nombre']} — ${money(_num(masMonto['subtotal']))} (×${_num(masMonto['cantidad']).toInt()})')),
+      ...kpisExtras,
     ]);
 
     // Layout responsivo: se adapta al ancho real sin dejar espacio desperdiciado.
@@ -249,16 +278,18 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: loMasVendido),
+              Expanded(child: topPorCantidad),
               SizedBox(width: gap),
-              Expanded(child: kpisLista),
+              Expanded(child: topPorMonto),
             ],
           )
         else ...[
-          loMasVendido,
+          topPorCantidad,
           SizedBox(height: gap),
-          kpisLista,
+          topPorMonto,
         ],
+        SizedBox(height: gap),
+        kpisLista,
       ]);
     });
   }
