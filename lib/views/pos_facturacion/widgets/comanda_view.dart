@@ -153,13 +153,19 @@ class ComandaView extends StatelessWidget {
             children: [
               header,
               SizedBox(height: gap),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Flexible(flex: 3, child: cuerpo),
-                  SizedBox(width: 8),
-                  SizedBox(width: 380, child: panelComanda),
-                ],
+              // Flexible vertical: acota el alto del área a lo disponible en el
+              // viewport. El cuerpo (SingleChildScrollView) scrollea SOLO cuando
+              // el grid de productos excede ese alto; si cabe, no hay scroll.
+              // Automático: depende del alto real (y del ancho -> nº de columnas).
+              Flexible(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(flex: 3, child: cuerpo),
+                    SizedBox(width: 8),
+                    SizedBox(width: 380, child: panelComanda),
+                  ],
+                ),
               ),
             ],
           );
