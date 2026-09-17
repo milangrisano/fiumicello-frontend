@@ -763,6 +763,40 @@ class ApiClient {
       return ListResult(false, [], '$e');
     }
   }
+
+  /// Lista todos los turnos de caja (más reciente primero).
+  static Future<ListResult> cajaTurnos() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/caja/turnos'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
+      }
+      return ListResult(false, [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, [], '$e');
+    }
+  }
+
+  /// Ventas (comandas cobradas) de un turno específico, con sus ítems.
+  static Future<ListResult> obtenerVentasTurno(int idTurno) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/ventas?id_turno=$idTurno'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
+      }
+      return ListResult(false, [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, [], '$e');
+    }
+  }
 }
 
 class MapResult {

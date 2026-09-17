@@ -36,4 +36,6 @@ class Pantalla {
   static const int entregas = 5;
   static const int resumen = 6;
   static const int abrirCaja = 7;
+  static const int comandasTurno = 8;
+  static const int itemsTurno = 9;
 }

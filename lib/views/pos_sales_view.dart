@@ -10,6 +10,8 @@ import 'pos_facturacion/widgets/resumen_ventas_view.dart';
 import 'pos_facturacion/widgets/cierre_caja_view.dart';
 import 'pos_facturacion/widgets/movimientos_caja_view.dart';
 import 'pos_facturacion/widgets/pago_propina_view.dart';
+import 'pos_facturacion/widgets/comandas_turno_view.dart';
+import 'pos_facturacion/widgets/items_turno_view.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -49,6 +51,9 @@ class _PosSalesViewState extends State<PosSalesView> {
   // Caja / turno activo
   Map<String, dynamic>? _turno;
   bool _cajaCargando = false;
+  // Lista de turnos (para consultar turnos anteriores) y el índice seleccionado.
+  List<Map<String, dynamic>> _turnos = [];
+  int _turnoSelIdx = 0; // 0 = el más reciente (último turno)
 
   @override
   void initState() {
@@ -266,11 +271,54 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
+  /// Etiqueta del turno seleccionado en el selector (el que ven las cards).
+  String _etiquetaTurnoSel() {
+    final t = _turnoSel;
+    if (t == null) return 'Sin turnos';
+    final estado = t['estado'] == 'abierto' ? ' (abierto)' : '';
+    return 'Turno #${t['id']} · ${_fechaTurno(t['fecha'])}$estado';
+  }
+
+  /// Selector de turno: elige cualquiera de la lista (para consultar anteriores).
+  Future<void> _elegirTurno() async {
+    final elegido = await showDialog<int>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Seleccionar turno'),
+        children: [
+          for (int i = 0; i < _turnos.length; i++)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(i),
+              child: Text(
+                'Turno #${_turnos[i]['id']} · ${_fechaTurno(_turnos[i]['fecha'])}'
+                '${_turnos[i]['estado'] == 'abierto' ? ' (abierto)' : ''}',
+              ),
+            ),
+        ],
+      ),
+    );
+    if (elegido != null && mounted) setState(() => _turnoSelIdx = elegido);
+  }
+
   Future<void> _cargarTurno() async {
     final r = await ApiClient.cajaActiva();
     if (!mounted) return;
     setState(() => _turno = (r.ok && r.data != null && r.data!.isNotEmpty) ? r.data : null);
+    // Cargar la lista de turnos (para consultar turnos anteriores). El más
+    // reciente queda en el índice 0.
+    final t = await ApiClient.cajaTurnos();
+    if (!mounted) return;
+    if (t.ok) {
+      setState(() {
+        _turnos = t.list.cast<Map<String, dynamic>>();
+        _turnoSelIdx = 0; // por defecto: último turno (el más reciente)
+      });
+    }
   }
+
+  /// Turno seleccionado en el selector (el que ven las cards de comandas/íttems).
+  Map<String, dynamic>? get _turnoSel =>
+      _turnos.isNotEmpty ? _turnos[_turnoSelIdx.clamp(0, _turnos.length - 1)] : null;
 
   Future<void> _abrirCaja(double efectivoInicial) async {
     setState(() => _cajaCargando = true);
@@ -349,6 +397,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
     // Pantallas que NO requieren caja abierta (cards de inicio y resumen) se
     // muestran siempre. Las de facturación/cobro/entregas SÍ exigen turno abierto.
+    // (Comandas/Ítems del turno se abren con Navigator.push desde las cards.)
     if (_pantalla == Pantalla.inicio || _pantalla == Pantalla.resumen) {
       switch (_pantalla) {
         case Pantalla.resumen:
@@ -416,6 +465,21 @@ class _PosSalesViewState extends State<PosSalesView> {
           MaterialPageRoute(builder: (_) => const PagoPropinaView()),
         );
       }),
+      // Cards del turno en curso / turnos anteriores (siempre visibles).
+      _inicioCard('Comandas del turno', Icons.receipt_long, () {
+        final t = _turnoSel;
+        if (t == null) { _snack('No hay turnos registrados.'); return; }
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ComandasTurnoView(idTurno: t['id'] as int, turno: t)),
+        );
+      }),
+      _inicioCard('Ítems vendidos del turno', Icons.list_alt, () {
+        final t = _turnoSel;
+        if (t == null) { _snack('No hay turnos registrados.'); return; }
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ItemsTurnoView(idTurno: t['id'] as int, turno: t)),
+        );
+      }),
     ];
     // Wrap uniforme: cards del mismo ancho (según ancho real de pantalla)
     // y mismo alto (IntrinsicHeight dentro de un alto fijo), gaps uniformes y
@@ -434,12 +498,40 @@ class _PosSalesViewState extends State<PosSalesView> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
               child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
             ),
-          if (_turno != null)
+          if (_turnos.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Chip(
-                avatar: const Icon(Icons.account_balance_wallet, size: 18),
-                label: Text('Turno ${_turno!['numero_dia']} · ${_fechaTurno(_turno!['fecha'])}'),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Turno anterior',
+                    onPressed: _turnoSelIdx < _turnos.length - 1
+                        ? () => setState(() => _turnoSelIdx++)
+                        : null,
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: _turnos.length > 1 ? _elegirTurno : null,
+                        child: Chip(
+                          avatar: Icon(
+                            _turnoSel?['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
+                            size: 18,
+                          ),
+                          label: Text(_etiquetaTurnoSel()),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Turno más reciente',
+                    onPressed: _turnoSelIdx > 0
+                        ? () => setState(() => _turnoSelIdx--)
+                        : null,
+                  ),
+                ],
               ),
             ),
           Padding(
