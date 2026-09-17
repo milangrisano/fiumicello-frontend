@@ -3,7 +3,8 @@ import '../../../core/data/api_client.dart';
 import '../../../core/utils/formatters.dart';
 
 /// Lista los ítems vendidos (línea por línea) de todas las comandas del turno.
-/// Cada venta aporta sus ítems; se muestran en orden, sin agrupar.
+/// Se muestran en una TABLA (Factura, Producto, Tamaño, Cantidad, Subtotal)
+/// sin tiles que desperdicien espacio. Totales al pie.
 class ItemsTurnoView extends StatefulWidget {
   final int idTurno;
   final Map<String, dynamic>? turno;
@@ -77,9 +78,10 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
               : _items.isEmpty
                   ? const Center(child: Text('No hay ítems en este turno.', style: TextStyle(color: Colors.grey)))
                   : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           color: cs.surfaceContainerHighest,
                           child: Row(
                             children: [
@@ -92,26 +94,72 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                           ),
                         ),
                         Expanded(
-                          child: ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _items.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (_, i) {
-                              final it = _items[i];
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text('${it['nombre']}${it['tamanio'] != null ? ' (${it['tamanio']})' : ''}',
-                                    style: const TextStyle(fontWeight: FontWeight.w500)),
-                                subtitle: Text('Factura #${it['factura']} · ×${_num(it['cantidad']).toInt()}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                                trailing: Text(money(_num(it['subtotal'])), style: const TextStyle(fontWeight: FontWeight.bold)),
-                              );
-                            },
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(12),
+                            child: Table(
+                              border: TableBorder.all(color: cs.outlineVariant, width: 1),
+                              columnWidths: const {
+                                0: FlexColumnWidth(1.6), // Factura
+                                1: FlexColumnWidth(3.6), // Producto
+                                2: FlexColumnWidth(1.6), // Tamaño
+                                3: FlexColumnWidth(1.0), // Cantidad
+                                4: FlexColumnWidth(1.3), // Subtotal
+                              },
+                              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                              children: [
+                                TableRow(
+                                  decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+                                  children: [
+                                    _th(cs, 'Factura'),
+                                    _th(cs, 'Producto'),
+                                    _th(cs, 'Tamaño'),
+                                    _th(cs, 'Cant'),
+                                    _th(cs, 'Subtotal'),
+                                  ],
+                                ),
+                                for (final it in _items)
+                                  TableRow(
+                                    children: [
+                                      _celda(cs, '${it['factura']}'),
+                                      _celda(cs, '${it['nombre'] ?? ''}', negrita: true),
+                                      _celda(cs, '${it['tamanio'] ?? '—'}'),
+                                      _celda(cs, _num(it['cantidad']).toInt().toString(), alinear: true),
+                                      _celda(cs, money(_num(it['subtotal'])), alinear: true, negrita: true),
+                                    ],
+                                  ),
+                                // Fila totales
+                                TableRow(
+                                  decoration: BoxDecoration(color: cs.primaryContainer),
+                                  children: [
+                                    _celda(cs, 'TOTAL', negrita: true),
+                                    _celda(cs, '', negrita: true),
+                                    _celda(cs, '', negrita: true),
+                                    _celda(cs, _totalCantidad.toString(), alinear: true, negrita: true),
+                                    _celda(cs, money(_totalMonto), alinear: true, negrita: true),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
     );
   }
+
+  Widget _th(ColorScheme cs, String t) => Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(t, style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontSize: 13)),
+      );
+
+  Widget _celda(ColorScheme cs, String t, {bool negrita = false, bool alinear = false}) => Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          t,
+          textAlign: alinear ? TextAlign.right : TextAlign.left,
+          style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: negrita ? FontWeight.w600 : FontWeight.normal),
+        ),
+      );
 
   double _num(dynamic v) {
     if (v is num) return v.toDouble();
