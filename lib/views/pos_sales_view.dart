@@ -348,7 +348,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       case Pantalla.entregas:
         return _vistaEntregas();
       case Pantalla.resumen:
-        return const ResumenVentasView();
+        return ResumenVentasView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
       default:
         return _vistaInicio();
     }

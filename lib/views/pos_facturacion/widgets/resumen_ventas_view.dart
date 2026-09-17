@@ -7,7 +7,10 @@ import '../../../core/utils/formatters.dart';
 /// Filters by periodo (año/mes/semana/día) with an optional reference date,
 /// showing totals, items breakdown and KPIs (most-sold, best week, best day).
 class ResumenVentasView extends StatefulWidget {
-  const ResumenVentasView({super.key});
+  /// Callback para volver a la pantalla anterior (las cards del POS). Si es null,
+  /// se usa Navigator.pop como respaldo.
+  final VoidCallback? onVolver;
+  const ResumenVentasView({super.key, this.onVolver});
   @override
   State<ResumenVentasView> createState() => _ResumenVentasViewState();
 }
@@ -93,7 +96,16 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop()),
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (widget.onVolver != null) {
+                  widget.onVolver!();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
             const SizedBox(width: 8),
             const Text('Resumen de ventas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
           ]),
