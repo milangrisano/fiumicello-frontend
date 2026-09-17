@@ -35,4 +35,5 @@ class Pantalla {
   static const int mesas = 4;
   static const int entregas = 5;
   static const int resumen = 6;
+  static const int abrirCaja = 7;
 }

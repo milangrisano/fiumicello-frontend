@@ -280,9 +280,23 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (r.ok) {
       _snack('Caja abierta.');
       await _cargarTurno();
+      if (mounted) setState(() => _pantalla = Pantalla.inicio);
     } else {
       _snack(r.message);
     }
+  }
+
+  Future<void> _cerrarTurno() async {
+    final cerrado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => CierreCajaView(turno: _turno!)),
+    );
+    if (cerrado == true) await _cargarTurno();
+  }
+
+  Future<void> _movimientosCaja() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovimientosCajaView(turno: _turno!)),
+    );
   }
 
   Widget _pantallaAbrirCaja() {
@@ -333,9 +347,21 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
-    // Gate de caja: sin turno abierto no se puede facturar.
+    // Pantallas que NO requieren caja abierta (cards de inicio y resumen) se
+    // muestran siempre. Las de facturación/cobro/entregas SÍ exigen turno abierto.
+    if (_pantalla == Pantalla.inicio || _pantalla == Pantalla.resumen) {
+      switch (_pantalla) {
+        case Pantalla.resumen:
+          return ResumenVentasView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
+        default:
+          return _vistaInicio();
+      }
+    }
+    // Pantalla explícita de abrir caja.
+    if (_pantalla == Pantalla.abrirCaja) return _pantallaAbrirCaja();
+    // Gate de caja: sin turno abierto no se puede facturar (ni cerrar).
     if (_turno == null) return _pantallaAbrirCaja();
-    // Renderizado por pantalla del flujo POS.
+    // Renderizado por pantalla del flujo POS que requiere caja abierta.
     switch (_pantalla) {
       case Pantalla.comanda:
         return _vistaComanda();
@@ -347,8 +373,6 @@ class _PosSalesViewState extends State<PosSalesView> {
         return _vistaMesas();
       case Pantalla.entregas:
         return _vistaEntregas();
-      case Pantalla.resumen:
-        return ResumenVentasView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
       default:
         return _vistaInicio();
     }
@@ -379,16 +403,13 @@ class _PosSalesViewState extends State<PosSalesView> {
         setState(() => _pantalla = Pantalla.entregas);
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
-      _inicioCard('Cerrar turno (arqueo)', Icons.account_balance_wallet, () async {
-        final cerrado = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(builder: (_) => CierreCajaView(turno: _turno!)),
-        );
-        if (cerrado == true) await _cargarTurno();
+      _inicioCard('Cerrar turno (arqueo)', Icons.account_balance_wallet, () {
+        if (_turno == null) { setState(() => _pantalla = Pantalla.abrirCaja); return; }
+        _cerrarTurno();
       }),
-      _inicioCard('Movimientos de caja', Icons.swap_horiz, () async {
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => MovimientosCajaView(turno: _turno!)),
-        );
+      _inicioCard('Movimientos de caja', Icons.swap_horiz, () {
+        if (_turno == null) { setState(() => _pantalla = Pantalla.abrirCaja); return; }
+        _movimientosCaja();
       }),
       _inicioCard('Pago de propinas', Icons.redeem, () async {
         await Navigator.of(context).push(
