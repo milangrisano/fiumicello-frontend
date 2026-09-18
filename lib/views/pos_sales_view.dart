@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
+import '../navigation/app_titulo.dart';
 import '../core/utils/formatters.dart';
 import 'pos_facturacion/pos_models.dart';
 import 'pos_facturacion/pos_utils.dart'
@@ -338,6 +339,29 @@ class _PosSalesViewState extends State<PosSalesView> {
   Map<String, dynamic>? get _turnoSel =>
       _turnos.isNotEmpty ? _turnos[_turnoSelIdx.clamp(0, _turnos.length - 1)] : null;
 
+  /// Actualiza el título del AppBar según la pantalla del POS actual.
+  void _pintarTitulo() {
+    switch (_pantalla) {
+      case Pantalla.comanda:
+        AppTitulo.titulo.value = 'Nueva comanda';
+        return;
+      case Pantalla.asignacion:
+        AppTitulo.titulo.value = 'Asignar comanda';
+        return;
+      case Pantalla.cobro:
+        AppTitulo.titulo.value = 'Cobrar';
+        return;
+      case Pantalla.mesas:
+        AppTitulo.titulo.value = 'Mesas abiertas';
+        return;
+      case Pantalla.entregas:
+        AppTitulo.titulo.value = 'Pedidos por entregar';
+        return;
+      default:
+        AppTitulo.titulo.value = 'POS de facturación';
+    }
+  }
+
   Future<void> _abrirCaja(double efectivoInicial) async {
     setState(() => _cajaCargando = true);
     final r = await ApiClient.cajaAbrir(efectivoInicial);
@@ -413,6 +437,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
+    _pintarTitulo();
     // Pantallas que NO requieren caja abierta (cards de inicio y resumen) se
     // muestran siempre. Las de facturación/cobro/entregas SÍ exigen turno abierto.
     // (Comandas/Ítems del turno se abren con Navigator.push desde las cards.)

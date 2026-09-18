@@ -5,6 +5,7 @@ import '../views/resumenes/summaries_view.dart';
 import '../views/admin/admin_view.dart';
 import '../views/carta/carta_view.dart';
 import 'app_sections.dart';
+import 'app_titulo.dart';
 
 /// Returns the widget for the active menu section.
 class ActiveView extends StatelessWidget {
@@ -17,14 +18,18 @@ class ActiveView extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (index) {
       case AppSections.carta:
+        AppTitulo.titulo.value = 'Carta';
         return const CartaView();
       case AppSections.pos:
         return PosSalesView(onNavegar: onNavegar);
       case AppSections.summaries:
+        AppTitulo.titulo.value = 'Resumenes contables';
         return const SummariesView();
       case AppSections.admin:
+        AppTitulo.titulo.value = 'Administración';
         return const AdminView();
       default:
+        AppTitulo.titulo.value = 'Facturas y comprobantes';
         return const InvoicesView();
     }
   }

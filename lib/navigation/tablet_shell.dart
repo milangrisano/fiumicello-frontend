@@ -3,6 +3,7 @@ import 'active_view.dart';
 import 'app_sections.dart';
 import '../core/data/api_client.dart';
 import '../core/theme/theme_controller.dart';
+import 'app_titulo.dart';
 
 /// Shell #2 — Tablet app (800 <= width < 1200).
 /// AppBar with ONLY icons in the actions; the title is fixed.
@@ -24,7 +25,10 @@ class TabletShell extends StatelessWidget {
     final visible = AppSections.visible();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fiumicello · Gestión'),
+        title: ValueListenableBuilder<String>(
+          valueListenable: AppTitulo.titulo,
+          builder: (context, t, _) => Text(t),
+        ),
         automaticallyImplyLeading: false,
         actions: [
           for (final s in visible)

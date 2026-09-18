@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'sidebar.dart';
+import 'app_titulo.dart';
 
 /// Shell #3 — Desktop app (width >= 1200).
 /// Shows a collapsible sidebar on the left; the body keeps the active view.
@@ -25,7 +26,10 @@ class _DesktopShellState extends State<DesktopShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fiumicello · Gestión'),
+        title: ValueListenableBuilder<String>(
+          valueListenable: AppTitulo.titulo,
+          builder: (context, t, _) => Text(t),
+        ),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(

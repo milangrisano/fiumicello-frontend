@@ -77,16 +77,6 @@ class ComandaView extends StatelessWidget {
       builder: (context, c) {
         final borde = c.maxWidth >= 900 ? 24.0 : 16.0;
         final alto = c.maxHeight;
-        final header = Padding(
-          padding: EdgeInsets.fromLTRB(borde, 8, borde, 0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(icon: const Icon(Icons.arrow_back), onPressed: onVolver),
-              const Text('Nueva comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-        );
 
         final listaComanda = SingleChildScrollView(
           child: Column(
@@ -142,8 +132,7 @@ class ComandaView extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              header,
-              SizedBox(height: gap),
+              SizedBox(height: 8),
               // Flexible vertical: acota el alto del área a lo disponible en el
               // viewport. El cuerpo (SingleChildScrollView) scrollea SOLO cuando
               // el grid de productos excede ese alto; si cabe, no hay scroll.
@@ -272,9 +261,21 @@ class ComandaView extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: EdgeInsets.fromLTRB(0, 0, 0, gap),
-        child: TextField(
-          onChanged: onBuscar,
-          decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Volver',
+              onPressed: onVolver,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: TextField(
+                onChanged: onBuscar,
+                decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+              ),
+            ),
+          ],
         ),
       ),
       SizedBox(
@@ -283,6 +284,14 @@ class ComandaView extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 4),
           children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: const Text('Todos'),
+                selected: categoriaSel == null,
+                onSelected: (_) => onCategoria(null),
+              ),
+            ),
             for (final c in categorias)
               Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
                 label: Text(c['nombre'] ?? ''),
@@ -341,10 +350,13 @@ class ComandaView extends StatelessWidget {
   Widget _productoBoton(BuildContext context, Map<String, dynamic> it, {double lado = 120}) {
     final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
-    final costoDef = _num(it['costo']);
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(16),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      elevation: 1,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
@@ -388,11 +400,5 @@ class ComandaView extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  double _num(dynamic v) {
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v.trim()) ?? 0.0;
-    return 0.0;
   }
 }
