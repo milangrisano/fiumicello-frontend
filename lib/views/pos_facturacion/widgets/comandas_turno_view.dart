@@ -129,36 +129,40 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                       child: Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left),
-                            tooltip: 'Turno anterior',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _idx < widget.turnos.length - 1
-                                ? () => _cambiarTurno(1)
-                                : null,
-                          ),
                           Expanded(
                             child: Center(
-                              child: Chip(
-                                avatar: Icon(
-                                  _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
-                                  size: 16,
-                                ),
-                                label: Text(
-                                  'Turno #${_turnoAct['id']} · $turnoFecha'
-                                  '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    tooltip: 'Turno anterior',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: _idx < widget.turnos.length - 1
+                                        ? () => _cambiarTurno(1)
+                                        : null,
+                                  ),
+                                  Chip(
+                                    avatar: Icon(
+                                      _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
+                                      size: 16,
+                                    ),
+                                    label: Text(
+                                      'Turno #${_turnoAct['id']} · $turnoFecha'
+                                      '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    tooltip: 'Turno más reciente',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right),
-                            tooltip: 'Turno más reciente',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
-                          ),
-                          const SizedBox(width: 4),
                           Text('${_ventas.length} comandas',
                               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
                         ],
