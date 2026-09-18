@@ -797,6 +797,32 @@ class ApiClient {
       return ListResult(false, [], '$e');
     }
   }
+
+  /// Anula una venta (conserva el registro, lo excluye de totales). Requiere ventas:eliminar.
+  static Future<PostResult> anularVenta(int id) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/ventas/$id/anular'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  /// Elimina físicamente una venta. SOLO superadmin (lo valida el backend).
+  static Future<PostResult> eliminarVenta(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/ventas/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
 }
 
 class MapResult {

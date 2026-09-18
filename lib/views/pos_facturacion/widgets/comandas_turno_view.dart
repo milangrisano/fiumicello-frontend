@@ -39,7 +39,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
         // última comanda quede ABAJO.
         final lista = r.list.cast<Map<String, dynamic>>().reversed.toList();
         _ventas = lista;
-        _totalMonto = lista.fold(0.0, (s, v) => s + _num(v['total']));
+        _totalMonto = lista
+            .where((v) => v['anulada'] != true)
+            .fold(0.0, (s, v) => s + _num(v['total']));
         _error = null;
       } else {
         _error = r.message;
@@ -136,8 +138,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                 2: FlexColumnWidth(1.0), // Hora
                                 3: FlexColumnWidth(1.4), // Mesa / Escenario
                                 4: FlexColumnWidth(1.3), // Forma de pago
-                                5: FlexColumnWidth(4.2), // Ítems
-                                6: FlexColumnWidth(1.3), // Total
+                                5: FlexColumnWidth(3.8), // Ítems
+                                6: FlexColumnWidth(1.2), // Total
+                                7: FlexColumnWidth(1.6), // Acciones
                               },
                               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                               children: [
@@ -152,13 +155,20 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                     _th(cs, 'Pago'),
                                     _th(cs, 'Ítems'),
                                     _th(cs, 'Total'),
+                                    _th(cs, 'Acciones'),
                                   ],
                                 ),
                                 // Filas
                                 for (final v in _ventas)
                                   TableRow(
+                                    decoration: v['anulada'] == true
+                                        ? BoxDecoration(color: cs.errorContainer.withValues(alpha: 0.35))
+                                        : null,
                                     children: [
-                                      _celda(cs, '${v['numero_factura'] ?? v['id']}', negrita: true),
+                                      _celda(cs, '${v['numero_factura'] ?? v['id']}',
+                                          negrita: true,
+                                          tachado: v['anulada'] == true,
+                                          extra: v['anulada'] == true ? ' (ANULADA)' : ''),
                                       _celda(cs, _fecha(v['fecha'])),
                                       _celda(cs, _hora(v['fecha'])),
                                       _celda(
@@ -171,6 +181,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                       _celda(cs, '${v['forma_pago_nombre'] ?? '—'}'),
                                       _celda(cs, _resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>())),
                                       _celda(cs, money(_num(v['total'])), alinear: true, negrita: true),
+                                      _celdaAcciones(cs, v),
                                     ],
                                   ),
                                 // Fila de total acumulado
@@ -200,14 +211,96 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
         child: Text(t, style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontSize: 13)),
       );
 
-  Widget _celda(ColorScheme cs, String t, {bool negrita = false, bool alinear = false}) => Padding(
+  Widget _celda(ColorScheme cs, String t, {bool negrita = false, bool alinear = false, bool tachado = false, String extra = ''}) => Padding(
         padding: const EdgeInsets.all(8),
         child: Text(
-          t,
+          '$t$extra',
           textAlign: alinear ? TextAlign.right : TextAlign.left,
-          style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: negrita ? FontWeight.w600 : FontWeight.normal),
+          style: TextStyle(
+            fontSize: 13,
+            color: cs.onSurface,
+            fontWeight: negrita ? FontWeight.w600 : FontWeight.normal,
+            decoration: tachado ? TextDecoration.lineThrough : null,
+            decorationColor: cs.error,
+          ),
         ),
       );
+
+  /// Columna de acciones: Anular (permiso ventas:eliminar) y Borrar (solo superadmin).
+  Widget _celdaAcciones(ColorScheme cs, Map<String, dynamic> v) {
+    final anulada = v['anulada'] == true;
+    final puedeAnular = ApiClient.hasPermiso('ventas:eliminar');
+    final puedeBorrar = ApiClient.isSuperadmin;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (puedeAnular && !anulada)
+            IconButton(
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              tooltip: 'Anular (excluir de totales)',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _anular(v),
+            ),
+          if (puedeBorrar)
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 18, color: cs.error),
+              tooltip: 'Borrar definitivamente (solo superadmin)',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _borrar(v),
+            ),
+          if (!puedeAnular && !puedeBorrar) const Text('—'),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _anular(Map<String, dynamic> v) async {
+    final id = v['id'];
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Anular factura'),
+        content: Text('¿Anular ${v['numero_factura']} por ${money(_num(v['total']))}? '
+            'El registro se conserva pero se excluye de totales, caja y resúmenes.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Anular')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final r = await ApiClient.anularVenta(id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.ok ? 'Venta anulada.' : r.message)));
+    if (r.ok) _cargar();
+  }
+
+  Future<void> _borrar(Map<String, dynamic> v) async {
+    final id = v['id'];
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Borrar factura — SUPERADMIN'),
+        content: Text('¿BORRAR DEFINITIVAMENTE ${v['numero_factura']} por ${money(_num(v['total']))}? '
+            'Se elimina el registro por completo y de los totales. Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Borrar definitivamente'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final r = await ApiClient.eliminarVenta(id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.ok ? 'Venta eliminada.' : r.message)));
+    if (r.ok) _cargar();
+  }
 
   double _num(dynamic v) {
     if (v is num) return v.toDouble();
