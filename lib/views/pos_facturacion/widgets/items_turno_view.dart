@@ -5,7 +5,7 @@ import '../../../core/utils/formatters.dart';
 /// Ítems vendidos del turno, AGRUPADOS por producto + tamaño: cada producto
 /// aparece una sola vez con la cantidad total y el subtotal total facturados
 /// en el turno. Sin repetir líneas ni mostrar número de factura (eso está en la
-/// tabla de comandas).
+/// tabla de comandas). Ordenable por Cantidad y Subtotal (asc/desc).
 class ItemsTurnoView extends StatefulWidget {
   final int idTurno;
   final Map<String, dynamic>? turno;
@@ -18,10 +18,13 @@ class ItemsTurnoView extends StatefulWidget {
 class _ItemsTurnoViewState extends State<ItemsTurnoView> {
   bool _loading = true;
   String? _error;
-  // Filas agrupadas: clave = nombre|tamanio.
   List<Map<String, dynamic>> _filas = [];
   int _totalCantidad = 0;
   double _totalMonto = 0.0;
+
+  // Orden: campo ('cantidad' | 'subtotal') y dirección.
+  String _ordenCampo = 'cantidad';
+  bool _ordenAsc = false;
 
   @override
   void initState() {
@@ -64,7 +67,6 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
     setState(() {
       _loading = false;
       if (r.ok) {
-        // Orden de aparición (la última agrupada queda abajo).
         _filas = mapa.values.toList();
         _totalCantidad = cant;
         _totalMonto = monto;
@@ -73,6 +75,49 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
         _error = r.message;
       }
     });
+  }
+
+  void _ordenarPor(String campo) {
+    setState(() {
+      if (_ordenCampo == campo) {
+        _ordenAsc = !_ordenAsc; // toggle dirección
+      } else {
+        _ordenCampo = campo;
+        _ordenAsc = false; // nuevo campo: desc por defecto
+      }
+      _filas.sort((a, b) {
+        final av = (a[campo] as num).toDouble();
+        final bv = (b[campo] as num).toDouble();
+        return _ordenAsc ? av.compareTo(bv) : bv.compareTo(av);
+      });
+    });
+  }
+
+  Widget _thOrdenable(ColorScheme cs, String titulo, String campo) {
+    final activo = _ordenCampo == campo;
+    return InkWell(
+      onTap: () => _ordenarPor(campo),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(titulo,
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                    fontSize: 13,
+                    decoration: activo ? TextDecoration.underline : null)),
+            const SizedBox(width: 2),
+            Icon(
+              activo ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
+              size: 14,
+              color: activo ? cs.primary : cs.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -130,8 +175,8 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                                   children: [
                                     _th(cs, 'Producto'),
                                     _th(cs, 'Tamaño'),
-                                    _th(cs, 'Cantidad'),
-                                    _th(cs, 'Subtotal'),
+                                    _thOrdenable(cs, 'Cantidad', 'cantidad'),
+                                    _thOrdenable(cs, 'Subtotal', 'subtotal'),
                                   ],
                                 ),
                                 for (final f in _filas)
