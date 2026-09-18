@@ -61,6 +61,11 @@ class AppSections {
 
   /// Visible sections for the current user.
   static List<SectionEntry> visible() {
+    // Sin sesión: solo la carta pública (defensa en profundidad; el shell ya
+    // redirige a login, pero el radial no debe ofrecer secciones internas).
+    if (!ApiClient.isLoggedIn) {
+      return [SectionEntry('Carta', Icons.restaurant_menu, carta)];
+    }
     return [
       for (var i = 0; i < _labelsAll.length; i++)
         if (_visible(i)) SectionEntry(_labelsAll[i], _iconsAll[i], i),
