@@ -7,6 +7,7 @@ typedef void CbAgregar(Map<String, dynamic> item, String? tamanio);
 typedef void CbBuscar(String v);
 typedef void CbCategoria(int? id);
 typedef void CbLinea(Linea l);
+typedef void CbEscenario(String escenario);
 
 /// Stage 1 — Comanda: catalog with product grid + the order being built.
 /// Receives data (read-only) + callbacks from the POS state; owns no logic,
@@ -20,9 +21,12 @@ class ComandaView extends StatelessWidget {
     required this.busqueda,
     required this.categoriaSel,
     required this.error,
+    required this.escenario,
+    required this.escenarioDato,
     required this.onAgregar,
     required this.onBuscar,
     required this.onCategoria,
+    required this.onElegirEscenario,
     required this.onQuitar,
     required this.onRestar,
     required this.onEditarPrecio,
@@ -37,9 +41,12 @@ class ComandaView extends StatelessWidget {
   final String busqueda;
   final int? categoriaSel;
   final String? error;
+  final String escenario;
+  final String escenarioDato;
   final CbAgregar onAgregar;
   final CbBuscar onBuscar;
   final CbCategoria onCategoria;
+  final CbEscenario onElegirEscenario;
   final CbLinea onQuitar;
   final CbLinea onRestar;
   final CbLinea onEditarPrecio;
@@ -122,9 +129,15 @@ class ComandaView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Comanda', style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                SizedBox(height: alto - 220, child: listaComanda),
+                const Text('Comanda', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 6),
+                Center(child: _chipsEscenario()),
+                if (escenarioDato.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(escenarioDato, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+                SizedBox(height: 10),
+                SizedBox(height: alto - 290, child: listaComanda),
                 pie,
               ],
             ),
@@ -209,6 +222,14 @@ class ComandaView extends StatelessWidget {
                     SizedBox(height: gap),
                     const Divider(),
                     SizedBox(height: 4),
+                    const Text('Comanda', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    const SizedBox(height: 8),
+                    Center(child: _chipsEscenario()),
+                    if (escenarioDato.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(escenarioDato, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    ],
+                    const SizedBox(height: 8),
                     if (items.isEmpty)
                       const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
                     else
@@ -304,6 +325,33 @@ class ComandaView extends StatelessWidget {
       SizedBox(height: 8),
       content,
     ]);
+  }
+
+  Widget _chipsEscenario() {
+    Widget chip(String label, String valor, IconData icono) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: ChoiceChip(
+          label: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icono, size: 16),
+            const SizedBox(width: 4),
+            Text(label),
+          ]),
+          selected: escenario == valor,
+          onSelected: (_) => onElegirEscenario(valor),
+        ),
+      );
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 4,
+      children: [
+        chip('Mesa', 'mesa', Icons.restaurant),
+        chip('Para llevar', 'para_llevar', Icons.takeout_dining),
+        chip('Domicilio', 'domicilio', Icons.local_shipping),
+      ],
+    );
   }
 
   Widget _filaComanda(Linea l) {

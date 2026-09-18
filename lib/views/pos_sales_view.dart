@@ -33,6 +33,18 @@ class _PosSalesViewState extends State<PosSalesView> {
   String _clienteNombre = '';
   String _direccion = '';
   String _telefono = '';
+
+  /// Texto descriptivo del escenario elegido (para mostrar bajo los chips).
+  String get _escenarioDato {
+    switch (_escenario) {
+      case 'para_llevar':
+        return _clienteNombre.trim().isEmpty ? 'Para llevar' : 'Para llevar · ${_clienteNombre.trim()}';
+      case 'domicilio':
+        return _clienteNombre.trim().isEmpty ? 'Domicilio' : 'Domicilio · ${_clienteNombre.trim()}';
+      default:
+        return _numeroMesa.trim().isEmpty ? 'Mesa' : 'Mesa ${_numeroMesa.trim()}';
+    }
+  }
   int _pantalla = Pantalla.inicio;
   // Modo "agregar a mesa abierta": si no es null, la comanda se agrega a ese
   // pedido (mesa) al continuar, sin pasar por la etapa de asignación.
@@ -170,7 +182,118 @@ class _PosSalesViewState extends State<PosSalesView> {
       await _refreshVivos();
       return;
     }
-    setState(() => _pantalla = Pantalla.asignacion);
+    // Sin etapa de asignación: se salta directo a la creación/cobro del pedido.
+    // El escenario y sus datos ya se capturaron con los chips de la comanda.
+    await _crearPedido();
+  }
+
+  /// Abre la ventana flotante correspondiente al escenario elegido (chip) para
+  /// capturar los datos necesarios (mesa / llevar / domicilio). Mantiene lo ya
+  /// ingresado sesión a sesión dentro de la misma comanda.
+  Future<void> _elegirEscenario(String escenario) async {
+    if (escenario == 'mesa') {
+      final n = await _dialogTexto(
+        titulo: 'Mesa',
+        etiqueta: 'Número de mesa',
+        icono: Icons.restaurant,
+        textoInicial: _numeroMesa,
+        teclado: TextInputType.number,
+      );
+      if (n == null) return;
+      setState(() {
+        _escenario = 'mesa';
+        _numeroMesa = n.trim();
+      });
+    } else if (escenario == 'para_llevar') {
+      final nombre = await _dialogTexto(
+        titulo: 'Para llevar',
+        etiqueta: 'Nombre de la persona',
+        icono: Icons.takeout_dining,
+        textoInicial: _clienteNombre,
+      );
+      if (nombre == null) return;
+      setState(() {
+        _escenario = 'para_llevar';
+        _clienteNombre = nombre.trim();
+      });
+    } else if (escenario == 'domicilio') {
+      final datos = await _dialogDomicilio();
+      if (datos == null) return;
+      setState(() {
+        _escenario = 'domicilio';
+        _clienteNombre = (datos['nombre'] ?? '').trim();
+        _direccion = (datos['direccion'] ?? '').trim();
+        _telefono = (datos['telefono'] ?? '').trim();
+      });
+    }
+  }
+
+  /// Ventana flotante de un solo campo de texto.
+  Future<String?> _dialogTexto({
+    required String titulo,
+    required String etiqueta,
+    required IconData icono,
+    String textoInicial = '',
+    TextInputType? teclado,
+  }) {
+    final ctrl = TextEditingController(text: textoInicial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [Icon(icono), const SizedBox(width: 8), Text(titulo)]),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: teclado,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: etiqueta,
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Ventana flotante de domicilio (nombre + dirección + teléfono).
+  Future<Map<String, String>?> _dialogDomicilio() {
+    final n = TextEditingController(text: _clienteNombre);
+    final d = TextEditingController(text: _direccion);
+    final t = TextEditingController(text: _telefono);
+    return showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [Icon(Icons.local_shipping), SizedBox(width: 8), Text('Domicilio')]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: n, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre de la persona', border: OutlineInputBorder(), isDense: true)),
+            const SizedBox(height: 8),
+            TextField(controller: d, decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder(), isDense: true)),
+            const SizedBox(height: 8),
+            TextField(controller: t, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Teléfono', border: OutlineInputBorder(), isDense: true)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, {
+              'nombre': n.text,
+              'direccion': d.text,
+              'telefono': t.text,
+            }),
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _crearPedido() async {
@@ -295,9 +418,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       case Pantalla.comanda:
         AppTitulo.titulo.value = 'Nueva comanda';
         return;
-      case Pantalla.asignacion:
-        AppTitulo.titulo.value = 'Asignar comanda';
-        return;
       case Pantalla.cobro:
         AppTitulo.titulo.value = 'Cobrar';
         return;
@@ -407,8 +527,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     switch (_pantalla) {
       case Pantalla.comanda:
         return _vistaComanda();
-      case Pantalla.asignacion:
-        return _vistaAsignacion();
       case Pantalla.cobro:
         return _vistaCobro();
       case Pantalla.mesas:
@@ -541,9 +659,12 @@ class _PosSalesViewState extends State<PosSalesView> {
       busqueda: _busqueda,
       categoriaSel: _categoriaSel,
       error: _error,
+      escenario: _escenario,
+      escenarioDato: _escenarioDato,
       onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
+      onElegirEscenario: _elegirEscenario,
       onQuitar: _quitarLinea,
       onRestar: _restarLinea,
       onEditarPrecio: _editarPrecioLinea,
@@ -606,46 +727,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     setState(() => l.cantidad++);
   }
 
-// ---------- Etapa 2: Asignación ----------
-  Widget _vistaAsignacion() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.comanda)),
-          const Text('Etapa 2 · Asignación', style: TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        Wrap(spacing: 8, children: [
-          ChoiceChip(label: const Text('Mesa'), selected: _escenario == 'mesa', onSelected: (_) => setState(() => _escenario = 'mesa')),
-          ChoiceChip(label: const Text('Para llevar'), selected: _escenario == 'para_llevar', onSelected: (_) => setState(() => _escenario = 'para_llevar')),
-          ChoiceChip(label: const Text('Domicilio'), selected: _escenario == 'domicilio', onSelected: (_) => setState(() => _escenario = 'domicilio')),
-        ]),
-        const SizedBox(height: 12),
-        if (_escenario == 'mesa')
-          TextField(keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Número de mesa', border: OutlineInputBorder(), isDense: true), onChanged: (v) => _numeroMesa = v),
-        if (_escenario == 'para_llevar' || _escenario == 'domicilio') ...[
-          TextField(decoration: const InputDecoration(labelText: 'Nombre de la persona', border: OutlineInputBorder(), isDense: true), onChanged: (v) => _clienteNombre = v),
-          if (_escenario == 'domicilio') ...[
-            const SizedBox(height: 8),
-            TextField(decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder(), isDense: true), onChanged: (v) => _direccion = v),
-            const SizedBox(height: 8),
-            TextField(decoration: const InputDecoration(labelText: 'Teléfono', border: OutlineInputBorder(), isDense: true), onChanged: (v) => _telefono = v),
-          ],
-        ],
-        const SizedBox(height: 16),
-        Text('Items: ${_comanda.length} · Total: ${money(_totalComanda)}', style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _cobrando ? null : _crearPedido,
-          icon: const Icon(Icons.checklist),
-          label: Text(_escenario == 'mesa' ? 'Abrir mesa' : 'Cobrar ahora y a preparar'),
-        ),
-      ]),
-    );
-  }
-
   // ---------- Etapa 3: Cobro ----------
   Widget _vistaCobro() {
     return SingleChildScrollView(
@@ -654,7 +735,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.asignacion)),
+          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.comanda)),
           const Text('Etapa 3 · Cobro', style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 8),
