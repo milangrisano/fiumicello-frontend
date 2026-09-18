@@ -5,7 +5,7 @@ class Linea {
   final int idProducto;
   final String nombre;
   final String? tamanio;
-  final double precio;
+  double precio;
   int cantidad = 1;
   String nota = '';
   /// true si esta línea ya existe en la mesa/pedido (se cargó al editar);

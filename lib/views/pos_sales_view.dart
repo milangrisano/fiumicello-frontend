@@ -103,12 +103,14 @@ class _PosSalesViewState extends State<PosSalesView> {
     return t;
   }
 
-  void _agregar(Map<String, dynamic> item, String? tamanio, int cantidad, double costoUnitario) {
+  void _agregar(Map<String, dynamic> item, String? tamanio) {
     final precio = precioDe(item, tamanio);
+    // Costo del catálogo (para guardarlo en la venta); se edita en el resumen.
+    final costoCatalogo = double.tryParse((item['costo'] ?? '').toString()) ?? 0.0;
     setState(() {
       for (final l in _comanda) {
         if (l.idProducto == (item['id'] as int?) && l.tamanio == tamanio) {
-          l.cantidad += cantidad;
+          l.cantidad++;
           return;
         }
       }
@@ -117,8 +119,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         nombre: item['nombre'] ?? '',
         tamanio: tamanio,
         precio: precio,
-        costoUnitario: costoUnitario,
-        cantidad: cantidad,
+        costoUnitario: costoCatalogo,
       ));
     });
   }
@@ -599,24 +600,65 @@ class _PosSalesViewState extends State<PosSalesView> {
       busqueda: _busqueda,
       categoriaSel: _categoriaSel,
       error: _error,
-      onAgregar: (it, tam, cant, costo) => _agregar(it, tam, cant, costo),
+      onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
       onQuitar: _quitarLinea,
-      onNota: _editarNota,
+      onRestar: _restarLinea,
+      onEditarPrecio: _editarPrecioLinea,
       onSumar: _sumarLinea,
       onContinuar: _siguienteEtapa,
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
     );
   }
 
+  /// Borra por completo la línea de la comanda.
   void _quitarLinea(Linea l) {
-    setState(() { if (l.cantidad > 1) l.cantidad--; else _comanda.remove(l); });
+    setState(() => _comanda.remove(l));
   }
 
-  Future<void> _editarNota(Linea l) async {
-    final n = await _dialogNota('${l.nombre} — Nota');
-    if (n != null && mounted) setState(() => l.nota = n);
+  /// Disminuye en 1 la cantidad; si llega a 0 se borra la línea.
+  void _restarLinea(Linea l) {
+    setState(() {
+      if (l.cantidad > 1) l.cantidad--;
+      else _comanda.remove(l);
+    });
+  }
+
+  /// Edita el precio (y el costo) de una línea desde el resumen.
+  Future<void> _editarPrecioLinea(Linea l) async {
+    final ctrlPrecio = TextEditingController(text: l.precio.toString());
+    final ctrlCosto = TextEditingController(text: l.costoUnitario > 0 ? l.costoUnitario.toString() : '');
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar ${l.nombre}'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: ctrlPrecio,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Precio (COP)', prefixText: '\$'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: ctrlCosto,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Costo unitario (COP, opcional)', prefixText: '\$'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (r == true && mounted) {
+      setState(() {
+        l.precio = double.tryParse(ctrlPrecio.text.trim().replaceAll(',', '.')) ?? l.precio;
+        final c = double.tryParse(ctrlCosto.text.trim().replaceAll(',', '.')) ?? 0.0;
+        l.costoUnitario = c;
+      });
+    }
   }
 
   void _sumarLinea(Linea l) {
