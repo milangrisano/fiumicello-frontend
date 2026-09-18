@@ -33,18 +33,6 @@ class _PosSalesViewState extends State<PosSalesView> {
   String _clienteNombre = '';
   String _direccion = '';
   String _telefono = '';
-
-  /// Texto descriptivo del escenario elegido (para mostrar bajo los chips).
-  String get _escenarioDato {
-    switch (_escenario) {
-      case 'para_llevar':
-        return _clienteNombre.trim().isEmpty ? 'Para llevar' : 'Para llevar · ${_clienteNombre.trim()}';
-      case 'domicilio':
-        return _clienteNombre.trim().isEmpty ? 'Domicilio' : 'Domicilio · ${_clienteNombre.trim()}';
-      default:
-        return _numeroMesa.trim().isEmpty ? 'Mesa' : 'Mesa ${_numeroMesa.trim()}';
-    }
-  }
   int _pantalla = Pantalla.inicio;
   // Modo "agregar a mesa abierta": si no es null, la comanda se agrega a ese
   // pedido (mesa) al continuar, sin pasar por la etapa de asignación.
@@ -660,7 +648,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       categoriaSel: _categoriaSel,
       error: _error,
       escenario: _escenario,
-      escenarioDato: _escenarioDato,
       onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),

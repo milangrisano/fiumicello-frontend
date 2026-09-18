@@ -22,7 +22,6 @@ class ComandaView extends StatelessWidget {
     required this.categoriaSel,
     required this.error,
     required this.escenario,
-    required this.escenarioDato,
     required this.onAgregar,
     required this.onBuscar,
     required this.onCategoria,
@@ -42,7 +41,6 @@ class ComandaView extends StatelessWidget {
   final int? categoriaSel;
   final String? error;
   final String escenario;
-  final String escenarioDato;
   final CbAgregar onAgregar;
   final CbBuscar onBuscar;
   final CbCategoria onCategoria;
@@ -132,10 +130,6 @@ class ComandaView extends StatelessWidget {
                 const Text('Comanda', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 6),
                 Center(child: _chipsEscenario()),
-                if (escenarioDato.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(escenarioDato, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ],
                 SizedBox(height: 10),
                 SizedBox(height: alto - 290, child: listaComanda),
                 pie,
@@ -225,10 +219,6 @@ class ComandaView extends StatelessWidget {
                     const Text('Comanda', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                     const SizedBox(height: 8),
                     Center(child: _chipsEscenario()),
-                    if (escenarioDato.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(escenarioDato, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                    ],
                     const SizedBox(height: 8),
                     if (items.isEmpty)
                       const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
@@ -329,23 +319,31 @@ class ComandaView extends StatelessWidget {
 
   Widget _chipsEscenario() {
     Widget chip(String label, String valor, IconData icono) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
-        child: ChoiceChip(
-          label: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icono, size: 16),
-            const SizedBox(width: 4),
-            Text(label),
-          ]),
-          selected: escenario == valor,
-          onSelected: (_) => onElegirEscenario(valor),
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: ChoiceChip(
+            label: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icono, size: 15),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1, style: const TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+            selected: escenario == valor,
+            onSelected: (_) => onElegirEscenario(valor),
+          ),
         ),
       );
     }
 
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 4,
+    // Row con Expanded: los 3 chips SIEMPRE quedan en una sola línea,
+    // repartiéndose el ancho disponible (se encogen en pantallas angostas).
+    return Row(
       children: [
         chip('Mesa', 'mesa', Icons.restaurant),
         chip('Para llevar', 'para_llevar', Icons.takeout_dining),
