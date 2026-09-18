@@ -145,80 +145,181 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                     Expanded(
                       child: _ventas.isEmpty
                           ? const Center(child: Text('No hay comandas en este turno.', style: TextStyle(color: Colors.grey)))
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.all(12),
-                              child: Table(
-                              border: TableBorder.all(color: cs.outlineVariant, width: 1),
-                              columnWidths: {
-                                0: const FlexColumnWidth(2.0),
-                                1: const FlexColumnWidth(1.2),
-                                2: const FlexColumnWidth(1.0),
-                                3: const FlexColumnWidth(1.4),
-                                4: const FlexColumnWidth(1.3),
-                                5: const FlexColumnWidth(3.8),
-                                6: const FlexColumnWidth(1.2),
-                                if (tieneAcciones) 7: const FlexColumnWidth(1.6),
-                              },
-                              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                              children: [
-                                TableRow(
-                                  decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+                          : LayoutBuilder(
+                              builder: (context, c) {
+                                // Móvil / tablet angosta: tarjetas apiladas (legible).
+                                // PC: tabla.
+                                if (c.maxWidth < 640) {
+                                  return ListView.separated(
+                                    padding: const EdgeInsets.all(12),
+                                    itemCount: _ventas.length + 1, // + fila total
+                                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                    itemBuilder: (context, i) {
+                                      if (i == _ventas.length) {
+                                        return Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: cs.primaryContainer,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text('TOTAL · ${_ventas.length} comandas',
+                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                                              Text(money(_totalMonto),
+                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      return _cardComanda(cs, _ventas[i], tieneAcciones);
+                                    },
+                                  );
+                                }
+                                // PC: tabla original.
+                                return SingleChildScrollView(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Table(
+                                  border: TableBorder.all(color: cs.outlineVariant, width: 1),
+                                  columnWidths: {
+                                    0: const FlexColumnWidth(2.0),
+                                    1: const FlexColumnWidth(1.2),
+                                    2: const FlexColumnWidth(1.0),
+                                    3: const FlexColumnWidth(1.4),
+                                    4: const FlexColumnWidth(1.3),
+                                    5: const FlexColumnWidth(3.8),
+                                    6: const FlexColumnWidth(1.2),
+                                    if (tieneAcciones) 7: const FlexColumnWidth(1.6),
+                                  },
+                                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                   children: [
-                                    _th(cs, 'Factura'),
-                                    _th(cs, 'Fecha'),
-                                    _th(cs, 'Hora'),
-                                    _th(cs, 'Mesa'),
-                                    _th(cs, 'Pago'),
-                                    _th(cs, 'Ítems'),
-                                    _th(cs, 'Total'),
-                                    if (tieneAcciones) _th(cs, 'Acciones'),
-                                  ],
-                                ),
-                                for (final v in _ventas)
-                                  TableRow(
-                                    decoration: v['anulada'] == true
-                                        ? BoxDecoration(color: cs.errorContainer.withValues(alpha: 0.35))
-                                        : null,
-                                    children: [
-                                      _celda(cs, '${v['numero_factura'] ?? v['id']}',
-                                          negrita: true,
-                                          tachado: v['anulada'] == true,
-                                          extra: v['anulada'] == true ? ' (ANULADA)' : ''),
-                                      _celda(cs, _fecha(v['fecha'])),
-                                      _celda(cs, _hora(v['fecha'])),
-                                      _celda(
-                                        cs,
-                                        [
-                                          if (v['numero_mesa'] != null) 'Mesa ${v['numero_mesa']}',
-                                          if (v['escenario'] != null && v['escenario'] != 'mesa') '${v['escenario']}',
-                                        ].where((e) => e.isNotEmpty).join('\n'),
+                                    TableRow(
+                                      decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+                                      children: [
+                                        _th(cs, 'Factura'),
+                                        _th(cs, 'Fecha'),
+                                        _th(cs, 'Hora'),
+                                        _th(cs, 'Mesa'),
+                                        _th(cs, 'Pago'),
+                                        _th(cs, 'Ítems'),
+                                        _th(cs, 'Total'),
+                                        if (tieneAcciones) _th(cs, 'Acciones'),
+                                      ],
+                                    ),
+                                    for (final v in _ventas)
+                                      TableRow(
+                                        decoration: v['anulada'] == true
+                                            ? BoxDecoration(color: cs.errorContainer.withValues(alpha: 0.35))
+                                            : null,
+                                        children: [
+                                          _celda(cs, '${v['numero_factura'] ?? v['id']}',
+                                              negrita: true,
+                                              tachado: v['anulada'] == true,
+                                              extra: v['anulada'] == true ? ' (ANULADA)' : ''),
+                                          _celda(cs, _fecha(v['fecha'])),
+                                          _celda(cs, _hora(v['fecha'])),
+                                          _celda(
+                                            cs,
+                                            [
+                                              if (v['numero_mesa'] != null) 'Mesa ${v['numero_mesa']}',
+                                              if (v['escenario'] != null && v['escenario'] != 'mesa') '${v['escenario']}',
+                                            ].where((e) => e.isNotEmpty).join('\n'),
+                                          ),
+                                          _celda(cs, '${v['forma_pago_nombre'] ?? '—'}'),
+                                          _celda(cs, _resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>())),
+                                          _celda(cs, money(_num(v['total'])), alinear: true, negrita: true),
+                                          if (tieneAcciones) _celdaAcciones(cs, v),
+                                        ],
                                       ),
-                                      _celda(cs, '${v['forma_pago_nombre'] ?? '—'}'),
-                                      _celda(cs, _resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>())),
-                                      _celda(cs, money(_num(v['total'])), alinear: true, negrita: true),
-                                      if (tieneAcciones) _celdaAcciones(cs, v),
-                                    ],
-                                  ),
-                                // Fila de total acumulado
-                                TableRow(
-                                  decoration: BoxDecoration(color: cs.primaryContainer),
-                                  children: [
-                                    _celda(cs, 'TOTAL', negrita: true),
-                                    _celda(cs, '', negrita: true),
-                                    _celda(cs, '', negrita: true),
-                                    _celda(cs, '', negrita: true),
-                                    _celda(cs, '', negrita: true),
-                                    _celda(cs, '${_ventas.length} comandas', negrita: true),
-                                    _celda(cs, money(_totalMonto), alinear: true, negrita: true),
-                                    if (tieneAcciones) _celda(cs, '', negrita: true),
+                                    // Fila de total acumulado
+                                    TableRow(
+                                      decoration: BoxDecoration(color: cs.primaryContainer),
+                                      children: [
+                                        _celda(cs, 'TOTAL', negrita: true),
+                                        _celda(cs, '', negrita: true),
+                                        _celda(cs, '', negrita: true),
+                                        _celda(cs, '', negrita: true),
+                                        _celda(cs, '', negrita: true),
+                                        _celda(cs, '${_ventas.length} comandas', negrita: true),
+                                        _celda(cs, money(_totalMonto), alinear: true, negrita: true),
+                                        if (tieneAcciones) _celda(cs, '', negrita: true),
+                                      ],
+                                    ),
                                   ],
-                                ),
-                              ],
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                     ),
                   ],
                 ),
+    );
+  }
+
+  /// Card de comanda para pantallas angostas (móvil). Campos apilados y
+  /// legibles en lugar de la tabla de 8 columnas.
+  Widget _cardComanda(ColorScheme cs, Map<String, dynamic> v, bool tieneAcciones) {
+    final anulada = v['anulada'] == true;
+    final mesa = [
+      if (v['numero_mesa'] != null) 'Mesa ${v['numero_mesa']}',
+      if (v['escenario'] != null && v['escenario'] != 'mesa') '${v['escenario']}',
+    ].where((e) => e.isNotEmpty).join(' · ');
+    return Container(
+      decoration: BoxDecoration(
+        color: anulada ? cs.errorContainer.withValues(alpha: 0.3) : cs.surfaceContainerHighest,
+        border: Border.all(color: cs.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${v['numero_factura'] ?? v['id']}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    decoration: anulada ? TextDecoration.lineThrough : null,
+                    decorationColor: cs.error,
+                  ),
+                ),
+              ),
+              Text(_fecha(v['fecha']),
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+              const SizedBox(width: 8),
+              Text(_hora(v['fecha']),
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text('Mesa: ${mesa.isEmpty ? '—' : mesa}', style: const TextStyle(fontSize: 13)),
+              Text('Pago: ${v['forma_pago_nombre'] ?? '—'}', style: const TextStyle(fontSize: 13)),
+              Text('Total: ${money(_num(v['total']))}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(_resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>()),
+              style: const TextStyle(fontSize: 13)),
+          if (anulada)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text('ANULADA', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+            ),
+          if (tieneAcciones) ...[
+            const Divider(height: 12),
+            _celdaAcciones(cs, v),
+          ],
+        ],
+      ),
     );
   }
 

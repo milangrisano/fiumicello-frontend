@@ -213,9 +213,97 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                     Expanded(
                       child: _filas.isEmpty
                           ? const Center(child: Text('No hay ítems en este turno.', style: TextStyle(color: Colors.grey)))
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.all(12),
-                              child: Table(
+                          : LayoutBuilder(
+                              builder: (context, c) {
+                                if (c.maxWidth < 640) {
+                                  // Móvil: lista de tarjetas por producto.
+                                  return ListView.separated(
+                                    padding: const EdgeInsets.all(12),
+                                    itemCount: _filas.length + 1,
+                                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                    itemBuilder: (context, i) {
+                                      if (i == _filas.length) {
+                                        return Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: cs.primaryContainer,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text('TOTAL · $_totalCantidad uds',
+                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                                              Text(money(_totalMonto),
+                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      final f = _filas[i];
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          color: cs.surfaceContainerHighest,
+                                          border: Border.all(color: cs.outlineVariant),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.all(12),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('${f['nombre'] ?? ''}',
+                                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                                  Text('Tamaño: ${(f['tamanio'] ?? '').isEmpty ? '—' : f['tamanio']}',
+                                                      style: const TextStyle(fontSize: 12)),
+                                                ],
+                                              ),
+                                            ),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              children: [
+                                                InkWell(
+                                                  onTap: () => _ordenarPor('cantidad'),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Text('Cant: ', style: TextStyle(fontSize: 12)),
+                                                      Text('${f['cantidad']}',
+                                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                                      Icon(_ordenCampo == 'cantidad'
+                                                          ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                                                          : Icons.unfold_more, size: 14),
+                                                    ],
+                                                  ),
+                                                ),
+                                                InkWell(
+                                                  onTap: () => _ordenarPor('subtotal'),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Text('Subtotal: ', style: TextStyle(fontSize: 12)),
+                                                      Text(money(_num(f['subtotal'])),
+                                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                                      Icon(_ordenCampo == 'subtotal'
+                                                          ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                                                          : Icons.unfold_more, size: 14),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
+                                // PC: tabla original.
+                                return SingleChildScrollView(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Table(
                                 border: TableBorder.all(color: cs.outlineVariant, width: 1),
                                 columnWidths: const {
                                   0: FlexColumnWidth(3.6),
@@ -253,7 +341,9 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                                     ],
                                   ),
                                 ],
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                     ),
                   ],
