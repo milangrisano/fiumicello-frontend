@@ -103,12 +103,12 @@ class _PosSalesViewState extends State<PosSalesView> {
     return t;
   }
 
-  void _agregar(Map<String, dynamic> item, String? tamanio) {
+  void _agregar(Map<String, dynamic> item, String? tamanio, int cantidad, double costoUnitario) {
     final precio = precioDe(item, tamanio);
     setState(() {
       for (final l in _comanda) {
         if (l.idProducto == (item['id'] as int?) && l.tamanio == tamanio) {
-          l.cantidad++;
+          l.cantidad += cantidad;
           return;
         }
       }
@@ -117,6 +117,8 @@ class _PosSalesViewState extends State<PosSalesView> {
         nombre: item['nombre'] ?? '',
         tamanio: tamanio,
         precio: precio,
+        costoUnitario: costoUnitario,
+        cantidad: cantidad,
       ));
     });
   }
@@ -133,6 +135,7 @@ class _PosSalesViewState extends State<PosSalesView> {
               'tamanio': l.tamanio,
               'cantidad': l.cantidad,
               'nota': l.nota.isEmpty ? null : l.nota,
+              'costo_unitario': l.costoUnitario,
             }
       ];
 
@@ -157,7 +160,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         _snack(r.message);
         return;
       }
-      _snack('Productos agregados a la mesa.');
+      // Sin snackbar de éxito (no es información útil en la operación normal).
       setState(() {
         _pantalla = Pantalla.mesas;
         _comanda.clear();
@@ -230,18 +233,22 @@ class _PosSalesViewState extends State<PosSalesView> {
     final r = await ApiClient.cobrarPedido(pedidoId, _cobroFormaPago);
     if (!mounted) return;
     setState(() => _cobrando = false);
-    _snack(r.ok ? 'Cobrado: ${r.message}' : r.message);
-    if (r.ok) {
-      setState(() {
-        _pantalla = Pantalla.inicio;
-        _comanda.clear();
-        _numeroMesa = '';
-        _clienteNombre = '';
-        _direccion = '';
-        _telefono = '';
-      });
-      await _refreshVivos();
+    if (!r.ok) {
+      _snack(r.message);
+      return;
     }
+    // ÉXITO: limpiar la comanda y QUEDARSE en la pantalla de comanda (vacía),
+    // lista para armar la siguiente. Sin volver a los cards del inicio.
+    setState(() {
+      _pantalla = Pantalla.comanda;
+      _comanda.clear();
+      _numeroMesa = '';
+      _clienteNombre = '';
+      _direccion = '';
+      _telefono = '';
+      _modoAgregarMesaId = null;
+    });
+    await _refreshVivos();
   }
 
   Future<void> _agregarAMesa(int pedidoId, Map<String, dynamic> item, String? tamanio) async {
@@ -592,7 +599,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       busqueda: _busqueda,
       categoriaSel: _categoriaSel,
       error: _error,
-      onAgregar: (it, tam) => _agregar(it, tam),
+      onAgregar: (it, tam, cant, costo) => _agregar(it, tam, cant, costo),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
       onQuitar: _quitarLinea,

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/formatters.dart';
 import '../pos_models.dart';
 
-typedef void CbAgregar(Map<String, dynamic> item, String? tamanio);
+typedef void CbAgregar(Map<String, dynamic> item, String? tamanio, int cantidad, double costoUnitario);
 typedef void CbBuscar(String v);
 typedef void CbCategoria(int? id);
 typedef void CbLinea(Linea l);
@@ -320,6 +320,53 @@ class ComandaView extends StatelessWidget {
   Widget _productoBoton(BuildContext context, Map<String, dynamic> it, {double lado = 120}) {
     final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
+    final costoDef = _num(it['costo']);
+    // Abre diálogo para elegir cantidad y (opcionalmente) editar el costo.
+    void abrir({String? tamanio, double? precioRef}) {
+      int cant = 1;
+      final ctrlCant = TextEditingController(text: '1');
+      final ctrlCosto = TextEditingController(text: costoDef > 0 ? costoDef.toString() : '');
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(nombre),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (tamanio != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('Tamaño: $tamanio · ${money(precioRef ?? 0)}', style: const TextStyle(color: Colors.grey)),
+                ),
+              TextField(
+                controller: ctrlCant,
+                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                decoration: const InputDecoration(labelText: 'Cantidad', prefixText: '×'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: ctrlCosto,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Costo unitario (COP)', prefixText: '\$'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                final c = int.tryParse(ctrlCant.text.trim()) ?? 1;
+                final cos = double.tryParse(ctrlCosto.text.trim().replaceAll(',', '.')) ?? 0.0;
+                Navigator.pop(context);
+                onAgregar(it, tamanio, c < 1 ? 1 : c, cos);
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(16),
@@ -332,16 +379,16 @@ class ComandaView extends StatelessWidget {
               builder: (_) => AlertDialog(
                 title: Text(nombre),
                 content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  FilledButton(onPressed: () { Navigator.pop(context); onAgregar(it, 'personal'); }, child: Text('Personal · ${money(it['precio_personal'])}')),
+                  FilledButton(onPressed: () { Navigator.pop(context); abrir(tamanio: 'personal', precioRef: _num(it['precio_personal'])); }, child: Text('Personal · ${money(it['precio_personal'])}')),
                   const SizedBox(height: 6),
-                  FilledButton(onPressed: () { Navigator.pop(context); onAgregar(it, 'mediana'); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
+                  FilledButton(onPressed: () { Navigator.pop(context); abrir(tamanio: 'mediana', precioRef: _num(it['precio_mediana'])); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
                   const SizedBox(height: 6),
-                  FilledButton(onPressed: () { Navigator.pop(context); onAgregar(it, 'grande'); }, child: Text('Grande · ${money(it['precio_grande'])}')),
+                  FilledButton(onPressed: () { Navigator.pop(context); abrir(tamanio: 'grande', precioRef: _num(it['precio_grande'])); }, child: Text('Grande · ${money(it['precio_grande'])}')),
                 ]),
               ),
             );
           } else {
-            onAgregar(it, null);
+            abrir();
           }
         },
         child: SizedBox(
@@ -364,5 +411,11 @@ class ComandaView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  double _num(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.trim()) ?? 0.0;
+    return 0.0;
   }
 }

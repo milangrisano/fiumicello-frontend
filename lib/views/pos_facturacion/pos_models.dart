@@ -12,12 +12,14 @@ class Linea {
   /// los nuevos productos van con false. Sirve para no re-enviar los ya
   /// existentes al agregar más a la misma mesa.
   bool yaEnMesa = false;
+  double costoUnitario = 0.0;
 
   Linea({
     required this.idProducto,
     required this.nombre,
     this.tamanio,
     required this.precio,
+    this.costoUnitario = 0.0,
     this.cantidad = 1,
     this.nota = '',
     this.yaEnMesa = false,

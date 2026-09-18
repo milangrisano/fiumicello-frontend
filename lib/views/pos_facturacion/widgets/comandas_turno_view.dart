@@ -5,8 +5,8 @@ import '../../../core/utils/formatters.dart';
 /// Lista las comandas (ventas cobradas) de un turno de caja concreto.
 /// Se llega desde las cards del POS; el turno se elige en el selector del POS.
 ///
-/// Diseño: TABLA con columnas (Factura/Hora, Mesa, Forma de pago, Ítems, Total).
-/// Toda la info visible en línea, sin diálogos ocultos, sin espacio desperdiciado.
+/// Diseño: TABLA con columnas (Factura, Fecha, Hora, Mesa, Pago, Ítems, Total)
+/// + fila de total acumulado. La última comanda queda ABAJO.
 class ComandasTurnoView extends StatefulWidget {
   final int idTurno;
   final Map<String, dynamic>? turno;
@@ -20,6 +20,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _ventas = [];
+  double _totalMonto = 0.0;
 
   @override
   void initState() {
@@ -34,7 +35,11 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     setState(() {
       _loading = false;
       if (r.ok) {
-        _ventas = r.list.cast<Map<String, dynamic>>();
+        // El backend las trae id DESC (última arriba); invertimos para que la
+        // última comanda quede ABAJO.
+        final lista = r.list.cast<Map<String, dynamic>>().reversed.toList();
+        _ventas = lista;
+        _totalMonto = lista.fold(0.0, (s, v) => s + _num(v['total']));
         _error = null;
       } else {
         _error = r.message;
@@ -168,6 +173,19 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                       _celda(cs, money(_num(v['total'])), alinear: true, negrita: true),
                                     ],
                                   ),
+                                // Fila de total acumulado
+                                TableRow(
+                                  decoration: BoxDecoration(color: cs.primaryContainer),
+                                  children: [
+                                    _celda(cs, 'TOTAL', negrita: true),
+                                    _celda(cs, '', negrita: true),
+                                    _celda(cs, '', negrita: true),
+                                    _celda(cs, '', negrita: true),
+                                    _celda(cs, '', negrita: true),
+                                    _celda(cs, '${_ventas.length} comandas', negrita: true),
+                                    _celda(cs, money(_totalMonto), alinear: true, negrita: true),
+                                  ],
+                                ),
                               ],
                             ),
                           ),

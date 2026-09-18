@@ -35,7 +35,9 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
     int cant = 0;
     double monto = 0.0;
     if (r.ok) {
-      for (final v in r.list) {
+      // El backend las trae id DESC (última arriba); invertimos para que la
+      // última quede ABAJO.
+      for (final v in r.list.reversed) {
         final items = (v['items'] as List? ?? []).cast<Map<String, dynamic>>();
         for (final it in items) {
           filas.add({...it, 'factura': v['numero_factura'] ?? v['id']});
