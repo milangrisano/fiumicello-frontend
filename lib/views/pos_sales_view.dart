@@ -54,7 +54,6 @@ class _PosSalesViewState extends State<PosSalesView> {
   bool _cajaCargando = false;
   // Lista de turnos (para consultar turnos anteriores) y el índice seleccionado.
   List<Map<String, dynamic>> _turnos = [];
-  int _turnoSelIdx = 0; // 0 = el más reciente (último turno)
 
   @override
   void initState() {
@@ -270,45 +269,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     await _refreshVivos();
   }
 
-  String _fechaTurno(dynamic fecha) {
-    if (fecha == null) return '';
-    try {
-      final d = DateTime.parse(fecha.toString());
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    } catch (_) {
-      return fecha.toString();
-    }
-  }
-
-  /// Etiqueta del turno seleccionado en el selector (el que ven las cards).
-  String _etiquetaTurnoSel() {
-    final t = _turnoSel;
-    if (t == null) return 'Sin turnos';
-    final estado = t['estado'] == 'abierto' ? ' (abierto)' : '';
-    return 'Turno #${t['id']} · ${_fechaTurno(t['fecha'])}$estado';
-  }
-
-  /// Selector de turno: elige cualquiera de la lista (para consultar anteriores).
-  Future<void> _elegirTurno() async {
-    final elegido = await showDialog<int>(
-      context: context,
-      builder: (_) => SimpleDialog(
-        title: const Text('Seleccionar turno'),
-        children: [
-          for (int i = 0; i < _turnos.length; i++)
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(context).pop(i),
-              child: Text(
-                'Turno #${_turnos[i]['id']} · ${_fechaTurno(_turnos[i]['fecha'])}'
-                '${_turnos[i]['estado'] == 'abierto' ? ' (abierto)' : ''}',
-              ),
-            ),
-        ],
-      ),
-    );
-    if (elegido != null && mounted) setState(() => _turnoSelIdx = elegido);
-  }
-
   Future<void> _cargarTurno() async {
     final r = await ApiClient.cajaActiva();
     if (!mounted) return;
@@ -319,25 +279,15 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (!mounted) return;
     if (t.ok) {
       final lista = t.list.cast<Map<String, dynamic>>();
-      // Si hay un turno abierto, lo ponemos primero y lo seleccionamos por defecto.
+      // Si hay un turno abierto, lo ponemos primero (se mostrará por defecto).
       final abiertoIdx = lista.indexWhere((x) => x['estado'] == 'abierto');
-      setState(() {
-        if (abiertoIdx > 0) {
-          final abierto = lista.removeAt(abiertoIdx);
-          lista.insert(0, abierto);
-          _turnos = lista;
-          _turnoSelIdx = 0;
-        } else {
-          _turnos = lista;
-          _turnoSelIdx = abiertoIdx == 0 ? 0 : 0;
-        }
-      });
+      if (abiertoIdx > 0) {
+        final abierto = lista.removeAt(abiertoIdx);
+        lista.insert(0, abierto);
+      }
+      setState(() => _turnos = lista);
     }
   }
-
-  /// Turno seleccionado en el selector (el que ven las cards de comandas/íttems).
-  Map<String, dynamic>? get _turnoSel =>
-      _turnos.isNotEmpty ? _turnos[_turnoSelIdx.clamp(0, _turnos.length - 1)] : null;
 
   /// Actualiza el título del AppBar según la pantalla del POS actual.
   void _pintarTitulo() {
@@ -510,17 +460,15 @@ class _PosSalesViewState extends State<PosSalesView> {
       }),
       // Cards del turno en curso / turnos anteriores (siempre visibles).
       _inicioCard('Comandas del turno', Icons.receipt_long, () {
-        final t = _turnoSel;
-        if (t == null) { _snack('No hay turnos registrados.'); return; }
+        if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ComandasTurnoView(idTurno: t['id'] as int, turno: t)),
+          MaterialPageRoute(builder: (_) => ComandasTurnoView(turnos: _turnos)),
         );
       }),
       _inicioCard('Ítems vendidos del turno', Icons.list_alt, () {
-        final t = _turnoSel;
-        if (t == null) { _snack('No hay turnos registrados.'); return; }
+        if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ItemsTurnoView(idTurno: t['id'] as int, turno: t)),
+          MaterialPageRoute(builder: (_) => ItemsTurnoView(turnos: _turnos)),
         );
       }),
     ];
@@ -541,42 +489,6 @@ class _PosSalesViewState extends State<PosSalesView> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
               child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
             ),
-          if (_turnos.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    tooltip: 'Turno anterior',
-                    onPressed: _turnoSelIdx < _turnos.length - 1
-                        ? () => setState(() => _turnoSelIdx++)
-                        : null,
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: _turnos.length > 1 ? _elegirTurno : null,
-                        child: Chip(
-                          avatar: Icon(
-                            _turnoSel?['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
-                            size: 18,
-                          ),
-                          label: Text(_etiquetaTurnoSel()),
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    tooltip: 'Turno más reciente',
-                    onPressed: _turnoSelIdx > 0
-                        ? () => setState(() => _turnoSelIdx--)
-                        : null,
-                  ),
-                ],
-              ),
-            ),
           Padding(
             padding: EdgeInsets.all(borde),
             child: Wrap(
@@ -596,8 +508,12 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   Widget _inicioCard(String titulo, IconData icon, VoidCallback onTap) {
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(14),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      elevation: 1,
       child: InkWell(
         onTap: onTap,
         child: Padding(

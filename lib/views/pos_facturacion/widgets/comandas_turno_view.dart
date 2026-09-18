@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import '../../../core/data/api_client.dart';
 import '../../../core/utils/formatters.dart';
 
-/// Lista las comandas (ventas cobradas) de un turno de caja concreto.
-/// Se llega desde las cards del POS; el turno se elige en el selector del POS.
+/// Lista las comandas (ventas cobradas) de un turno de caja, con selector
+/// interno de turno (flchas ‹ ›) para navegar entre turnos.
 ///
-/// Diseño: TABLA con columnas (Factura, Fecha, Hora, Mesa, Pago, Ítems, Total)
-/// + fila de total acumulado. La última comanda queda ABAJO.
+/// Diseño: TABLA con columnas (Factura, Fecha, Hora, Mesa, Pago, Ítems, Total,
+/// Acciones) + fila de total acumulado. La última comanda queda ABAJO.
 class ComandasTurnoView extends StatefulWidget {
-  final int idTurno;
-  final Map<String, dynamic>? turno;
-  const ComandasTurnoView({super.key, required this.idTurno, this.turno});
+  final List<Map<String, dynamic>> turnos;
+  final int indiceInicial;
+  const ComandasTurnoView({super.key, required this.turnos, this.indiceInicial = 0});
 
   @override
   State<ComandasTurnoView> createState() => _ComandasTurnoViewState();
@@ -21,16 +21,21 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
   String? _error;
   List<Map<String, dynamic>> _ventas = [];
   double _totalMonto = 0.0;
+  late int _idx;
 
   @override
   void initState() {
     super.initState();
+    _idx = widget.indiceInicial.clamp(0, widget.turnos.length - 1);
     _cargar();
   }
 
+  Map<String, dynamic> get _turnoAct => widget.turnos[_idx];
+
   Future<void> _cargar() async {
     setState(() => _loading = true);
-    final r = await ApiClient.obtenerVentasTurno(widget.idTurno);
+    final idTurno = _turnoAct['id'] as int;
+    final r = await ApiClient.obtenerVentasTurno(idTurno);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -47,6 +52,13 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
         _error = r.message;
       }
     });
+  }
+
+  void _cambiarTurno(int delta) {
+    final nuevo = _idx + delta;
+    if (nuevo < 0 || nuevo >= widget.turnos.length) return;
+    setState(() => _idx = nuevo);
+    _cargar();
   }
 
   String _fecha(dynamic fecha) {
@@ -91,7 +103,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final turnoFecha = _fechaTurno(widget.turno?['fecha']);
+    final turnoFecha = _fechaTurno(_turnoAct['fecha']);
+    final tieneAcciones =
+        ApiClient.hasPermiso('ventas:eliminar') || ApiClient.isSuperadmin;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -107,35 +121,55 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text('Error: $_error', style: TextStyle(color: cs.error)))
-              : _ventas.isEmpty
-                  ? const Center(child: Text('No hay comandas en este turno.', style: TextStyle(color: Colors.grey)))
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (turnoFecha.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                            child: Row(
-                              children: [
-                                Icon(Icons.history, size: 16, color: cs.onSurfaceVariant),
-                                const SizedBox(width: 6),
-                                Text('Turno #${widget.idTurno} · $turnoFecha',
-                                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                                const Spacer(),
-                                Text('${_ventas.length} comandas',
-                                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                              ],
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Selector de turno interno.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left),
+                            tooltip: 'Turno anterior',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _idx < widget.turnos.length - 1
+                                ? () => _cambiarTurno(1)
+                                : null,
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: Chip(
+                                avatar: Icon(
+                                  _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'Turno #${_turnoAct['id']} · $turnoFecha'
+                                  '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
                             ),
                           ),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(12),
-                            child: Builder(builder: (context) {
-                              // Solo se muestra la columna Acciones si el usuario
-                              // puede anular (ventas:eliminar) o es superadmin.
-                              final tieneAcciones =
-                                  ApiClient.hasPermiso('ventas:eliminar') || ApiClient.isSuperadmin;
-                              return Table(
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right),
+                            tooltip: 'Turno más reciente',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
+                          ),
+                          const SizedBox(width: 4),
+                          Text('${_ventas.length} comandas',
+                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _ventas.isEmpty
+                          ? const Center(child: Text('No hay comandas en este turno.', style: TextStyle(color: Colors.grey)))
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(12),
+                              child: Table(
                               border: TableBorder.all(color: cs.outlineVariant, width: 1),
                               columnWidths: {
                                 0: const FlexColumnWidth(2.0),
@@ -149,7 +183,6 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                               },
                               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                               children: [
-                                // Encabezado
                                 TableRow(
                                   decoration: BoxDecoration(color: cs.surfaceContainerHighest),
                                   children: [
@@ -163,7 +196,6 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                     if (tieneAcciones) _th(cs, 'Acciones'),
                                   ],
                                 ),
-                                // Filas
                                 for (final v in _ventas)
                                   TableRow(
                                     decoration: v['anulada'] == true
@@ -200,15 +232,15 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                     _celda(cs, '', negrita: true),
                                     _celda(cs, '${_ventas.length} comandas', negrita: true),
                                     _celda(cs, money(_totalMonto), alinear: true, negrita: true),
+                                    if (tieneAcciones) _celda(cs, '', negrita: true),
                                   ],
                                 ),
                               ],
-                              );
-                            }),
-                          ),
-                        ),
-                      ],
+                              ),
+                            ),
                     ),
+                  ],
+                ),
     );
   }
 
@@ -232,7 +264,6 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
         ),
       );
 
-  /// Columna de acciones: Anular (permiso ventas:eliminar) y Borrar (solo superadmin).
   Widget _celdaAcciones(ColorScheme cs, Map<String, dynamic> v) {
     final anulada = v['anulada'] == true;
     final puedeAnular = ApiClient.hasPermiso('ventas:eliminar');
