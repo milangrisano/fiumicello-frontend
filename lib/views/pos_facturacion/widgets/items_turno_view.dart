@@ -103,15 +103,7 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
     });
   }
 
-  String _fechaTurno(dynamic fecha) {
-    if (fecha == null) return '';
-    try {
-      final d = DateTime.parse(fecha.toString());
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    } catch (_) {
-      return fecha.toString();
-    }
-  }
+  String _fechaTurno(dynamic fecha) => fechaCompletaBogota(fecha);
 
   Widget _thOrdenable(ColorScheme cs, String titulo, String campo) {
     final activo = _ordenCampo == campo;

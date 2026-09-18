@@ -61,35 +61,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     _cargar();
   }
 
-  String _fecha(dynamic fecha) {
-    if (fecha == null) return '';
-    try {
-      final d = DateTime.parse(fecha.toString());
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _hora(dynamic fecha) {
-    if (fecha == null) return '';
-    try {
-      final d = DateTime.parse(fecha.toString());
-      return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _fechaTurno(dynamic fecha) {
-    if (fecha == null) return '';
-    try {
-      final d = DateTime.parse(fecha.toString());
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    } catch (_) {
-      return fecha.toString();
-    }
-  }
+  String _fecha(dynamic fecha) => fechaCortaBogota(fecha);
+  String _hora(dynamic fecha) => horaBogota(fecha);
+  String _fechaTurno(dynamic fecha) => fechaCompletaBogota(fecha);
 
   String _resumenItems(List<dynamic> items) {
     return items.map((it) {
