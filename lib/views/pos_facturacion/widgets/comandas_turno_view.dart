@@ -130,17 +130,22 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                         Expanded(
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.all(12),
-                            child: Table(
+                            child: Builder(builder: (context) {
+                              // Solo se muestra la columna Acciones si el usuario
+                              // puede anular (ventas:eliminar) o es superadmin.
+                              final tieneAcciones =
+                                  ApiClient.hasPermiso('ventas:eliminar') || ApiClient.isSuperadmin;
+                              return Table(
                               border: TableBorder.all(color: cs.outlineVariant, width: 1),
-                              columnWidths: const {
-                                0: FlexColumnWidth(2.0), // Factura
-                                1: FlexColumnWidth(1.2), // Fecha
-                                2: FlexColumnWidth(1.0), // Hora
-                                3: FlexColumnWidth(1.4), // Mesa / Escenario
-                                4: FlexColumnWidth(1.3), // Forma de pago
-                                5: FlexColumnWidth(3.8), // Ítems
-                                6: FlexColumnWidth(1.2), // Total
-                                7: FlexColumnWidth(1.6), // Acciones
+                              columnWidths: {
+                                0: const FlexColumnWidth(2.0),
+                                1: const FlexColumnWidth(1.2),
+                                2: const FlexColumnWidth(1.0),
+                                3: const FlexColumnWidth(1.4),
+                                4: const FlexColumnWidth(1.3),
+                                5: const FlexColumnWidth(3.8),
+                                6: const FlexColumnWidth(1.2),
+                                if (tieneAcciones) 7: const FlexColumnWidth(1.6),
                               },
                               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                               children: [
@@ -155,7 +160,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                     _th(cs, 'Pago'),
                                     _th(cs, 'Ítems'),
                                     _th(cs, 'Total'),
-                                    _th(cs, 'Acciones'),
+                                    if (tieneAcciones) _th(cs, 'Acciones'),
                                   ],
                                 ),
                                 // Filas
@@ -181,7 +186,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                       _celda(cs, '${v['forma_pago_nombre'] ?? '—'}'),
                                       _celda(cs, _resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>())),
                                       _celda(cs, money(_num(v['total'])), alinear: true, negrita: true),
-                                      _celdaAcciones(cs, v),
+                                      if (tieneAcciones) _celdaAcciones(cs, v),
                                     ],
                                   ),
                                 // Fila de total acumulado
@@ -198,7 +203,8 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                   ],
                                 ),
                               ],
-                            ),
+                              );
+                            }),
                           ),
                         ),
                       ],
