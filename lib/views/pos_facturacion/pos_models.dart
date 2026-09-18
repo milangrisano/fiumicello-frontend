@@ -32,11 +32,10 @@ class Linea {
 class Pantalla {
   static const int inicio = 0;
   static const int comanda = 1;
-  static const int cobro = 2;
-  static const int mesas = 3;
-  static const int entregas = 4;
-  static const int resumen = 5;
-  static const int abrirCaja = 6;
-  static const int comandasTurno = 7;
-  static const int itemsTurno = 8;
+  static const int mesas = 2;
+  static const int entregas = 3;
+  static const int resumen = 4;
+  static const int abrirCaja = 5;
+  static const int comandasTurno = 6;
+  static const int itemsTurno = 7;
 }

@@ -47,7 +47,6 @@ class _PosSalesViewState extends State<PosSalesView> {
   String _busqueda = '';
   int? _categoriaSel;
   int? _cobroFormaPago;
-  int? _cobroPedidoId;
 
   // Caja / turno activo
   Map<String, dynamic>? _turno;
@@ -324,10 +323,13 @@ class _PosSalesViewState extends State<PosSalesView> {
       });
       await _refreshVivos();
     } else {
-      setState(() {
-        _cobroPedidoId = id;
-        _pantalla = Pantalla.cobro;
-      });
+      // Llevar / Domicilio: se cobra ahora de una (sin 3ª etapa separada),
+      // usando la forma de pago elegida en el dropdown de la comanda.
+      if (id == null) {
+        _snack('No se pudo crear el pedido.');
+        return;
+      }
+      await _ejecutarCobro(id);
     }
   }
 
@@ -405,9 +407,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     switch (_pantalla) {
       case Pantalla.comanda:
         AppTitulo.titulo.value = 'Nueva comanda';
-        return;
-      case Pantalla.cobro:
-        AppTitulo.titulo.value = 'Cobrar';
         return;
       case Pantalla.mesas:
         AppTitulo.titulo.value = 'Mesas abiertas';
@@ -515,8 +514,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     switch (_pantalla) {
       case Pantalla.comanda:
         return _vistaComanda();
-      case Pantalla.cobro:
-        return _vistaCobro();
       case Pantalla.mesas:
         return _vistaMesas();
       case Pantalla.entregas:
@@ -648,10 +645,13 @@ class _PosSalesViewState extends State<PosSalesView> {
       categoriaSel: _categoriaSel,
       error: _error,
       escenario: _escenario,
+      formas: _formas,
+      formaPago: _cobroFormaPago,
       onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
       onElegirEscenario: _elegirEscenario,
+      onCambiarForma: (id) => setState(() => _cobroFormaPago = id),
       onQuitar: _quitarLinea,
       onRestar: _restarLinea,
       onEditarPrecio: _editarPrecioLinea,
@@ -712,38 +712,6 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   void _sumarLinea(Linea l) {
     setState(() => l.cantidad++);
-  }
-
-  // ---------- Etapa 3: Cobro ----------
-  Widget _vistaCobro() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.comanda)),
-          const Text('Etapa 3 · Cobro', style: TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 8),
-        const Text('Para llevar / Domicilio — se cobra ahora y queda pendiente de entrega.', style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 16),
-        Text('Total: ${money(_totalComanda)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<int?>(
-          initialValue: _cobroFormaPago,
-          decoration: const InputDecoration(labelText: 'Forma de pago', border: OutlineInputBorder(), isDense: true),
-          items: [for (final f in _formas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
-          onChanged: (v) => setState(() => _cobroFormaPago = v),
-        ),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: _cobrando || _cobroPedidoId == null ? null : () => _ejecutarCobro(_cobroPedidoId!),
-          icon: const Icon(Icons.payments),
-          label: Text(_cobrando ? 'Procesando…' : 'Confirmar cobro'),
-        ),
-      ]),
-    );
   }
 
   // ---------- Mesas abiertas ----------

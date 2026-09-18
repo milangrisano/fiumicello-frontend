@@ -8,6 +8,7 @@ typedef void CbBuscar(String v);
 typedef void CbCategoria(int? id);
 typedef void CbLinea(Linea l);
 typedef void CbEscenario(String escenario);
+typedef void CbFormaPago(int? id);
 
 /// Stage 1 — Comanda: catalog with product grid + the order being built.
 /// Receives data (read-only) + callbacks from the POS state; owns no logic,
@@ -22,10 +23,13 @@ class ComandaView extends StatelessWidget {
     required this.categoriaSel,
     required this.error,
     required this.escenario,
+    required this.formas,
+    required this.formaPago,
     required this.onAgregar,
     required this.onBuscar,
     required this.onCategoria,
     required this.onElegirEscenario,
+    required this.onCambiarForma,
     required this.onQuitar,
     required this.onRestar,
     required this.onEditarPrecio,
@@ -41,10 +45,13 @@ class ComandaView extends StatelessWidget {
   final int? categoriaSel;
   final String? error;
   final String escenario;
+  final List<Map<String, dynamic>> formas;
+  final int? formaPago;
   final CbAgregar onAgregar;
   final CbBuscar onBuscar;
   final CbCategoria onCategoria;
   final CbEscenario onElegirEscenario;
+  final CbFormaPago onCambiarForma;
   final CbLinea onQuitar;
   final CbLinea onRestar;
   final CbLinea onEditarPrecio;
@@ -99,6 +106,17 @@ class ComandaView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Divider(),
+            // Forma de pago: justo debajo del separador de productos y encima
+            // del total (sustituye la 3ª etapa de Cobro separada).
+            if (formas.isNotEmpty) ...[
+              DropdownButtonFormField<int?>(
+                initialValue: formaPago,
+                decoration: const InputDecoration(labelText: 'Forma de pago', border: OutlineInputBorder(), isDense: true),
+                items: [for (final f in formas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
+                onChanged: onCambiarForma,
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -225,6 +243,15 @@ class ComandaView extends StatelessWidget {
                     else
                       for (final l in items) _filaComanda(l),
                     const Divider(),
+                    if (formas.isNotEmpty) ...[
+                      DropdownButtonFormField<int?>(
+                        initialValue: formaPago,
+                        decoration: const InputDecoration(labelText: 'Forma de pago', border: OutlineInputBorder(), isDense: true),
+                        items: [for (final f in formas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
+                        onChanged: onCambiarForma,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
