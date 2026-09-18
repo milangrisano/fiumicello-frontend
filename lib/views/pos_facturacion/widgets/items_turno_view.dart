@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../core/data/api_client.dart';
 import '../../../core/utils/formatters.dart';
 
-/// Lista los ítems vendidos (línea por línea) de todas las comandas del turno.
-/// Se muestran en una TABLA (Factura, Producto, Tamaño, Cantidad, Subtotal)
-/// sin tiles que desperdicien espacio. Totales al pie.
+/// Ítems vendidos del turno, AGRUPADOS por producto + tamaño: cada producto
+/// aparece una sola vez con la cantidad total y el subtotal total facturados
+/// en el turno. Sin repetir líneas ni mostrar número de factura (eso está en la
+/// tabla de comandas).
 class ItemsTurnoView extends StatefulWidget {
   final int idTurno;
   final Map<String, dynamic>? turno;
@@ -17,7 +18,8 @@ class ItemsTurnoView extends StatefulWidget {
 class _ItemsTurnoViewState extends State<ItemsTurnoView> {
   bool _loading = true;
   String? _error;
-  List<Map<String, dynamic>> _items = [];
+  // Filas agrupadas: clave = nombre|tamanio.
+  List<Map<String, dynamic>> _filas = [];
   int _totalCantidad = 0;
   double _totalMonto = 0.0;
 
@@ -31,25 +33,39 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
     setState(() => _loading = true);
     final r = await ApiClient.obtenerVentasTurno(widget.idTurno);
     if (!mounted) return;
-    final filas = <Map<String, dynamic>>[];
+    final Map<String, Map<String, dynamic>> mapa = {};
     int cant = 0;
     double monto = 0.0;
     if (r.ok) {
-      // El backend las trae id DESC (última arriba); invertimos para que la
-      // última quede ABAJO.
-      for (final v in r.list.reversed) {
+      for (final v in r.list) {
         final items = (v['items'] as List? ?? []).cast<Map<String, dynamic>>();
         for (final it in items) {
-          filas.add({...it, 'factura': v['numero_factura'] ?? v['id']});
-          cant += (_num(it['cantidad'])).toInt();
-          monto += _num(it['subtotal']);
+          final nombre = it['nombre'] ?? '';
+          final tam = it['tamanio'] ?? '';
+          final key = '$nombre|$tam';
+          final c = _num(it['cantidad']).toInt();
+          final sub = _num(it['subtotal']);
+          if (mapa.containsKey(key)) {
+            mapa[key]!['cantidad'] += c;
+            mapa[key]!['subtotal'] += sub;
+          } else {
+            mapa[key] = {
+              'nombre': nombre,
+              'tamanio': tam,
+              'cantidad': c,
+              'subtotal': sub,
+            };
+          }
+          cant += c;
+          monto += sub;
         }
       }
     }
     setState(() {
       _loading = false;
       if (r.ok) {
-        _items = filas;
+        // Orden de aparición (la última agrupada queda abajo).
+        _filas = mapa.values.toList();
         _totalCantidad = cant;
         _totalMonto = monto;
         _error = null;
@@ -77,7 +93,7 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text('Error: $_error', style: TextStyle(color: cs.error)))
-              : _items.isEmpty
+              : _filas.isEmpty
                   ? const Center(child: Text('No hay ítems en este turno.', style: TextStyle(color: Colors.grey)))
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,11 +103,12 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                           color: cs.surfaceContainerHighest,
                           child: Row(
                             children: [
-                              Text('Total ítems: $_totalCantidad',
+                              Text('Total ítems (únicos): ${_filas.length}',
                                   style: const TextStyle(fontWeight: FontWeight.w600)),
                               const Spacer(),
-                              Text('Suma: ${money(_totalMonto)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text('Cantidad: $_totalCantidad', style: const TextStyle(fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 16),
+                              Text('Suma: ${money(_totalMonto)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -101,32 +118,29 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                             child: Table(
                               border: TableBorder.all(color: cs.outlineVariant, width: 1),
                               columnWidths: const {
-                                0: FlexColumnWidth(1.6), // Factura
-                                1: FlexColumnWidth(3.6), // Producto
-                                2: FlexColumnWidth(1.6), // Tamaño
-                                3: FlexColumnWidth(1.0), // Cantidad
-                                4: FlexColumnWidth(1.3), // Subtotal
+                                0: FlexColumnWidth(3.6), // Producto
+                                1: FlexColumnWidth(1.6), // Tamaño
+                                2: FlexColumnWidth(1.0), // Cantidad
+                                3: FlexColumnWidth(1.3), // Subtotal
                               },
                               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                               children: [
                                 TableRow(
                                   decoration: BoxDecoration(color: cs.surfaceContainerHighest),
                                   children: [
-                                    _th(cs, 'Factura'),
                                     _th(cs, 'Producto'),
                                     _th(cs, 'Tamaño'),
-                                    _th(cs, 'Cant'),
+                                    _th(cs, 'Cantidad'),
                                     _th(cs, 'Subtotal'),
                                   ],
                                 ),
-                                for (final it in _items)
+                                for (final f in _filas)
                                   TableRow(
                                     children: [
-                                      _celda(cs, '${it['factura']}'),
-                                      _celda(cs, '${it['nombre'] ?? ''}', negrita: true),
-                                      _celda(cs, '${it['tamanio'] ?? '—'}'),
-                                      _celda(cs, _num(it['cantidad']).toInt().toString(), alinear: true),
-                                      _celda(cs, money(_num(it['subtotal'])), alinear: true, negrita: true),
+                                      _celda(cs, '${f['nombre'] ?? ''}', negrita: true),
+                                      _celda(cs, '${(f['tamanio'] ?? '').isEmpty ? '—' : f['tamanio']}'),
+                                      _celda(cs, '${f['cantidad']}', alinear: true),
+                                      _celda(cs, money(_num(f['subtotal'])), alinear: true, negrita: true),
                                     ],
                                   ),
                                 // Fila totales
@@ -135,8 +149,7 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                                   children: [
                                     _celda(cs, 'TOTAL', negrita: true),
                                     _celda(cs, '', negrita: true),
-                                    _celda(cs, '', negrita: true),
-                                    _celda(cs, _totalCantidad.toString(), alinear: true, negrita: true),
+                                    _celda(cs, '$_totalCantidad', alinear: true, negrita: true),
                                     _celda(cs, money(_totalMonto), alinear: true, negrita: true),
                                   ],
                                 ),
