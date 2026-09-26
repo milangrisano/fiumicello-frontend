@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/data/api_client.dart';
+import '../../core/theme/app_themes.dart';
 
 /// Superadmin/Admin screen: manage users and their roles.
 ///
@@ -74,9 +75,15 @@ class _UsuariosViewState extends State<UsuariosView> {
     final rol = u['rol'] ?? '—';
     final esSuperUsuario = rol == 'superadmin';
     final esPendiente = (u['estado'] ?? '') == 'pendiente';
+    final esAprobado = (u['estado'] ?? '') == 'aprobado';
     final puedeGestionar = _esSuper || !esSuperUsuario;
+    // Icono izquierdo: turquesa si esta aprobado, gris piedra si no;
+    // superadmin (escudo) siempre en dorado.
+    final colorLeading = esSuperUsuario
+        ? AppPalette.darkSecondary
+        : (esAprobado ? AppPalette.darkPrimary : AppPalette.lightOnSurfaceVariant);
     return ListTile(
-      leading: esSuperUsuario ? const Icon(Icons.shield) : const Icon(Icons.person_outline),
+      leading: Icon(esSuperUsuario ? Icons.shield : Icons.person_outline, color: colorLeading),
       title: Text(email),
       subtitle: Text('Rol: $rol · ${u['estado'] ?? ''}'),
       trailing: puedeGestionar
@@ -85,7 +92,7 @@ class _UsuariosViewState extends State<UsuariosView> {
               children: [
                 if (esPendiente)
                   IconButton(
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                    icon: Icon(Icons.check_circle_outline, color: AppPalette.darkPrimary),
                     tooltip: 'Aprobar usuario',
                     onPressed: () => _aprobar(u),
                   ),
