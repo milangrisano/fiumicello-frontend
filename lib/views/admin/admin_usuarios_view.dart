@@ -73,18 +73,42 @@ class _UsuariosViewState extends State<UsuariosView> {
     final email = u['email'] ?? '(servicio: ${u['nombre_servicio'] ?? '?'})';
     final rol = u['rol'] ?? '—';
     final esSuperUsuario = rol == 'superadmin';
+    final esPendiente = (u['estado'] ?? '') == 'pendiente';
+    final puedeGestionar = _esSuper || !esSuperUsuario;
     return ListTile(
       leading: esSuperUsuario ? const Icon(Icons.shield) : const Icon(Icons.person_outline),
       title: Text(email),
       subtitle: Text('Rol: $rol · ${u['estado'] ?? ''}'),
-      trailing: _esSuper || !esSuperUsuario
-          ? IconButton(
-              icon: const Icon(Icons.tune),
-              tooltip: 'Cambiar rol',
-              onPressed: () => _asignarRol(u),
+      trailing: puedeGestionar
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (esPendiente)
+                  IconButton(
+                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                    tooltip: 'Aprobar usuario',
+                    onPressed: () => _aprobar(u),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  tooltip: 'Cambiar rol',
+                  onPressed: () => _asignarRol(u),
+                ),
+              ],
             )
           : null,
     );
+  }
+
+  Future<void> _aprobar(Map<String, dynamic> u) async {
+    final id = u['id'];
+    if (id == null) return;
+    final res = await ApiClient.aprobar(id as int);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res.ok ? 'Usuario aprobado.' : 'Error: ${res.message}')),
+    );
+    if (res.ok) _load();
   }
 
   Future<void> _asignarRol(Map<String, dynamic> u) async {

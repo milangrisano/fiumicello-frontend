@@ -93,8 +93,17 @@ class _FacturasListState extends State<FacturasList> {
                     leading: const Icon(Icons.description_outlined),
                     title: Text(f['proveedor'] ?? 'Sin proveedor'),
                     subtitle: Text('${f['fecha'] ?? '-'} · ${f['numero_factura'] ?? '-'}'),
-                    trailing: Text(money(f['total_con_impuestos']),
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(money(f['total_con_impuestos']),
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          tooltip: 'Borrar factura',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _borrar(context, f['id'], f['proveedor']),
+                        ),
+                    ]),
                     onTap: () => _openDetail(context, id),
                   );
                 },
@@ -112,6 +121,31 @@ class _FacturasListState extends State<FacturasList> {
       isScrollControlled: true,
       builder: (_) => FacturaDetail(id: id),
     );
+  }
+
+  Future<void> _borrar(BuildContext context, dynamic id, String? nombre) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Borrar factura'),
+        content: Text('¿Seguro que quieres borrar la factura ${nombre ?? ''}?\nEsta acción es permanente y definitiva.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || id == null) return;
+    final r = await ApiClient.borrarFactura(id as int);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(r.ok ? 'Factura borrada.' : 'Error: ${r.message}')),
+    );
+    if (r.ok) setState(() => _future = ApiClient.getList('/facturas?limit=100'));
   }
 }
 
@@ -240,12 +274,46 @@ class _ComprobantesListState extends State<ComprobantesList> {
               leading: const Icon(Icons.payment),
               title: Text(c['beneficiario_emisor'] ?? c['concepto'] ?? '-'),
               subtitle: Text('${c['fecha'] ?? '-'} · ${c['metodo_pago'] ?? '-'}'),
-              trailing: Text(money(c['total_con_impuestos']),
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(money(c['total_con_impuestos']),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: 'Borrar comprobante',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _borrar(context, c['id'], c['beneficiario_emisor'] ?? c['concepto']),
+                  ),
+              ]),
             );
           },
         );
       },
     );
+  }
+
+  Future<void> _borrar(BuildContext context, dynamic id, String? nombre) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Borrar comprobante'),
+        content: Text('¿Seguro que quieres borrar el comprobante ${nombre ?? ''}?\nEsta acción es permanente y definitiva.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || id == null) return;
+    final r = await ApiClient.borrarComprobante(id as int);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(r.ok ? 'Comprobante borrado.' : 'Error: ${r.message}')),
+    );
+    if (r.ok) setState(() => _future = ApiClient.getList('/comprobantes?limit=100'));
   }
 }

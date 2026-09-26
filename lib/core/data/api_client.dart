@@ -166,6 +166,32 @@ class ApiClient {
     }
   }
 
+  // ---- Facturas (compra) ----
+  static Future<PostResult> borrarFactura(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/facturas/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  // ---- Comprobantes ----
+  static Future<PostResult> borrarComprobante(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/comprobantes/$id'),
+        headers: _headers(),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
   static Future<ListResult> listPendientes() async {
     try {
       final res = await http.get(
