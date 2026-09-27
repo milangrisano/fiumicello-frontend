@@ -898,6 +898,30 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
+  /// Agrupa los ítems de una mesa por producto+tamaño (suma cantidades), para
+  /// no mostrar duplicados heredados en la BD como líneas separadas.
+  List<Map<String, dynamic>> _itemsMesaAgrupados(List<Map<String, dynamic>> items) {
+    final porClave = <String, Map<String, dynamic>>{};
+    for (final it in items) {
+      final idP = (it['id_producto'] ?? it['id']);
+      final tam = it['tamanio'] as String?;
+      final clave = '$idP|$tam';
+      final cant = (it['cantidad'] as int?) ?? 1;
+      if (porClave.containsKey(clave)) {
+        final existente = porClave[clave]!;
+        existente['cantidad'] = ((existente['cantidad'] as int?) ?? 0) + cant;
+      } else {
+        porClave[clave] = {
+          'nombre': it['nombre'] ?? '',
+          'tamanio': tam,
+          'cantidad': cant,
+          'nota': it['nota'] as String? ?? '',
+        };
+      }
+    }
+    return porClave.values.toList();
+  }
+
   Widget _mesaCard(Map<String, dynamic> m) {
     final id = m['id'] as int;
     final items = (m['items'] as List? ?? []).cast<Map<String, dynamic>>();
@@ -918,8 +942,10 @@ class _PosSalesViewState extends State<PosSalesView> {
           ],
         ),
         const SizedBox(height: 6),
-        for (final i in items)
-          Text('• ${i['nombre']}${i['tamanio'] != null ? ' (${i['tamanio']})' : ''} ×${i['cantidad']}${i['nota'] != null ? ' — ${i['nota']}' : ''}', style: const TextStyle(fontSize: 13)),
+        ..._itemsMesaAgrupados(items).map((i) => Text(
+          '• ${i['nombre']}${i['tamanio'] != null ? ' (${i['tamanio']})' : ''} ×${i['cantidad']}${i['nota'] != null ? ' — ${i['nota']}' : ''}',
+          style: const TextStyle(fontSize: 13),
+        )),
         const SizedBox(height: 6),
         Row(mainAxisSize: MainAxisSize.min, children: [
           OutlinedButton(onPressed: () async { await _agregarProductoMesa(m); }, child: const Text('Agregar')),
