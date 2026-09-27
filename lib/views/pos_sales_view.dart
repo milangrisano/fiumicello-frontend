@@ -950,7 +950,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(mainAxisSize: MainAxisSize.min, children: [
           OutlinedButton(onPressed: () async { await _agregarProductoMesa(m); }, child: const Text('Agregar')),
           const SizedBox(width: 8),
-          OutlinedButton(onPressed: () async { final ok = await _dialogConfirm('¿Pedir la cuenta de la mesa ${m['numero_mesa']}?'); if (ok == true) await _dialogPagarPedido(id, montoMostrar: total); }, child: const Text('Pedir la cuenta')),
+          OutlinedButton(onPressed: () async { await _dialogPagarPedido(id, montoMostrar: total); }, child: const Text('Pedir la cuenta')),
         ]),
       ]),
     );
