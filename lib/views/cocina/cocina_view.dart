@@ -117,7 +117,7 @@ class _CocinaViewState extends State<CocinaView> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(width: constraints.maxWidth * 0.33, child: _franjaIzquierda()),
+                Expanded(child: _franjaIzquierda()),
                 const VerticalDivider(width: 1),
                 Expanded(child: _panelDerecho()),
               ],
@@ -129,7 +129,7 @@ class _CocinaViewState extends State<CocinaView> {
     });
   }
 
-  // ---------- 1/3 izquierda: pendientes (terracota), todas botón ----------
+  // ---------- Izquierda (En espera): pendientes (terracota), todas con productos ----------
   Widget _franjaIzquierda() {
     if (_pendiente.isEmpty) {
       return const Center(child: Text('Sin comandas en espera.'));
@@ -139,13 +139,12 @@ class _CocinaViewState extends State<CocinaView> {
       children: [
         Text('En espera', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
-        for (var i = 0; i < _pendiente.length; i++)
-          _tilePendiente(_pendiente[i], esPrimera: i == 0),
+        for (final c in _pendiente) _tilePendiente(c),
       ],
     );
   }
 
-  Widget _tilePendiente(Map<String, dynamic> c, {bool esPrimera = false}) {
+  Widget _tilePendiente(Map<String, dynamic> c) {
     final color = AppPalette.lightPrimary; // terracota
     final items = (c['items'] as List? ?? []).cast<Map<String, dynamic>>();
     return InkWell(
@@ -163,16 +162,15 @@ class _CocinaViewState extends State<CocinaView> {
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             Text('${c['escenario'] ?? '-'}'.toUpperCase(),
                 style: const TextStyle(fontSize: 11, color: Colors.white70)),
-            // Solo la primera (próxima a preparar) muestra el contenido.
-            if (esPrimera)
-              for (final it in items)
-                Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: Text('${it['cantidad'] ?? 1} × ${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-            if (esPrimera)
-              Text('TOCAR PARA PREPARAR', style: const TextStyle(fontSize: 10, color: Colors.white70)),
+            // Muestra el contenido (productos) de la comanda para saber qué viene.
+            for (final it in items)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text('${it['cantidad'] ?? 1} × ${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12)),
+              ),
+            const SizedBox(height: 4),
+            Text('TOCAR PARA PREPARAR', style: const TextStyle(fontSize: 10, color: Colors.white70)),
           ],
         ),
       ),
