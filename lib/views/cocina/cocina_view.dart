@@ -5,14 +5,14 @@ import '../../core/theme/app_themes.dart';
 
 /// Pantalla de cocina en tiempo real.
 ///
-/// Layout (ancho > 640):
-///   - Franja izquierda (1/3): tiles de comandas recién generadas. Arriba la
-///     próxima a preparar; debajo, las que están en cola.
-///   - Panel derecho (2/3): swiper centrado en la comanda que se está
-///     preparando. Se asoma a la izquierda la pendiente de preparar y a la
-///     derecha la lista por recoger. Ribbon inferior con la que espera ser
-///     retirada.
-///   Colores de paleta: terracota pendiente, dorado preparando, turquesa lista.
+/// Cada card ES un botón (onTap sobre toda la card, sin iconos de play ni
+/// botones internos). Flujo por toque:
+///   - Franja izquierda (1/3): comandas pendientes (recibida) en TERRACOTA.
+///     Al tocar una -> pasa a 'preparando' y va al swiper central.
+///   - Swiper (2/3): la comanda que se está preparando en DORADO (protagonismo).
+///     Al tocar -> pasa a 'lista' y baja a la barra inferior.
+///   - Barra inferior (ribbon): comandas ya preparadas (lista) en TURQUESA.
+///     Al tocar -> se marca retirada (desaparece de cocina).
 class CocinaView extends StatefulWidget {
   const CocinaView({super.key});
 
@@ -24,7 +24,6 @@ class _CocinaViewState extends State<CocinaView> {
   List<Map<String, dynamic>> _cola = [];
   bool _loading = true;
   String? _error;
-  int _swiperIndex = 0;
   final PageController _pageController = PageController(viewportFraction: 0.7);
 
   @override
@@ -50,14 +49,11 @@ class _CocinaViewState extends State<CocinaView> {
       _cola = r.ok ? r.list.cast<Map<String, dynamic>>() : [];
       _loading = false;
       if (!r.ok) _error = r.message;
-      if (_swiperIndex >= (_preparando.length + _pendiente.length) &&
-          _preparando.isNotEmpty) {
-        _swiperIndex = 0;
-      }
     });
   }
 
-  Future<void> _cambiarEstado(Map<String, dynamic> comanda, String estado) async {
+  /// Cambia el estado de cocina (la card fue tocada como botón).
+  Future<void> _tocarEstado(Map<String, dynamic> comanda, String estado) async {
     final id = comanda['id'];
     if (id == null) return;
     final r = await ApiClient.cambiarEstadoCocina(id as int, estado);
@@ -67,9 +63,6 @@ class _CocinaViewState extends State<CocinaView> {
     }
     _load();
   }
-
-  bool get _esCocinero =>
-      ApiClient.isSuperadmin || ApiClient.hasPermiso('cocina:actualizar');
 
   // --- Agrupación por estado ---
   List<Map<String, dynamic>> get _pendiente =>
@@ -100,211 +93,174 @@ class _CocinaViewState extends State<CocinaView> {
     }
   }
 
+  String _estadoLabel(String estado) {
+    switch (estado) {
+      case 'preparando': return 'PREPARANDO';
+      case 'lista': return 'LISTO';
+      default: return 'EN ESPERA';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
-    if (_cola.isEmpty) {
-      return const Center(child: Text('No hay comandas en cocina.'));
-    }
     return LayoutBuilder(builder: (context, constraints) {
       final esMovil = constraints.maxWidth < 640;
       if (esMovil) return _vistaMovil();
-      // Desktop/tablet: 1/3 izquierda + 2/3 derecha con swiper y ribbon.
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      return Column(
         children: [
-          SizedBox(width: constraints.maxWidth * 0.33, child: _franjaIzquierda()),
-          const VerticalDivider(width: 1),
-          Expanded(child: _panelDerecho(constraints)),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: constraints.maxWidth * 0.33, child: _franjaIzquierda()),
+                const VerticalDivider(width: 1),
+                Expanded(child: _panelDerecho()),
+              ],
+            ),
+          ),
+          _barraInferior(), // barra de listas (siempre presente)
         ],
       );
     });
   }
 
-  // ---------- 1/3 izquierda: comandas recién generadas / en cola ----------
+  // ---------- 1/3 izquierda: pendientes (terracota), todas botón ----------
   Widget _franjaIzquierda() {
-    final pend = _pendiente;
-    final preparandose = _preparando;
-    final cola = pend.isNotEmpty
-        ? (preparandose.isNotEmpty ? [...preparandose, ...pend] : pend)
-        : preparandose;
+    if (_pendiente.isEmpty) {
+      return const Center(child: Text('Sin comandas en espera.'));
+    }
     return ListView(
       padding: const EdgeInsets.all(10),
       children: [
-        Text('En cocina', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text('En espera', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
-        for (final c in cola) _tileCola(c),
+        for (final c in _pendiente) _tilePendiente(c),
       ],
     );
   }
 
-  Widget _tileCola(Map<String, dynamic> c) {
-    final estado = c['estado_cocina'] ?? 'recibida';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: _colorEstado(estado), // fondo = color de paleta sólido
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('#${c['id']} ${_tituloComanda(c)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                Text(estado.toUpperCase(), style: const TextStyle(fontSize: 11, color: Colors.white70)),
-              ],
-            ),
-          ),
-          _cambiarBtnCola(c, estado),
-        ],
+  Widget _tilePendiente(Map<String, dynamic> c) {
+    final color = AppPalette.lightPrimary; // terracota
+    return InkWell(
+      onTap: () => _tocarEstado(c, 'preparando'), // card = botón
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('#${c['id']} ${_tituloComanda(c)}',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            Text('${c['escenario'] ?? '-'}'.toUpperCase(),
+                style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _cambiarBtnCola(Map<String, dynamic> c, String estado) {
-    if (!_esCocinero) return const SizedBox.shrink();
-    if (estado == 'recibida') {
-      return IconButton(
-        icon: const Icon(Icons.play_circle_outline),
-        tooltip: 'Empezar a preparar',
-        onPressed: () => _cambiarEstado(c, 'preparando'),
-      );
+  // ---------- 2/3 derecho: swiper con la que se prepara (dorado) ----------
+  Widget _panelDerecho() {
+    if (_preparando.isEmpty) {
+      return const Center(child: Text('Toca una comanda para prepararla.'));
     }
-    if (estado == 'preparando') {
-      return IconButton(
-        icon: const Icon(Icons.check_circle_outline, color: AppPalette.lightSecondary),
-        tooltip: 'Marcar listo',
-        onPressed: () => _cambiarEstado(c, 'lista'),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  // ---------- 2/3 derecho: swiper + ribbon ----------
-  Widget _panelDerecho(BoxConstraints constraints) {
-    return Column(
-      children: [
-        Expanded(child: _swiper()),
-        _ribbonRetirada(),
-      ],
-    );
-  }
-
-  Widget _swiper() {
-    // Páginas: pendientes de preparar (terracota) + la que se prepara (dorado).
-    final paginas = [..._pendiente, ..._preparando];
-    if (paginas.isEmpty) {
-      // Nada por preparar: mostrar las listas (esperando retirar) si hay.
-      if (_lista.isNotEmpty) {
-        return Center(child: _cardComanda(_lista.first, 'lista'));
-      }
-      return const Center(child: Text('No hay comandas por preparar.'));
-    }
-    // Centrar el actual: el paso se siente por las comandas que se asoman.
     return PageView.builder(
       controller: _pageController,
-      itemCount: paginas.length,
-      // viewportFraction < 1 -> se asoman las cards vecinas a los lados.
+      itemCount: _preparando.length,
+      // viewportFraction < 1 -> se asoman las vecinas en preparación.
       padEnds: true,
       allowImplicitScrolling: true,
       itemBuilder: (context, i) {
-        final c = paginas[i];
-        final estado = c['estado_cocina'] ?? 'recibida';
+        final c = _preparando[i];
+        final estado = c['estado_cocina'] ?? 'preparando';
         return Padding(
           padding: const EdgeInsets.all(16),
-          child: Center(child: _cardComanda(c, estado)),
+          child: Center(child: _cardSwiper(c, estado)),
         );
       },
     );
   }
 
-  Widget _cardComanda(Map<String, dynamic> c, String estado) {
-    final color = _colorEstado(estado);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.all(20),
-      constraints: const BoxConstraints(maxWidth: 380),
-      decoration: BoxDecoration(
-        color: color, // fondo = color de paleta del estado (sólido)
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 14, height: 14, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              Text('#${c['id']} ${_tituloComanda(c)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text('${c['escenario'] ?? '-'}',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          _btnAccion(estado, c),
-        ],
+  Widget _cardSwiper(Map<String, dynamic> c, String estado) {
+    final color = AppPalette.darkSecondary; // dorado
+    return InkWell(
+      onTap: () => _tocarEstado(c, 'lista'), // card = botón -> listo/baja
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        constraints: const BoxConstraints(maxWidth: 380),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 14, height: 14,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                Text('#${c['id']} ${_tituloComanda(c)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('${c['escenario'] ?? '-'}'.toUpperCase(),
+                style: const TextStyle(fontSize: 12, color: Colors.white)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _btnAccion(String estado, Map<String, dynamic> c) {
-    if (_esCocinero && estado == 'recibida') {
-      return FilledButton(onPressed: () => _cambiarEstado(c, 'preparando'), child: const Text('Preparar'));
-    }
-    if (_esCocinero && estado == 'preparando') {
-      return FilledButton(onPressed: () => _cambiarEstado(c, 'lista'), child: const Text('Marcar listo'));
-    }
-    if (estado == 'lista') {
-      return FilledButton(
-        onPressed: () => _cambiarEstado(c, 'retirada'),
-        child: const Text('Entregar a mesa'),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  /// Ribbon inferior: card de la comanda que espera ser retirada (lista).
-  Widget _ribbonRetirada() {
-    if (_lista.isEmpty) return const SizedBox.shrink();
-    final c = _lista.first;
+  // ---------- Barra inferior: las ya preparadas (turquesa) ----------
+  Widget _barraInferior() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.darkPrimary, // turquesa (espera ser retirada)
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surface,
+        border: const Border(top: BorderSide(color: Color(0x22000000), width: 1)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text('#${c['id']} ${_tituloComanda(c)} — ${c['estado'] ?? ''}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppPalette.darkPrimary),
-            onPressed: () => _cambiarEstado(c, 'retirada'),
-            child: const Text('Retirada'),
-          ),
-        ],
+      child: _lista.isEmpty
+          ? const Text('Sin comandas listas para retirar.',
+              style: TextStyle(color: Colors.grey))
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [for (final c in _lista) _chipListo(c)]),
+            ),
+    );
+  }
+
+  Widget _chipListo(Map<String, dynamic> c) {
+    final color = AppPalette.darkPrimary; // turquesa
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: () => _tocarEstado(c, 'retirada'), // card = botón -> retira
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+          child: Text('#${c['id']} ${_tituloComanda(c)}',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        ),
       ),
     );
   }
 
-  // ---------- Móvil: lista simple ----------
+  // ---------- Móvil: lista simple, cards botón ----------
   Widget _vistaMovil() {
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -315,25 +271,29 @@ class _CocinaViewState extends State<CocinaView> {
   Widget _cardMovil(Map<String, dynamic> c) {
     final estado = c['estado_cocina'] ?? 'recibida';
     final color = _colorEstado(estado);
+    final String destino;
+    if (estado == 'recibida') {
+      destino = 'preparando';
+    } else if (estado == 'preparando') {
+      destino = 'lista';
+    } else {
+      destino = 'retirada';
+    }
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                const SizedBox(width: 8),
-                Text('#${c['id']} ${_tituloComanda(c)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                Text(estado, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _btnAccion(estado, c),
-          ],
+      child: InkWell(
+        onTap: () => _tocarEstado(c, destino), // card = botón
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Expanded(child: Text('#${c['id']} ${_tituloComanda(c)}', style: const TextStyle(fontWeight: FontWeight.bold))),
+              Text(_estadoLabel(estado), style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+            ],
+          ),
         ),
       ),
     );
