@@ -25,7 +25,7 @@ class _CocinaViewState extends State<CocinaView> {
   bool _loading = true;
   String? _error;
   int _swiperIndex = 0;
-  final PageController _pageController = PageController();
+  final PageController _pageController = PageController(viewportFraction: 0.7);
 
   @override
   void initState() {
@@ -147,9 +147,8 @@ class _CocinaViewState extends State<CocinaView> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: _colorEstado(estado).withValues(alpha: 0.12),
+        color: _colorEstado(estado), // fondo = color de paleta sólido
         borderRadius: BorderRadius.circular(10),
-        border: Border(left: BorderSide(color: _colorEstado(estado), width: 4)),
       ),
       child: Row(
         children: [
@@ -158,8 +157,8 @@ class _CocinaViewState extends State<CocinaView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('#${c['id']} ${_tituloComanda(c)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(estado, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(estado.toUpperCase(), style: const TextStyle(fontSize: 11, color: Colors.white70)),
               ],
             ),
           ),
@@ -212,6 +211,9 @@ class _CocinaViewState extends State<CocinaView> {
     return PageView.builder(
       controller: _pageController,
       itemCount: paginas.length,
+      // viewportFraction < 1 -> se asoman las cards vecinas a los lados.
+      padEnds: true,
+      allowImplicitScrolling: true,
       itemBuilder: (context, i) {
         final c = paginas[i];
         final estado = c['estado_cocina'] ?? 'recibida';
@@ -225,19 +227,14 @@ class _CocinaViewState extends State<CocinaView> {
 
   Widget _cardComanda(Map<String, dynamic> c, String estado) {
     final color = _colorEstado(estado);
-    // Acción por estado:
-    //   recibida (terracota) -> Preparar  (cocinero)
-    //   preparando (dorado) -> Listo      (cocinero)
-    //   lista (turquesa)  -> Entregar    (mesero)
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.all(20),
       constraints: const BoxConstraints(maxWidth: 380),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: color, // fondo = color de paleta del estado (sólido)
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color, width: 3),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -246,17 +243,16 @@ class _CocinaViewState extends State<CocinaView> {
           Row(
             children: [
               Container(
-                width: 14, height: 14,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                width: 14, height: 14, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Text('#${c['id']} ${_tituloComanda(c)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
             ],
           ),
           const SizedBox(height: 14),
           Text('${c['escenario'] ?? '-'}',
-              style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _btnAccion(estado, c),
         ],
@@ -289,16 +285,17 @@ class _CocinaViewState extends State<CocinaView> {
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.darkPrimary.withValues(alpha: 0.15),
+        color: AppPalette.darkPrimary, // turquesa (espera ser retirada)
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text('#${c['id']} ${_tituloComanda(c)} — ${c['estado'] ?? ''}',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppPalette.darkPrimary),
             onPressed: () => _cambiarEstado(c, 'retirada'),
             child: const Text('Retirada'),
           ),
