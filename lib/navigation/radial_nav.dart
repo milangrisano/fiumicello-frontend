@@ -68,8 +68,10 @@ class _RadialNavState extends State<RadialNav> {
         child: FloatingActionButton(
           onPressed: () => setState(() => _abierto = !_abierto),
           mini: false,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
           shape: const CircleBorder(),
-          child: Icon(_abierto ? Icons.close : Icons.add, color: Colors.white),
+          child: Icon(_abierto ? Icons.close : Icons.add),
         ),
       ),
       // Íconos del arco (visibles al abrir), cada uno en su posición insetada.
@@ -83,12 +85,14 @@ class _RadialNavState extends State<RadialNav> {
               height: 36,
               child: FloatingActionButton(
                 mini: true,
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 shape: const CircleBorder(),
                 onPressed: () {
                   setState(() => _abierto = false);
                   widget.onSelect(ic.index);
                 },
-                child: Icon(ic.icon, size: 18, color: Theme.of(context).colorScheme.primary),
+                child: Icon(ic.icon, size: 18),
               ),
             ),
           ),
