@@ -168,7 +168,6 @@ class _PosSalesViewState extends State<PosSalesView> {
         _snack(r.message);
         return;
       }
-      // Sin snackbar de éxito (no es información útil en la operación normal).
       setState(() {
         _pantalla = Pantalla.mesas;
         _comanda.clear();
@@ -177,50 +176,96 @@ class _PosSalesViewState extends State<PosSalesView> {
       await _refreshVivos();
       return;
     }
-    // Sin etapa de asignación: se salta directo a la creación/cobro del pedido.
-    // El escenario y sus datos ya se capturaron con los chips de la comanda.
-    await _crearPedido();
+    // Abre la ventana del escenario con los 2 botones: "Comandar y enviar a
+    // cocina" (crea y va a cocina, sin cobrar) o "Pagar" (crea, va a cocina y
+    // abre el pago con medio y propina).
+    final accion = await _dialogEscenario();
+    if (accion == null) return; // cancelado
+    await _crearPedido(accion: accion);
   }
 
-  /// Abre la ventana flotante correspondiente al escenario elegido (chip) para
-  /// capturar los datos necesarios (mesa / llevar / domicilio). Mantiene lo ya
-  /// ingresado sesión a sesión dentro de la misma comanda.
-  Future<void> _elegirEscenario(String escenario) async {
-    if (escenario == 'mesa') {
-      final n = await _dialogTexto(
+  /// Ventana del escenario elegido: captura los datos (mesa/llevar/domicilio) y
+  /// ofrece 2 acciones: comandar (a cocina) o pagar. Retorna 'comandar'|'pagar'
+  /// o null si se cancela.
+  Future<String?> _dialogEscenario() async {
+    if (_escenario == 'mesa') {
+      final n = await _dialogEscenarioAccion(
         titulo: 'Mesa',
         etiqueta: 'Número de mesa',
         icono: Icons.restaurant,
         textoInicial: _numeroMesa,
         teclado: TextInputType.number,
       );
-      if (n == null) return;
-      setState(() {
-        _escenario = 'mesa';
-        _numeroMesa = n.trim();
-      });
-    } else if (escenario == 'para_llevar') {
-      final nombre = await _dialogTexto(
+      if (n == null) return null;
+      setState(() => _numeroMesa = n['valor'].trim());
+      return n['accion'] as String?;
+    } else if (_escenario == 'para_llevar') {
+      final res = await _dialogEscenarioAccion(
         titulo: 'Para llevar',
         etiqueta: 'Nombre de la persona',
         icono: Icons.takeout_dining,
         textoInicial: _clienteNombre,
       );
-      if (nombre == null) return;
-      setState(() {
-        _escenario = 'para_llevar';
-        _clienteNombre = nombre.trim();
-      });
-    } else if (escenario == 'domicilio') {
+      if (res == null) return null;
+      setState(() => _clienteNombre = res['valor'].trim());
+      return res['accion'] as String?;
+    } else {
       final datos = await _dialogDomicilio();
-      if (datos == null) return;
+      if (datos == null) return null;
       setState(() {
-        _escenario = 'domicilio';
         _clienteNombre = (datos['nombre'] ?? '').trim();
         _direccion = (datos['direccion'] ?? '').trim();
         _telefono = (datos['telefono'] ?? '').trim();
       });
+      return datos['accion'] as String?;
     }
+  }
+
+  /// Diálogo de un campo + 2 botones (Comandar / Pagar).
+  Future<Map<String, dynamic>?> _dialogEscenarioAccion({
+    required String titulo,
+    required String etiqueta,
+    required IconData icono,
+    String textoInicial = '',
+    TextInputType? teclado,
+  }) {
+    final ctrl = TextEditingController(text: textoInicial);
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [Icon(icono), const SizedBox(width: 8), Text(titulo)]),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: teclado,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: etiqueta,
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton.icon(
+            icon: const Icon(Icons.kitchen_outlined),
+            onPressed: () => Navigator.pop(ctx, {'valor': ctrl.text, 'accion': 'comandar'}),
+            label: const Text('Comandar y enviar a cocina'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.payments_outlined),
+            onPressed: () => Navigator.pop(ctx, {'valor': ctrl.text, 'accion': 'pagar'}),
+            label: const Text('Pagar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Selección de escenario (chip): solo marca la opción elegida. La ventana de
+  /// datos (mesa/llevar/domicilio) se abre al presionar "Continuar", y ahí se
+  /// elige entre "Comandar y enviar a cocina" o "Pagar".
+  void _elegirEscenario(String escenario) {
+    setState(() => _escenario = escenario);
   }
 
   /// Ventana flotante de un solo campo de texto.
@@ -257,7 +302,8 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
-  /// Ventana flotante de domicilio (nombre + dirección + teléfono).
+  /// Ventana flotante de domicilio (nombre + dirección + teléfono) + 2 botones
+  /// (comandar / pagar).
   Future<Map<String, String>?> _dialogDomicilio() {
     final n = TextEditingController(text: _clienteNombre);
     final d = TextEditingController(text: _direccion);
@@ -278,20 +324,29 @@ class _PosSalesViewState extends State<PosSalesView> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
+          FilledButton.icon(
+            icon: const Icon(Icons.kitchen_outlined),
             onPressed: () => Navigator.pop(ctx, {
-              'nombre': n.text,
-              'direccion': d.text,
-              'telefono': t.text,
+              'nombre': n.text, 'direccion': d.text, 'telefono': t.text, 'accion': 'comandar',
             }),
-            child: const Text('Aceptar'),
+            label: const Text('Comandar y enviar a cocina'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.payments_outlined),
+            onPressed: () => Navigator.pop(ctx, {
+              'nombre': n.text, 'direccion': d.text, 'telefono': t.text, 'accion': 'pagar',
+            }),
+            label: const Text('Pagar'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _crearPedido() async {
+  /// Crea el pedido (SIEMPRE entra a cocina, se pague o no). Si `accion ==
+  /// 'pagar'` abre la ventana de pago (medio + propina). Si es 'comandar'
+  /// solo crea y envía a cocina, sin cobrar.
+  Future<void> _crearPedido({String accion = 'comandar'}) async {
     if (_escenario == 'mesa' && _numeroMesa.trim().isEmpty) {
       _snack('Indique el número de mesa.');
       return;
@@ -322,8 +377,20 @@ class _PosSalesViewState extends State<PosSalesView> {
       return;
     }
     final id = await _idDelPedido();
+
+    if (accion == 'pagar') {
+      // Pagar: crea (ya va a cocina) y abre la ventana de pago (medio + propina).
+      if (id == null) {
+        _snack('No se pudo crear el pedido.');
+        return;
+      }
+      await _dialogPagarPedido(id);
+      return;
+    }
+
+    // Comandar y enviar a cocina: sin cobrar.
     if (_escenario == 'mesa') {
-      _snack('Mesa ${_numeroMesa.trim()} abierta.');
+      _snack('Mesa ${_numeroMesa.trim()} enviada a cocina.');
       setState(() {
         _pantalla = Pantalla.mesas;
         _comanda.clear();
@@ -331,14 +398,96 @@ class _PosSalesViewState extends State<PosSalesView> {
       });
       await _refreshVivos();
     } else {
-      // Llevar / Domicilio: se cobra ahora de una (sin 3ª etapa separada),
-      // usando la forma de pago elegida en el dropdown de la comanda.
-      if (id == null) {
-        _snack('No se pudo crear el pedido.');
-        return;
-      }
-      await _ejecutarCobro(id);
+      _snack('Comanda enviada a cocina.');
+      _limpiarComanda();
     }
+  }
+
+  /// Limpia el estado de la comanda actual.
+  void _limpiarComanda() {
+    setState(() {
+      _pantalla = Pantalla.comanda;
+      _comanda.clear();
+      _numeroMesa = '';
+      _clienteNombre = '';
+      _direccion = '';
+      _telefono = '';
+      _modoAgregarMesaId = null;
+    });
+  }
+
+  /// Ventana de pago: medio de pago + propina opcional. Cobra el pedido (que
+  /// ya fue creado y entró a cocina) y, si hay propina, la registra.
+  Future<void> _dialogPagarPedido(int pedidoId) async {
+    int? formaSel = _cobroFormaPago;
+    if (formaSel == null && _formas.isNotEmpty) {
+      formaSel = _formas.first['id'] as int?;
+    }
+    final propinaCtrl = TextEditingController();
+    final monto = _totalComanda;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pagar'),
+        content: StatefulBuilder(builder: (ctx, setStateDlg) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Total: ${money(monto)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                initialValue: formaSel,
+                decoration: const InputDecoration(labelText: 'Medio de pago', border: OutlineInputBorder(), isDense: true),
+                items: [for (final f in _formas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
+                onChanged: (v) => setStateDlg(() => formaSel = v),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: propinaCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Propina (opcional)', border: OutlineInputBorder(), isDense: true),
+              ),
+            ],
+          );
+        }),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cobrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) {
+      // Canceló el pago: la comanda ya se creó y está en cocina (pendiente de cobro).
+      _snack('Comanda enviada a cocina (cobro pendiente).');
+      _limpiarComanda();
+      await _refreshVivos();
+      return;
+    }
+    if (!mounted) return;
+    // Cobrar el pedido con el medio elegido.
+    setState(() => _cobrando = true);
+    final r = await ApiClient.cobrarPedido(pedidoId, formaSel);
+    // Registrar propina si se indicó y el cobro fue exitoso.
+    final propina = double.tryParse(propinaCtrl.text.trim().replaceAll(',', '.')) ?? 0;
+    if (r.ok && propina > 0) {
+      final hoy = DateTime.now().toIso8601String().split('T').first;
+      await ApiClient.cajaPagarPropina(hoy, propina, 0, null, null, 'Propina de comanda');
+    }
+    if (!mounted) return;
+    setState(() => _cobrando = false);
+    if (!r.ok) {
+      _snack(r.message);
+      _limpiarComanda();
+      await _refreshVivos();
+      return;
+    }
+    _snack('Comanda cobrada.');
+    _limpiarComanda();
+    await _refreshVivos();
   }
 
   Future<int?> _idDelPedido() async {
@@ -668,13 +817,10 @@ class _PosSalesViewState extends State<PosSalesView> {
       categoriaSel: _categoriaSel,
       error: _error,
       escenario: _escenario,
-      formas: _formas,
-      formaPago: _cobroFormaPago,
       onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
       onElegirEscenario: _elegirEscenario,
-      onCambiarForma: (id) => setState(() => _cobroFormaPago = id),
       onQuitar: _quitarLinea,
       onRestar: _restarLinea,
       onEditarPrecio: _editarPrecioLinea,
