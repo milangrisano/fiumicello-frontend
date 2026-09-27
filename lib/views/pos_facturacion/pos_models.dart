@@ -12,6 +12,10 @@ class Linea {
   /// los nuevos productos van con false. Sirve para no re-enviar los ya
   /// existentes al agregar más a la misma mesa.
   bool yaEnMesa = false;
+  /// Unidades NUEVAS a enviar al pedido cuando yaEnMesa == true (delta). La
+  /// cantidad visual muestra el total (incluye lo que ya estaba); este campo
+  /// registra cuántas unidades adicionales se agregan a la mesa.
+  int agregar = 0;
   double costoUnitario = 0.0;
 
   Linea({
@@ -23,6 +27,7 @@ class Linea {
     this.cantidad = 1,
     this.nota = '',
     this.yaEnMesa = false,
+    this.agregar = 0,
   });
 
   double get subtotal => precio * cantidad;

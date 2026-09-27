@@ -118,17 +118,10 @@ class _PosSalesViewState extends State<PosSalesView> {
       for (final l in _comanda) {
         if (l.idProducto == (item['id'] as int?) && l.tamanio == tamanio) {
           if (l.yaEnMesa) {
-            // El producto ya estaba en la mesa: esta nueva selección es una
-            // ADICIÓN. Se crea una línea nueva (yaEnMesa=false) para que se
-            // envíe al pedido y cuente como producto nuevo.
-            _comanda.add(Linea(
-              idProducto: item['id'] as int,
-              nombre: item['nombre'] ?? '',
-              tamanio: tamanio,
-              precio: precio,
-              costoUnitario: costoCatalogo,
-              cantidad: 1,
-            ));
+            // Producto ya estaba en la mesa: aumenta la cantidad visual Y el
+            // delta a enviar (agregar), en la misma línea — no crea otra.
+            l.cantidad++;
+            l.agregar++;
           } else {
             l.cantidad++;
           }
@@ -151,11 +144,19 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   List<Map<String, dynamic>> get _itemsComandaJson => [
         for (final l in _comanda)
-          if (!l.yaEnMesa) // no re-enviar los productos que ya estaban en la mesa
+          if (!l.yaEnMesa) // producto nuevo completo
             {
               'id_producto': l.idProducto,
               'tamanio': l.tamanio,
               'cantidad': l.cantidad,
+              'nota': l.nota.isEmpty ? null : l.nota,
+              'costo_unitario': l.costoUnitario,
+            }
+          else if (l.agregar > 0) // ya en mesa: solo el delta agregado
+            {
+              'id_producto': l.idProducto,
+              'tamanio': l.tamanio,
+              'cantidad': l.agregar,
               'nota': l.nota.isEmpty ? null : l.nota,
               'costo_unitario': l.costoUnitario,
             }
@@ -169,7 +170,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Modo "agregar a mesa abierta": añade la comanda a ese pedido y vuelve a
     // las mesas (sin pasar por la asignación, que ya se hizo la primera vez).
     if (_modoAgregarMesaId != null) {
-      final nuevos = _comanda.where((l) => !l.yaEnMesa).toList();
+      final nuevos = _comanda.where((l) => !l.yaEnMesa || l.agregar > 0).toList();
       if (nuevos.isEmpty) {
         _snack('Agrega al menos un producto nuevo.');
         return;
