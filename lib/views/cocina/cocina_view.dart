@@ -281,7 +281,10 @@ class _CocinaViewState extends State<CocinaView> {
   Widget _vistaMovil() {
     return ListView(
       padding: const EdgeInsets.all(12),
-      children: [for (final c in _cola) _cardMovil(c)],
+      children: [
+        for (final c in _cola)
+          if (c['estado_cocina'] != 'retirada') _cardMovil(c),
+      ],
     );
   }
 
@@ -297,35 +300,45 @@ class _CocinaViewState extends State<CocinaView> {
     } else {
       destino = 'retirada';
     }
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: () => _tocarEstado(c, destino), // card = botón
+      decoration: BoxDecoration(
+        color: color, // fondo = color de paleta del estado
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text('#${c['id']} ${_tituloComanda(c)}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                  Text(_estadoLabel(estado), style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
-                ],
-              ),
-              // Contenido de la comanda: los productos dentro de la card.
-              const SizedBox(height: 6),
-              for (final it in items)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    '${it['cantidad'] ?? 1} × ${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+        border: Border.all(color: _bordeCard(context), width: 2),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _tocarEstado(c, destino), // card = botón
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('#${c['id']} ${_tituloComanda(c)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                    Text(_estadoLabel(estado),
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                  ],
                 ),
-            ],
+                // Contenido de la comanda: los productos dentro de la card.
+                const SizedBox(height: 6),
+                for (final it in items)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '${it['cantidad'] ?? 1} × ${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
