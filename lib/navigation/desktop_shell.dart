@@ -29,9 +29,12 @@ class _DesktopShellState extends State<DesktopShell> {
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Ver carta',
-          icon: ColorFiltered(
-            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-            child: Image.asset('assets/gorro_fiumicello.png', height: 34, fit: BoxFit.contain),
+          icon: Image.asset(
+            Theme.of(context).brightness == Brightness.dark
+                ? 'assets/gorro_fiumicello_blanco.png'
+                : 'assets/gorro_fiumicello.png',
+            height: 34,
+            fit: BoxFit.contain,
           ),
           onPressed: () => widget.onSelect(AppSections.carta),
         ),
