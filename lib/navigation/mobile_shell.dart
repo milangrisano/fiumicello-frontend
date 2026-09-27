@@ -39,10 +39,13 @@ class MobileShell extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           tooltip: 'Ver menú',
-          icon: Image.asset(
-            'assets/gorro_fiumicello.png',
-            height: 40,
-            fit: BoxFit.contain,
+          icon: ColorFiltered(
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            child: Image.asset(
+              'assets/gorro_fiumicello.png',
+              height: 40,
+              fit: BoxFit.contain,
+            ),
           ),
           onPressed: () => onSelect(AppSections.carta),
         ),

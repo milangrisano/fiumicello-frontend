@@ -750,6 +750,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
           Padding(
             padding: EdgeInsets.fromLTRB(borde, borde, borde, 0),
@@ -757,6 +758,7 @@ class _PosSalesViewState extends State<PosSalesView> {
               spacing: gap,
               runSpacing: gap,
               alignment: WrapAlignment.start,
+              crossAxisAlignment: WrapCrossAlignment.start,
               children: [
                 for (final card in cards)
                   SizedBox(width: cardAncho, child: card),

@@ -29,7 +29,10 @@ class _DesktopShellState extends State<DesktopShell> {
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Ver carta',
-          icon: Image.asset('assets/gorro_fiumicello.png', height: 34, fit: BoxFit.contain),
+          icon: ColorFiltered(
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            child: Image.asset('assets/gorro_fiumicello.png', height: 34, fit: BoxFit.contain),
+          ),
           onPressed: () => widget.onSelect(AppSections.carta),
         ),
         title: ValueListenableBuilder<String>(
