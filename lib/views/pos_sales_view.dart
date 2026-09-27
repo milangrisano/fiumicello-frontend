@@ -934,19 +934,31 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Va a la comanda en modo "agregar a esta mesa": carga los productos que la
     // mesa YA tiene ordenados (para ver el contexto) y al continuar se añaden
     // los nuevos al pedido existente (sin pasar por la asignación).
+    // AGRUPA por producto+tamaño: si la BD tiene el mismo ítem en varias líneas
+    // (duplicados heredados), se suman en una sola línea con su cantidad total.
     setState(() {
       _comanda.clear();
+      final porClave = <String, Linea>{};
       for (final it in (m['items'] as List? ?? []).cast<Map<String, dynamic>>()) {
-        _comanda.add(Linea(
-          idProducto: (it['id_producto'] ?? it['id']) as int,
-          nombre: it['nombre'] ?? '',
-          tamanio: it['tamanio'] as String?,
-          precio: numVal(it['precio_unitario'] ?? it['precio']),
-          cantidad: (it['cantidad'] as int?) ?? 1,
-          nota: it['nota'] as String? ?? '',
-          yaEnMesa: true,
-        ));
+        final idP = (it['id_producto'] ?? it['id']) as int;
+        final tam = it['tamanio'] as String?;
+        final clave = '$idP|$tam';
+        final cant = (it['cantidad'] as int?) ?? 1;
+        if (porClave.containsKey(clave)) {
+          porClave[clave]!.cantidad += cant;
+        } else {
+          porClave[clave] = Linea(
+            idProducto: idP,
+            nombre: it['nombre'] ?? '',
+            tamanio: tam,
+            precio: numVal(it['precio_unitario'] ?? it['precio']),
+            cantidad: cant,
+            nota: it['nota'] as String? ?? '',
+            yaEnMesa: true,
+          );
+        }
       }
+      _comanda.addAll(porClave.values);
       _modoAgregarMesaId = m['id'] as int?;
       _pantalla = Pantalla.comanda;
     });
