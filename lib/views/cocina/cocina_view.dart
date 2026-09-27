@@ -24,7 +24,6 @@ class _CocinaViewState extends State<CocinaView> {
   List<Map<String, dynamic>> _cola = [];
   bool _loading = true;
   String? _error;
-  final PageController _pageController = PageController(viewportFraction: 0.7);
 
   @override
   void initState() {
@@ -34,12 +33,6 @@ class _CocinaViewState extends State<CocinaView> {
     rt.conectar();
     rt.on('comanda:nueva', (_) => _load());
     rt.on('cocina:estado', (_) => _load());
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -165,59 +158,62 @@ class _CocinaViewState extends State<CocinaView> {
     );
   }
 
-  // ---------- 2/3 derecho: swiper con la que se prepara (dorado) ----------
+  // ---------- 2/3 derecho: columna con todas las que se preparan (dorado) ----------
   Widget _panelDerecho() {
     if (_preparando.isEmpty) {
       return const Center(child: Text('Toca una comanda para prepararla.'));
     }
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: _preparando.length,
-      // viewportFraction < 1 -> se asoman las vecinas en preparación.
-      padEnds: true,
-      allowImplicitScrolling: true,
-      itemBuilder: (context, i) {
-        final c = _preparando[i];
-        final estado = c['estado_cocina'] ?? 'preparando';
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Center(child: _cardSwiper(c, estado)),
-        );
-      },
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        Text('PREPARANDO', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        for (final c in _preparando) _cardPreparando(c),
+      ],
     );
   }
 
-  Widget _cardSwiper(Map<String, dynamic> c, String estado) {
-    final color = AppPalette.darkSecondary; // dorado
+  /// Card de la comanda en preparación: contenido completo (ítems), dorada.
+  Widget _cardPreparando(Map<String, dynamic> c) {
+    final items = (c['items'] as List? ?? []).cast<Map<String, dynamic>>();
     return InkWell(
-      onTap: () => _tocarEstado(c, 'lista'), // card = botón -> listo/baja
-      borderRadius: BorderRadius.circular(18),
+      onTap: () => _tocarEstado(c, 'lista'), // card = botón -> baja a listas
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxWidth: 380),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+          color: AppPalette.darkSecondary, // dorado
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  width: 14, height: 14,
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 8),
-                Text('#${c['id']} ${_tituloComanda(c)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                Text('#${c['id']} · ${_tituloComanda(c)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
               ],
             ),
-            const SizedBox(height: 12),
-            Text('${c['escenario'] ?? '-'}'.toUpperCase(),
-                style: const TextStyle(fontSize: 12, color: Colors.white)),
+            const SizedBox(height: 8),
+            for (final it in items)
+              Row(
+                children: [
+                  Text('${it['cantidad'] ?? 1} × ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  Expanded(
+                    child: Text('${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
+                        style: const TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            if (items.any((it) => it['nota'] != null && (it['nota'] as String).isNotEmpty))
+              for (final it in items)
+                if (it['nota'] != null && (it['nota'] as String).isNotEmpty)
+                  Text('   nota: ${it['nota']}',
+                      style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic, fontSize: 12)),
+            const SizedBox(height: 6),
+            Text('TOCAR PARA MARCAR LISTO', style: const TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
       ),
