@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'sidebar.dart';
 import 'app_titulo.dart';
+import 'app_sections.dart';
 
 /// Shell #3 — Desktop app (width >= 1200).
 /// Shows a collapsible sidebar on the left; the body keeps the active view.
@@ -26,6 +27,11 @@ class _DesktopShellState extends State<DesktopShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Ver carta',
+          icon: Image.asset('assets/gorro_fiumicello.png', height: 34, fit: BoxFit.contain),
+          onPressed: () => widget.onSelect(AppSections.carta),
+        ),
         title: ValueListenableBuilder<String>(
           valueListenable: AppTitulo.titulo,
           builder: (context, t, _) => Text(t),

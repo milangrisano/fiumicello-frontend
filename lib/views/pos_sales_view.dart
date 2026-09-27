@@ -565,6 +565,12 @@ class _PosSalesViewState extends State<PosSalesView> {
       case Pantalla.entregas:
         AppTitulo.titulo.value = 'Pedidos por entregar';
         return;
+      case Pantalla.cocina:
+        AppTitulo.titulo.value = 'Cocina';
+        return;
+      case Pantalla.inicio:
+        AppTitulo.titulo.value = 'POS de facturación';
+        return;
       default:
         AppTitulo.titulo.value = 'POS de facturación';
     }
@@ -657,19 +663,10 @@ class _PosSalesViewState extends State<PosSalesView> {
           return _vistaInicio();
       }
     }
-    // Cocina: no requiere caja abierta (preparación).
+    // Cocina: no requiere caja abierta (preparación). El AppBar lo maneja el shell
+    // (título "Cocina" con el sombrerito que lleva a la carta / inicio).
     if (_pantalla == Pantalla.cocina) {
-      return Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => setState(() => _pantalla = Pantalla.inicio),
-          ),
-          title: const Text('Cocina'),
-        ),
-        body: const CocinaView(),
-      );
+      return const CocinaView();
     }
     // Pantalla explícita de abrir caja.
     if (_pantalla == Pantalla.abrirCaja) return _pantallaAbrirCaja();
@@ -754,15 +751,12 @@ class _PosSalesViewState extends State<PosSalesView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-              child: const Text('POS de facturación', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-            ),
           Padding(
-            padding: EdgeInsets.all(borde),
+            padding: EdgeInsets.fromLTRB(borde, borde, borde, 0),
             child: Wrap(
               spacing: gap,
               runSpacing: gap,
+              alignment: WrapAlignment.start,
               children: [
                 for (final card in cards)
                   SizedBox(width: cardAncho, child: card),

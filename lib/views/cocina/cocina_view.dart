@@ -185,7 +185,7 @@ class _CocinaViewState extends State<CocinaView> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Text('PREPARANDO', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text('Preparando', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
         for (final c in _preparando) _cardPreparando(c),
       ],

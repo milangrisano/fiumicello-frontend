@@ -25,6 +25,11 @@ class TabletShell extends StatelessWidget {
     final visible = AppSections.visible();
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Ver carta',
+          icon: Image.asset('assets/gorro_fiumicello.png', height: 34, fit: BoxFit.contain),
+          onPressed: () => onSelect(AppSections.carta),
+        ),
         title: ValueListenableBuilder<String>(
           valueListenable: AppTitulo.titulo,
           builder: (context, t, _) => Text(t),
