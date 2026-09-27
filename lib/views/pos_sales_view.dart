@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
+import '../core/app_version.dart';
 import '../navigation/app_titulo.dart';
 import '../core/utils/formatters.dart';
 import 'pos_facturacion/pos_models.dart';
@@ -765,6 +766,16 @@ class _PosSalesViewState extends State<PosSalesView> {
               ],
             ),
           ),
+          // En móvil, la versión de la app al final de las cards del POS.
+          if (ancho < 800)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Versión $APP_VERSION',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+              ),
+            ),
         ],
       ),
       );

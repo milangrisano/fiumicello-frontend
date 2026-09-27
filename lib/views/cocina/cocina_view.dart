@@ -288,6 +288,7 @@ class _CocinaViewState extends State<CocinaView> {
   Widget _cardMovil(Map<String, dynamic> c) {
     final estado = c['estado_cocina'] ?? 'recibida';
     final color = _colorEstado(estado);
+    final items = (c['items'] as List? ?? []).cast<Map<String, dynamic>>();
     final String destino;
     if (estado == 'recibida') {
       destino = 'preparando';
@@ -303,12 +304,27 @@ class _CocinaViewState extends State<CocinaView> {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-              const SizedBox(width: 8),
-              Expanded(child: Text('#${c['id']} ${_tituloComanda(c)}', style: const TextStyle(fontWeight: FontWeight.bold))),
-              Text(_estadoLabel(estado), style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+              Row(
+                children: [
+                  Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('#${c['id']} ${_tituloComanda(c)}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                  Text(_estadoLabel(estado), style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+                ],
+              ),
+              // Contenido de la comanda: los productos dentro de la card.
+              const SizedBox(height: 6),
+              for (final it in items)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '${it['cantidad'] ?? 1} × ${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
             ],
           ),
         ),
