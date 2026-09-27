@@ -131,13 +131,15 @@ class _CocinaViewState extends State<CocinaView> {
       children: [
         Text('En espera', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
-        for (final c in _pendiente) _tilePendiente(c),
+        for (var i = 0; i < _pendiente.length; i++)
+          _tilePendiente(_pendiente[i], esPrimera: i == 0),
       ],
     );
   }
 
-  Widget _tilePendiente(Map<String, dynamic> c) {
+  Widget _tilePendiente(Map<String, dynamic> c, {bool esPrimera = false}) {
     final color = AppPalette.lightPrimary; // terracota
+    final items = (c['items'] as List? ?? []).cast<Map<String, dynamic>>();
     return InkWell(
       onTap: () => _tocarEstado(c, 'preparando'), // card = botón
       borderRadius: BorderRadius.circular(10),
@@ -152,6 +154,16 @@ class _CocinaViewState extends State<CocinaView> {
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             Text('${c['escenario'] ?? '-'}'.toUpperCase(),
                 style: const TextStyle(fontSize: 11, color: Colors.white70)),
+            // Solo la primera (próxima a preparar) muestra el contenido.
+            if (esPrimera)
+              for (final it in items)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text('${it['cantidad'] ?? 1} × ${it['nombre'] ?? '-'}${(it['tamanio'] != null && (it['tamanio'] as String).isNotEmpty) ? ' (${it['tamanio']})' : ''}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+            if (esPrimera)
+              Text('TOCAR PARA PREPARAR', style: const TextStyle(fontSize: 10, color: Colors.white70)),
           ],
         ),
       ),
