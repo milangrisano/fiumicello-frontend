@@ -117,7 +117,21 @@ class _PosSalesViewState extends State<PosSalesView> {
     setState(() {
       for (final l in _comanda) {
         if (l.idProducto == (item['id'] as int?) && l.tamanio == tamanio) {
-          l.cantidad++;
+          if (l.yaEnMesa) {
+            // El producto ya estaba en la mesa: esta nueva selección es una
+            // ADICIÓN. Se crea una línea nueva (yaEnMesa=false) para que se
+            // envíe al pedido y cuente como producto nuevo.
+            _comanda.add(Linea(
+              idProducto: item['id'] as int,
+              nombre: item['nombre'] ?? '',
+              tamanio: tamanio,
+              precio: precio,
+              costoUnitario: costoCatalogo,
+              cantidad: 1,
+            ));
+          } else {
+            l.cantidad++;
+          }
           return;
         }
       }
@@ -249,7 +263,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           FilledButton.icon(
             icon: const Icon(Icons.kitchen_outlined),
             onPressed: () => Navigator.pop(ctx, {'valor': ctrl.text, 'accion': 'comandar'}),
-            label: const Text('Comandar y enviar a cocina'),
+            label: const Text('Comandar'),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.payments_outlined),
@@ -329,7 +343,7 @@ class _PosSalesViewState extends State<PosSalesView> {
             onPressed: () => Navigator.pop(ctx, {
               'nombre': n.text, 'direccion': d.text, 'telefono': t.text, 'accion': 'comandar',
             }),
-            label: const Text('Comandar y enviar a cocina'),
+            label: const Text('Comandar'),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.payments_outlined),
@@ -418,13 +432,15 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   /// Ventana de pago: medio de pago + propina opcional. Cobra el pedido (que
   /// ya fue creado y entró a cocina) y, si hay propina, la registra.
-  Future<void> _dialogPagarPedido(int pedidoId) async {
+  /// `montoMostrar` es el total que se exhibe (por defecto el de la comanda
+  /// actual; para "pedir la cuenta" de una mesa se pasa el de esa mesa).
+  Future<void> _dialogPagarPedido(int pedidoId, {double? montoMostrar}) async {
     int? formaSel = _cobroFormaPago;
     if (formaSel == null && _formas.isNotEmpty) {
       formaSel = _formas.first['id'] as int?;
     }
     final propinaCtrl = TextEditingController();
-    final monto = _totalComanda;
+    final monto = montoMostrar ?? _totalComanda;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -497,29 +513,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       return last['id'] as int?;
     }
     return null;
-  }
-
-  Future<void> _ejecutarCobro(int pedidoId) async {
-    setState(() => _cobrando = true);
-    final r = await ApiClient.cobrarPedido(pedidoId, _cobroFormaPago);
-    if (!mounted) return;
-    setState(() => _cobrando = false);
-    if (!r.ok) {
-      _snack(r.message);
-      return;
-    }
-    // ÉXITO: limpiar la comanda y QUEDARSE en la pantalla de comanda (vacía),
-    // lista para armar la siguiente. Sin volver a los cards del inicio.
-    setState(() {
-      _pantalla = Pantalla.comanda;
-      _comanda.clear();
-      _numeroMesa = '';
-      _clienteNombre = '';
-      _direccion = '';
-      _telefono = '';
-      _modoAgregarMesaId = null;
-    });
-    await _refreshVivos();
   }
 
   Future<void> _agregarAMesa(int pedidoId, Map<String, dynamic> item, String? tamanio) async {
@@ -930,7 +923,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(mainAxisSize: MainAxisSize.min, children: [
           OutlinedButton(onPressed: () async { await _agregarProductoMesa(m); }, child: const Text('Agregar')),
           const SizedBox(width: 8),
-          OutlinedButton(onPressed: () async { final ok = await _dialogConfirm('¿Pedir la cuenta de la mesa ${m['numero_mesa']}?'); if (ok == true) await _ejecutarCobro(id); }, child: const Text('Pedir la cuenta')),
+          OutlinedButton(onPressed: () async { final ok = await _dialogConfirm('¿Pedir la cuenta de la mesa ${m['numero_mesa']}?'); if (ok == true) await _dialogPagarPedido(id, montoMostrar: total); }, child: const Text('Pedir la cuenta')),
         ]),
       ]),
     );

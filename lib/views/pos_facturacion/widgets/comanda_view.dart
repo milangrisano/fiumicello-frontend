@@ -81,7 +81,6 @@ class ComandaView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         final borde = c.maxWidth >= 900 ? 24.0 : 16.0;
-        final alto = c.maxHeight;
 
         final listaComanda = SingleChildScrollView(
           child: Column(
@@ -131,7 +130,10 @@ class ComandaView extends StatelessWidget {
                 const SizedBox(height: 6),
                 Center(child: _chipsEscenario()),
                 SizedBox(height: 10),
-                SizedBox(height: alto - 290, child: listaComanda),
+                // La lista ocupa el espacio sobrante y el pie (divider + total +
+                // continuar) queda PEGADO abajo con margen.
+                Expanded(child: listaComanda),
+                const SizedBox(height: 8),
                 pie,
               ],
             ),
