@@ -13,6 +13,7 @@ import 'pos_facturacion/widgets/movimientos_caja_view.dart';
 import 'pos_facturacion/widgets/pago_propina_view.dart';
 import 'pos_facturacion/widgets/comandas_turno_view.dart';
 import 'pos_facturacion/widgets/items_turno_view.dart';
+import '../core/services/realtime_service.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -58,6 +59,12 @@ class _PosSalesViewState extends State<PosSalesView> {
   void initState() {
     super.initState();
     _load();
+    // Tiempo real: refresca el turno de caja y las listas al abrir/cerrar turno.
+    final rt = RealtimeService.instance;
+    rt.conectar();
+    rt.on('turno:abierto', (_) => _cargarTurno());
+    rt.on('turno:cerrado', (_) => _cargarTurno());
+    rt.on('comanda:nueva', (_) => _refreshVivos());
   }
 
   Future<void> _load() async {

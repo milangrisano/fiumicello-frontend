@@ -72,6 +72,16 @@ class ApiClient {
     return 'http://$host:3000/api';
   }
 
+  /// Token JWT actual (para autenticar el handshake del WebSocket).
+  static String? get token => _token;
+
+  /// URL del WebSocket (Socket.IO) del backend — mismo host/puerto que baseUrl.
+  static String get socketUrl {
+    final base = Uri.parse(baseUrl);
+    final scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    return '$scheme://${base.host}:${base.port}';
+  }
+
   static Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);
@@ -528,6 +538,34 @@ class ApiClient {
       return ListResult(false, const [], _msg(res.body));
     } catch (e) {
       return ListResult(false, const [], '$e');
+    }
+  }
+
+  // ---- Cocina (cola) ----
+  /// Comandas en cocina con su estado_cocina (recibida/preparando/lista/retirada),
+  /// ordenadas por llegada (id ASC).
+  static Future<ListResult> colaCocina() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/pedidos/cocina/cola'), headers: _headers());
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
+  /// Cambia el estado de cocina de una comanda (cocinero: recibida/preparando/lista;
+  /// mesero: retirada).
+  static Future<PostResult> cambiarEstadoCocina(int id, String estado) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/pedidos/$id/cocina'),
+        headers: _headers(),
+        body: jsonEncode({'estado_cocina': estado}),
+      );
+      return PostResult(res.statusCode == 200 || res.statusCode == 201, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
     }
   }
 

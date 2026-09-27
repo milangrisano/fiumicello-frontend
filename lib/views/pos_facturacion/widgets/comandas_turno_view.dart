@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/data/api_client.dart';
+import '../../../core/services/realtime_service.dart';
 import '../../../core/utils/formatters.dart';
 
 /// Lista las comandas (ventas cobradas) de un turno de caja, con selector
@@ -28,6 +29,10 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     super.initState();
     _idx = widget.indiceInicial.clamp(0, widget.turnos.length - 1);
     _cargar();
+    // Tiempo real: una venta/comanda nueva refresca las comandas del turno.
+    final rt = RealtimeService.instance;
+    rt.conectar();
+    rt.on('comanda:nueva', (_) => _cargar());
   }
 
   Map<String, dynamic> get _turnoAct => widget.turnos[_idx];

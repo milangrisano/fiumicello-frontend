@@ -4,6 +4,7 @@ import '../views/pos_sales_view.dart';
 import '../views/resumenes/summaries_view.dart';
 import '../views/admin/admin_view.dart';
 import '../views/carta/carta_view.dart';
+import '../views/cocina/cocina_view.dart';
 import 'app_sections.dart';
 import 'app_titulo.dart';
 
@@ -28,6 +29,9 @@ class ActiveView extends StatelessWidget {
       case AppSections.admin:
         AppTitulo.titulo.value = 'Administración';
         return const AdminView();
+      case AppSections.cocina:
+        AppTitulo.titulo.value = 'Cocina';
+        return const CocinaView();
       default:
         AppTitulo.titulo.value = 'Facturas y comprobantes';
         return const InvoicesView();
