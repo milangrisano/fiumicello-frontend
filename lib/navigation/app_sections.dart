@@ -21,7 +21,6 @@ class AppSections {
   static const int pos = 2;
   static const int summaries = 3;
   static const int admin = 4;
-  static const int cocina = 5;
 
   static const List<String> _labelsAll = [
     'Carta',
@@ -29,7 +28,6 @@ class AppSections {
     'POS facturación',
     'Resúmenes contables',
     'Administración',
-    'Cocina',
   ];
 
   static const List<IconData> _iconsAll = [
@@ -38,7 +36,6 @@ class AppSections {
     Icons.point_of_sale,
     Icons.savings,
     Icons.admin_panel_settings,
-    Icons.kitchen,
   ];
 
   /// Permission required for each non-carta section (index-aligned).
@@ -48,7 +45,6 @@ class AppSections {
     'ventas:ver',
     'resumenes:ver',
     'usuarios:gestionar', // admin section
-    'cocina:ver',
   ];
 
   /// Whether the current user can see a given real index section.

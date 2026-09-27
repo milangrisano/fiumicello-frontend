@@ -14,6 +14,7 @@ import 'pos_facturacion/widgets/pago_propina_view.dart';
 import 'pos_facturacion/widgets/comandas_turno_view.dart';
 import 'pos_facturacion/widgets/items_turno_view.dart';
 import '../core/services/realtime_service.dart';
+import 'cocina/cocina_view.dart';
 
 /// POS invoicing — 3-stage flow.
 class PosSalesView extends StatefulWidget {
@@ -513,6 +514,20 @@ class _PosSalesViewState extends State<PosSalesView> {
           return _vistaInicio();
       }
     }
+    // Cocina: no requiere caja abierta (preparación).
+    if (_pantalla == Pantalla.cocina) {
+      return Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => setState(() => _pantalla = Pantalla.inicio),
+          ),
+          title: const Text('Cocina'),
+        ),
+        body: const CocinaView(),
+      );
+    }
     // Pantalla explícita de abrir caja.
     if (_pantalla == Pantalla.abrirCaja) return _pantallaAbrirCaja();
     // Gate de caja: sin turno abierto no se puede facturar (ni cerrar).
@@ -555,6 +570,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         setState(() => _pantalla = Pantalla.entregas);
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
+      _inicioCard('Cocina', Icons.kitchen, () => setState(() => _pantalla = Pantalla.cocina)),
       _inicioCard('Cerrar turno (arqueo)', Icons.account_balance_wallet, () {
         if (_turno == null) { setState(() => _pantalla = Pantalla.abrirCaja); return; }
         _cerrarTurno();

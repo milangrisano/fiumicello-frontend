@@ -38,4 +38,5 @@ class Pantalla {
   static const int abrirCaja = 5;
   static const int comandasTurno = 6;
   static const int itemsTurno = 7;
+  static const int cocina = 8;
 }

@@ -86,6 +86,14 @@ class _CocinaViewState extends State<CocinaView> {
     }
   }
 
+  /// Borde de las cards de cocina: crema (lightCard) en dark, negro volcánico
+  /// (lightOnSurface) en light.
+  Color _bordeCard(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppPalette.lightCard  // crema
+        : AppPalette.lightOnSurface; // negro volcánico
+  }
+
   String _estadoLabel(String estado) {
     switch (estado) {
       case 'preparando': return 'PREPARANDO';
@@ -146,7 +154,8 @@ class _CocinaViewState extends State<CocinaView> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _bordeCard(context), width: 2)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -197,6 +206,7 @@ class _CocinaViewState extends State<CocinaView> {
         decoration: BoxDecoration(
           color: AppPalette.darkSecondary, // dorado
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _bordeCard(context), width: 2),
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
         ),
         child: Column(
@@ -260,7 +270,8 @@ class _CocinaViewState extends State<CocinaView> {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _bordeCard(context), width: 2)),
           child: Text('#${c['id']} ${_tituloComanda(c)}',
               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         ),
