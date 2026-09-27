@@ -753,7 +753,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(borde, borde, borde, 0),
+            padding: EdgeInsets.fromLTRB(borde, 12, borde, 0),
             child: Wrap(
               spacing: gap,
               runSpacing: gap,
