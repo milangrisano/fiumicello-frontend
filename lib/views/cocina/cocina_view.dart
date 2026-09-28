@@ -14,7 +14,9 @@ import '../../core/theme/app_themes.dart';
 ///   - Barra inferior (ribbon): comandas ya preparadas (lista) en TURQUESA.
 ///     Al tocar -> se marca retirada (desaparece de cocina).
 class CocinaView extends StatefulWidget {
-  const CocinaView({super.key});
+  /// Callback opcional para volver a la pantalla anterior (móvil).
+  final VoidCallback? onVolver;
+  const CocinaView({super.key, this.onVolver});
 
   @override
   State<CocinaView> createState() => _CocinaViewState();
@@ -279,11 +281,39 @@ class _CocinaViewState extends State<CocinaView> {
 
   // ---------- Móvil: lista simple, cards botón ----------
   Widget _vistaMovil() {
-    return ListView(
-      padding: const EdgeInsets.all(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final c in _cola)
-          if (c['estado_cocina'] != 'retirada') _cardMovil(c),
+        // Header móvil: flecha de volver (izquierda) + título "Cocina" centrado.
+        Row(
+          children: [
+            if (widget.onVolver != null)
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  widget.onVolver!();
+                },
+              )
+            else
+              const SizedBox(width: 40),
+            const SizedBox(width: 8),
+            Expanded(
+              child: const Text('Cocina',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              for (final c in _cola)
+                if (c['estado_cocina'] != 'retirada') _cardMovil(c),
+            ],
+          ),
+        ),
       ],
     );
   }

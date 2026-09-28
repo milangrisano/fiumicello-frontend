@@ -743,7 +743,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Cocina: no requiere caja abierta (preparación). El AppBar lo maneja el shell
     // (título "Cocina" con el sombrerito que lleva a la carta / inicio).
     if (_pantalla == Pantalla.cocina) {
-      return const CocinaView();
+      return CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
     }
     // Pantalla explícita de abrir caja.
     if (_pantalla == Pantalla.abrirCaja) return _pantallaAbrirCaja();
