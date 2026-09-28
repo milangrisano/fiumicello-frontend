@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
 import '../core/app_version.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../navigation/app_titulo.dart';
 import '../core/utils/formatters.dart';
 import 'pos_facturacion/pos_models.dart';
@@ -61,6 +63,8 @@ class _PosSalesViewState extends State<PosSalesView> {
   void initState() {
     super.initState();
     _load();
+    // Restaura una comanda a medio armar si el usuario salió sin enviarla.
+    _cargarComandaGuardada();
     // Tiempo real: refresca el turno de caja y las listas al abrir/cerrar turno.
     final rt = RealtimeService.instance;
     rt.conectar();
@@ -137,6 +141,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         costoUnitario: costoCatalogo,
       ));
     });
+    _guardarComanda();
   }
 
   void _snack(String m) {
@@ -412,6 +417,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         _comanda.clear();
         _numeroMesa = '';
       });
+      await _borrarComandaGuardada();
       await _refreshVivos();
     } else {
       _snack('Comanda enviada a cocina.');
@@ -430,6 +436,76 @@ class _PosSalesViewState extends State<PosSalesView> {
       _telefono = '';
       _modoAgregarMesaId = null;
     });
+    _borrarComandaGuardada();
+  }
+
+  // ---------- Persistencia de la comanda (SharedPreferences) ----------
+  static const _comandaKey = 'comanda_pendiente';
+
+  /// Guarda la comanda en disco para que sobreviva a salir/volver o reiniciar.
+  Future<void> _guardarComanda() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = jsonEncode(_comanda.map((l) => {
+      'id': l.idProducto,
+      'nombre': l.nombre,
+      'tamanio': l.tamanio,
+      'precio': l.precio,
+      'cantidad': l.cantidad,
+      'nota': l.nota,
+      'costo': l.costoUnitario,
+    }).toList());
+    await prefs.setString(_comandaKey, json);
+  }
+
+  /// Restaura una comanda guardada (si existe) al abrir el POS.
+  Future<void> _cargarComandaGuardada() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_comandaKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw) as List;
+      if (decoded.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        _comanda.clear();
+        for (final it in decoded) {
+          final m = Map<String, dynamic>.from(it as Map);
+          _comanda.add(Linea(
+            idProducto: (m['id'] as num).toInt(),
+            nombre: m['nombre'] ?? '',
+            tamanio: m['tamanio'] as String?,
+            precio: (m['precio'] as num).toDouble(),
+            cantidad: (m['cantidad'] as num).toInt(),
+            nota: m['nota'] ?? '',
+            costoUnitario: (m['costo'] as num?)?.toDouble() ?? 0,
+          ));
+        }
+      });
+    } catch (_) {
+      // Si el JSON estuviera corrupto, lo limpiamos silenciosamente.
+      await prefs.remove(_comandaKey);
+    }
+  }
+
+  /// Elimina la comanda guardada del disco.
+  Future<void> _borrarComandaGuardada() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_comandaKey);
+  }
+
+  /// Borra la comanda actual con confirmación (por si se tocó por error).
+  Future<void> _borrarComanda() async {
+    final ok = await _dialogConfirm('¿Borrar toda la comanda? Los productos seleccionados se eliminarán.');
+    if (ok != true) return;
+    setState(() {
+      _comanda.clear();
+      _numeroMesa = '';
+      _clienteNombre = '';
+      _direccion = '';
+      _telefono = '';
+    });
+    await _borrarComandaGuardada();
+    _snack('Comanda borrada.');
   }
 
   /// Ventana de pago: medio de pago + propina opcional. Cobra el pedido (que
@@ -697,7 +773,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Ancho grande -> 4 en fila; tablet/móvil -> se acomodan en cuadrícula, nunca
     // quedan flotando en espacio extra.
     final cards = <Widget>[
-      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; })),
+      _inicioCard('Nueva comanda', Icons.menu_book, () { setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }); _borrarComandaGuardada(); }),
       _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
         await _refreshVivos();
         if (!mounted) return;
@@ -827,6 +903,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       onEditarPrecio: _editarPrecioLinea,
       onSumar: _sumarLinea,
       onContinuar: _siguienteEtapa,
+      onBorrar: _borrarComanda,
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
     );
   }
@@ -834,6 +911,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   /// Borra por completo la línea de la comanda.
   void _quitarLinea(Linea l) {
     setState(() => _comanda.remove(l));
+    _guardarComanda();
   }
 
   /// Disminuye en 1 la cantidad; si llega a 0 se borra la línea.
@@ -842,6 +920,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       if (l.cantidad > 1) l.cantidad--;
       else _comanda.remove(l);
     });
+    _guardarComanda();
   }
 
   /// Edita el precio (y el costo) de una línea desde el resumen.
@@ -882,6 +961,7 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   void _sumarLinea(Linea l) {
     setState(() => l.cantidad++);
+    _guardarComanda();
   }
 
   // ---------- Mesas abiertas ----------
@@ -900,7 +980,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           const Padding(padding: EdgeInsets.all(16), child: Text('No hay mesas abiertas.', style: TextStyle(color: Colors.grey))),
         for (final m in _mesasAbiertas) _mesaCard(m),
         const SizedBox(height: 12),
-        FilledButton.icon(onPressed: () => setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }), icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
+        FilledButton.icon(onPressed: () { setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }); _borrarComandaGuardada(); }, icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
       ]),
     );
   }

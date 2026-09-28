@@ -31,6 +31,7 @@ class ComandaView extends StatelessWidget {
     required this.onEditarPrecio,
     required this.onSumar,
     required this.onContinuar,
+    required this.onBorrar,
     required this.onVolver,
   });
 
@@ -50,6 +51,7 @@ class ComandaView extends StatelessWidget {
   final CbLinea onEditarPrecio;
   final CbLinea onSumar;
   final VoidCallback onContinuar;
+  final VoidCallback onBorrar;
   final VoidCallback onVolver;
 
   List<Map<String, dynamic>> _itemsDeCategoriaSel() {
@@ -106,10 +108,22 @@ class ComandaView extends StatelessWidget {
               ],
             ),
             SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: items.isEmpty ? null : onContinuar,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Continuar'),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: items.isEmpty ? null : onContinuar,
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('Continuar'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: items.isEmpty ? null : onBorrar,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Borrar comanda'),
+                ),
+              ],
             ),
           ],
         );
@@ -235,10 +249,22 @@ class ComandaView extends StatelessWidget {
                       ],
                     ),
                     SizedBox(height: 8),
-                    FilledButton.icon(
-                      onPressed: items.isEmpty ? null : onContinuar,
-                      icon: const Icon(Icons.arrow_forward),
-                      label: const Text('Continuar'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: items.isEmpty ? null : onContinuar,
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Continuar'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: items.isEmpty ? null : onBorrar,
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Borrar comanda'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
