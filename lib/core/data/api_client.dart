@@ -863,11 +863,12 @@ class ApiClient {
   }
 
   /// Anula una venta (conserva el registro, lo excluye de totales). Requiere ventas:eliminar.
-  static Future<PostResult> anularVenta(int id) async {
+  static Future<PostResult> anularVenta(int id, {String? motivo}) async {
     try {
       final res = await http.patch(
         Uri.parse('$baseUrl/ventas/$id/anular'),
         headers: _headers(),
+        body: jsonEncode({'motivo': (motivo == null || motivo.trim().isEmpty) ? null : motivo.trim()}),
       );
       return PostResult(res.statusCode == 200, _msg(res.body));
     } catch (e) {

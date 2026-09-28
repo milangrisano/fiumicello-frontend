@@ -379,20 +379,54 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
 
   Future<void> _anular(Map<String, dynamic> v) async {
     final id = v['id'];
-    final confirm = await showDialog<bool>(
+    final motivoCtrl = TextEditingController();
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Anular factura'),
-        content: Text('¿Anular ${v['numero_factura']} por ${money(_num(v['total']))}? '
-            'El registro se conserva pero se excluye de totales, caja y resúmenes.'),
+        content: StatefulBuilder(builder: (_ctx, setStateDlg) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('¿Anular ${v['numero_factura']} por ${money(_num(v['total']))}?',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('El registro se conserva con el motivo, pero se excluye de totales, caja y resúmenes.',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 10),
+              // Caja de motivo: obliga a describir el porqué (trazabilidad).
+              TextField(
+                controller: motivoCtrl,
+                autofocus: true,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Motivo de la anulación (obligatorio)',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          );
+        }),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Anular')),
+          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              // Requiere motivo: si está vacío, no cierra el diálogo.
+              if (motivoCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Indica el motivo de la anulación.')));
+                return;
+              }
+              Navigator.pop(context, {'motivo': motivoCtrl.text.trim()});
+            },
+            child: const Text('Anular'),
+          ),
         ],
       ),
     );
-    if (confirm != true) return;
-    final r = await ApiClient.anularVenta(id);
+    if (result == null) return;
+    final r = await ApiClient.anularVenta(id, motivo: result['motivo']?.toString());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.ok ? 'Venta anulada.' : r.message)));
     if (r.ok) _cargar();
