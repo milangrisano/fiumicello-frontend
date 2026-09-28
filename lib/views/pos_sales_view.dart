@@ -773,7 +773,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     // Ancho grande -> 4 en fila; tablet/móvil -> se acomodan en cuadrícula, nunca
     // quedan flotando en espacio extra.
     final cards = <Widget>[
-      _inicioCard('Nueva comanda', Icons.menu_book, () { setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }); _borrarComandaGuardada(); }),
+      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; })),
       _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
         await _refreshVivos();
         if (!mounted) return;
@@ -980,7 +980,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           const Padding(padding: EdgeInsets.all(16), child: Text('No hay mesas abiertas.', style: TextStyle(color: Colors.grey))),
         for (final m in _mesasAbiertas) _mesaCard(m),
         const SizedBox(height: 12),
-        FilledButton.icon(onPressed: () { setState(() { _comanda.clear(); _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }); _borrarComandaGuardada(); }, icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
+        FilledButton.icon(onPressed: () { setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; }); }, icon: const Icon(Icons.menu_book), label: const Text('Nueva comanda')),
       ]),
     );
   }
