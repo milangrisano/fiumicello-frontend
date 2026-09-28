@@ -202,11 +202,28 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                       child: Row(
                         children: [
                           Text('Total ítems (únicos): ${_filas.length}',
-                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                           const Spacer(),
-                          Text('Cantidad: $_totalCantidad', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text('Cantidad: $_totalCantidad', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                           const SizedBox(width: 16),
-                          Text('Suma: ${money(_totalMonto)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Suma: ${money(_totalMonto)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          // En móvil: UNA sola flecha de orden (alterna cantidad/subtotal).
+                          if (MediaQuery.of(context).size.width < 800) ...[
+                            const SizedBox(width: 12),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: _ordenCampo == 'cantidad'
+                                  ? 'Ordenar por cantidad (${_ordenAsc ? '↓' : '↑'})'
+                                  : 'Ordenar por subtotal (${_ordenAsc ? '↓' : '↑'})',
+                              icon: Icon(
+                                _ordenCampo == 'cantidad'
+                                    ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                                    : Icons.unfold_more,
+                                size: 20,
+                              ),
+                              onPressed: () => _ordenarPor(_ordenCampo == 'cantidad' ? 'subtotal' : 'cantidad'),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -264,34 +281,16 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                                             Column(
                                               crossAxisAlignment: CrossAxisAlignment.end,
                                               children: [
-                                                InkWell(
-                                                  onTap: () => _ordenarPor('cantidad'),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Text('Cant: ', style: TextStyle(fontSize: 12)),
-                                                      Text('${f['cantidad']}',
-                                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                                      Icon(_ordenCampo == 'cantidad'
-                                                          ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward)
-                                                          : Icons.unfold_more, size: 14),
-                                                    ],
-                                                  ),
+                                                // Cantidad: texto simple, sin control de orden (evita amontonar).
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text('×${f['cantidad']}',
+                                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                                  ],
                                                 ),
-                                                InkWell(
-                                                  onTap: () => _ordenarPor('subtotal'),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Text('Subtotal: ', style: TextStyle(fontSize: 12)),
-                                                      Text(money(_num(f['subtotal'])),
-                                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                                      Icon(_ordenCampo == 'subtotal'
-                                                          ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward)
-                                                          : Icons.unfold_more, size: 14),
-                                                    ],
-                                                  ),
-                                                ),
+                                                Text(money(_num(f['subtotal'])),
+                                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                                               ],
                                             ),
                                           ],
