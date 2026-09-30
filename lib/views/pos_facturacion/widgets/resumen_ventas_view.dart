@@ -341,7 +341,7 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         kpisInferioresGrid,
         const SizedBox(height: 8),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        const SizedBox(height: gap),
+        SizedBox(height: gap),
         // Top 3 por cantidad y por monto: SIEMPRE en 2 columnas (móvil y PC).
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,7 +353,7 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         ),
         const SizedBox(height: 8),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        const SizedBox(height: gap),
+        SizedBox(height: gap),
         // Gráfico de barras de ventas por día, al final.
         _buildGraficoBarras(context, serieDia),
       ]);
