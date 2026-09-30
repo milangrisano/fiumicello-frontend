@@ -250,29 +250,53 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
       ...kpisExtras,
     ]);
 
+    final kpiWidgets = [
+      kpiCard('Monto', money(monto), Icons.attach_money),
+      kpiCard('Ventas', '$ventas', Icons.receipt_long),
+      kpiCard('Ticket promedio', money(promedio), Icons.calculate),
+      kpiCard('Venta prom. diaria', money(ventaDiaria), Icons.calendar_today),
+    ];
+
     // Layout responsivo: se adapta al ancho real sin dejar espacio desperdiciado.
     return LayoutBuilder(builder: (context, c) {
       final ancho = c.maxWidth;
-      // Nº de columnas de los KPI según el ancho disponible (llena el ancho).
-      final kpiCols = ancho >= 720 ? 4 : (ancho >= 400 ? 2 : 1);
       // Dos paneles lado a lado en pantallas anchas, apilados en las angostas.
       final dosPaneles = ancho >= 720;
 
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        GridView.count(
-          crossAxisCount: kpiCols,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: gap,
-          crossAxisSpacing: gap,
-          childAspectRatio: 1.8,
+      // KPIs: PC/tablet ancho -> 4 en una sola fila; móvil -> grid 2x2.
+      final Widget kpisGrid;
+      if (ancho >= 720) {
+        kpisGrid = Row(
           children: [
-            kpiCard('Monto', money(monto), Icons.attach_money),
-            kpiCard('Ventas', '$ventas', Icons.receipt_long),
-            kpiCard('Ticket promedio', money(promedio), Icons.calculate),
-            kpiCard('Venta prom. diaria', money(ventaDiaria), Icons.calendar_today),
+            for (final k in kpiWidgets) ...[
+              Expanded(child: k),
+              if (k != kpiWidgets.last) SizedBox(width: gap),
+            ],
           ],
-        ),
+        );
+      } else {
+        kpisGrid = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Fila 1
+            Row(children: [
+              Expanded(child: kpiWidgets[0]),
+              SizedBox(width: gap),
+              Expanded(child: kpiWidgets[1]),
+            ]),
+            SizedBox(height: gap),
+            // Fila 2
+            Row(children: [
+              Expanded(child: kpiWidgets[2]),
+              SizedBox(width: gap),
+              Expanded(child: kpiWidgets[3]),
+            ]),
+          ],
+        );
+      }
+
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        kpisGrid,
         SizedBox(height: gap),
         if (dosPaneles)
           Row(
