@@ -162,6 +162,7 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final totales = _map(_data?['totales']);
     final kpis = _map(_data?['kpis']);
     final items = _list(_data?['items']);
+    final serieDia = _list(_data?['serie_dia']);
     final monto = _num(totales['monto']);
     final ventas = _num(totales['ventas']).toInt();
     final promedio = _num(totales['promedio']);
@@ -338,6 +339,16 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         kpisGrid,
         SizedBox(height: gap),
+        // KPIs inferiores justo debajo de la línea de los 4 superiores.
+        kpisInferioresGrid,
+        const SizedBox(height: 8),
+        Divider(color: Theme.of(context).colorScheme.outlineVariant),
+        const SizedBox(height: 8),
+        // Gráfico de barras: ventas por día del período.
+        _buildGraficoBarras(context, serieDia),
+        const SizedBox(height: 8),
+        Divider(color: Theme.of(context).colorScheme.outlineVariant),
+        SizedBox(height: gap),
         if (dosPaneles)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,9 +363,78 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           SizedBox(height: gap),
           topPorMonto,
         ],
-        SizedBox(height: gap),
-        kpisInferioresGrid,
       ]);
     });
+  }
+
+  /// Gráfico de barras con las ventas por día del período (serie diaria).
+  Widget _buildGraficoBarras(BuildContext context, List<dynamic> serie) {
+    if (serie.isEmpty) {
+      return const Text('Sin datos de ventas por día.', style: TextStyle(color: Colors.grey));
+    }
+    // Título
+    final titulo = Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text('Ventas por día',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+    );
+
+    final cs = Theme.of(context).colorScheme;
+    final maxMonto = serie
+        .map((d) => _num(d['monto']))
+        .fold<double>(0, (a, b) => b > a ? b : a);
+    final maxH = maxMonto > 0 ? maxMonto : 1;
+
+    // Barras en una fila (scrollable horizontal si hay muchos días).
+    final n = serie.length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      titulo,
+      SizedBox(
+        height: 180,
+        child: LayoutBuilder(builder: (context, c) {
+          final anchoBarra = 14.0;
+          final separacion = 6.0;
+          final usable = anchoBarra + separacion;
+          // Si cabe todo, distribuye; si no, deja scroll horizontal.
+          final necesidad = n * usable;
+          final contenido = Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              for (final d in serie)
+                Tooltip(
+                  message: '${d['etiqueta']} — ${money(_num(d['monto']))}',
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        width: anchoBarra,
+                        height: (180 - 34) * (_num(d['monto']) / maxH),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: cs.primary,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Transform.rotate(
+                        angle: -0.5,
+                        child: Text(
+                          '${(d['etiqueta'] as String).split('/').first}',
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+          return necesidad <= c.maxWidth
+              ? contenido
+              : SingleChildScrollView(scrollDirection: Axis.horizontal, child: contenido);
+        }),
+      ),
+    ]);
   }
 }
