@@ -88,6 +88,10 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     return [];
   }
 
+  /// true si un mapa de KPI (dia/semana/mes mayor) tiene datos reales.
+  bool kpisExtrasValido(Map<String, dynamic> m) =>
+      m.isNotEmpty && (_num(m['monto']) > 0 || (m['dia'] ?? m['semana'] ?? m['mes']) != null);
+
   @override
   Widget build(BuildContext context) {
     final borde = 20.0;
@@ -203,20 +207,16 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final topMonto = porMonto.take(3).toList();
 
     // KPI extra según período
-    final kpisExtras = <Widget>[];
-    if (_periodo == 'semana' && diaM.isNotEmpty) {
-      kpisExtras.add(ListTile(dense: true, contentPadding: EdgeInsets.zero,
-        title: const Text('Día de mayor venta'),
-        subtitle: Text('${diaM['dia']} — ${money(_num(diaM['monto']))}')));
-    } else if (_periodo == 'mes' && semM.isNotEmpty) {
-      kpisExtras.add(ListTile(dense: true, contentPadding: EdgeInsets.zero,
-        title: const Text('Semana de mayor venta'),
-        subtitle: Text('${semM['semana']} — ${money(_num(semM['monto']))}')));
-    } else if (_periodo == 'año' && mesM.isNotEmpty) {
-      kpisExtras.add(ListTile(dense: true, contentPadding: EdgeInsets.zero,
-        title: const Text('Mes de mayor venta'),
-        subtitle: Text('${mesM['mes']} — ${money(_num(mesM['monto']))}')));
-    }
+    final kpisExtraTitulo = _periodo == 'mes'
+        ? 'Semana de mayor venta'
+        : (_periodo == 'año' ? 'Mes de mayor venta' : 'Día de mayor venta');
+    final kpisExtraValor = _periodo == 'mes'
+        ? '${semM['semana']}'
+        : (_periodo == 'año' ? '${mesM['mes']}' : '${diaM['dia']}');
+    final kpisExtraMonto = _periodo == 'mes'
+        ? semM
+        : (_periodo == 'año' ? mesM : diaM);
+    final tieneKpisExtra = kpisExtrasValido(kpisExtraMonto);
 
     final topPorCantidad = seccion('Top 3 por cantidad', [
       if (topCant.isEmpty)
@@ -238,17 +238,18 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
             subtitle: Text('${money(_num(it['subtotal']))} · ×${_num(it['cantidad']).toInt()}')),
     ]);
 
-    final kpisLista = seccion('KPIs', [
+    // Tarjetas KPI inferiores, con icono, igual que los 4 superiores.
+    final kpiInferiores = [
       if (masCant.isNotEmpty)
-        ListTile(dense: true, contentPadding: EdgeInsets.zero,
-          title: const Text('Producto más vendido (cantidad)'),
-          subtitle: Text('${masCant['nombre']} ×${_num(masCant['cantidad']).toInt()} — ${money(_num(masCant['subtotal']))}')),
+        kpiCard('Más vendido (cant.)', '${masCant['nombre']} ×${_num(masCant['cantidad']).toInt()}',
+            Icons.trending_up),
       if (masMonto.isNotEmpty)
-        ListTile(dense: true, contentPadding: EdgeInsets.zero,
-          title: const Text('Producto más vendido (monto)'),
-          subtitle: Text('${masMonto['nombre']} — ${money(_num(masMonto['subtotal']))} (×${_num(masMonto['cantidad']).toInt()})')),
-      ...kpisExtras,
-    ]);
+        kpiCard('Más vendido (monto)', '${masMonto['nombre']} — ${money(_num(masMonto['subtotal']))}',
+            Icons.attach_money),
+      if (tieneKpisExtra)
+        kpiCard(kpisExtraTitulo, '${kpisExtraValor} — ${money(_num(kpisExtraMonto['monto']))}',
+            Icons.calendar_today),
+    ];
 
     final kpiWidgets = [
       kpiCard('Monto', money(monto), Icons.attach_money),
@@ -295,6 +296,45 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         );
       }
 
+      // KPIs extras (inferiores) con icono: misma distribución que las 4 superiores.
+      final Widget kpisInferioresGrid;
+      if (kpiInferiores.isEmpty) {
+        kpisInferioresGrid = const SizedBox.shrink();
+      } else if (ancho >= 720) {
+        kpisInferioresGrid = Row(
+          children: [
+            for (final k in kpiInferiores) ...[
+              Expanded(child: k),
+              if (k != kpiInferiores.last) SizedBox(width: gap),
+            ],
+          ],
+        );
+      } else {
+        // Móvil: filas de 2 (y si hubiera 3º, en fila aparte).
+        kpisInferioresGrid = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(child: kpiInferiores[0]),
+              if (kpiInferiores.length > 1) ...[
+                SizedBox(width: gap),
+                Expanded(child: kpiInferiores[1]),
+              ],
+            ]),
+            if (kpiInferiores.length > 2) ...[
+              SizedBox(height: gap),
+              Row(children: [
+                Expanded(child: kpiInferiores[2]),
+                if (kpiInferiores.length > 3) ...[
+                  SizedBox(width: gap),
+                  Expanded(child: kpiInferiores[3]),
+                ],
+              ]),
+            ],
+          ],
+        );
+      }
+
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         kpisGrid,
         SizedBox(height: gap),
@@ -313,7 +353,7 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           topPorMonto,
         ],
         SizedBox(height: gap),
-        kpisLista,
+        kpisInferioresGrid,
       ]);
     });
   }
