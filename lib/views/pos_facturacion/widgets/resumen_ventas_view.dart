@@ -262,8 +262,6 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     // Layout responsivo: se adapta al ancho real sin dejar espacio desperdiciado.
     return LayoutBuilder(builder: (context, c) {
       final ancho = c.maxWidth;
-      // Dos paneles lado a lado en pantallas anchas, apilados en las angostas.
-      final dosPaneles = ancho >= 720;
 
       // KPIs: PC/tablet ancho -> 4 en una sola fila; móvil -> grid 2x2.
       final Widget kpisGrid;
@@ -343,26 +341,21 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         kpisInferioresGrid,
         const SizedBox(height: 8),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        const SizedBox(height: 8),
-        // Gráfico de barras: ventas por día del período.
-        _buildGraficoBarras(context, serieDia),
+        const SizedBox(height: gap),
+        // Top 3 por cantidad y por monto: SIEMPRE en 2 columnas (móvil y PC).
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: topPorCantidad),
+            SizedBox(width: gap),
+            Expanded(child: topPorMonto),
+          ],
+        ),
         const SizedBox(height: 8),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        SizedBox(height: gap),
-        if (dosPaneles)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: topPorCantidad),
-              SizedBox(width: gap),
-              Expanded(child: topPorMonto),
-            ],
-          )
-        else ...[
-          topPorCantidad,
-          SizedBox(height: gap),
-          topPorMonto,
-        ],
+        const SizedBox(height: gap),
+        // Gráfico de barras de ventas por día, al final.
+        _buildGraficoBarras(context, serieDia),
       ]);
     });
   }
