@@ -175,12 +175,29 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 6),
-            Text(valor, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), textAlign: TextAlign.center),
-            Text(etiqueta, style: const TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 6),
+              Text(
+                valor,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                etiqueta,
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       );
     }
