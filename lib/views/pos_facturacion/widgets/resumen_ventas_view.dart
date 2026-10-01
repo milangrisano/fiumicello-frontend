@@ -260,7 +260,7 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final kpiInferiores = [
       if (masCant.isNotEmpty)
         kpiCard('Más vendido (cant.)', '${masCant['nombre']} ×${_num(masCant['cantidad']).toInt()}',
-            Icons.trending_up),
+            Icons.arrow_upward),
       if (masMonto.isNotEmpty)
         kpiCard('Más vendido (monto)', '${masMonto['nombre']} — ${money(_num(masMonto['subtotal']))}',
             Icons.attach_money),
