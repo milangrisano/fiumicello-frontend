@@ -54,47 +54,115 @@ class _ConteoDenominacionState extends State<ConteoDenominacion> {
     super.dispose();
   }
 
-  List<Widget> _filas(String tipo) {
-    return [
-      for (final d in _DENOMINACIONES.where((x) => x['tipo'] == tipo))
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(child: Text(money(d['valor'] as int), style: const TextStyle(fontSize: 14))),
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: _denominacionCtrl.putIfAbsent(d['valor'] as int, () => TextEditingController()),
-                keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                onChanged: (_) {
-                  setState(() {});
-                  _notificar();
-                },
-                decoration: const InputDecoration(labelText: 'Cantidad', isDense: true, border: OutlineInputBorder()),
+  /// Sección (Billetes / Monedas) como una tarjeta con encabezado y filas.
+  Widget _seccion(BuildContext context, String tipo, IconData icono, String titulo) {
+    final entries = _DENOMINACIONES.where((x) => x['tipo'] == tipo).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Encabezado de sección con icono.
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Row(
+            children: [
+              Icon(icono, size: 18, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(titulo, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
+            ],
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+          child: Column(
+            children: [
+              for (var i = 0; i < entries.length; i++) ...[
+                if (i > 0)
+                  Divider(height: 2, color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6)),
+                _filaDenominacion(context, entries[i]),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Fila de una denominación: valor a la izquierda + campo de cantidad a la derecha.
+  Widget _filaDenominacion(BuildContext context, Map<String, dynamic> d) {
+    final valor = d['valor'] as int;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              money(valor),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+            ),
+          ),
+          Container(
+            width: 92,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: TextField(
+              controller: _denominacionCtrl.putIfAbsent(valor, () => TextEditingController()),
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15),
+              onChanged: (_) {
+                setState(() {});
+                _notificar();
+              },
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                hintText: '0',
+                hintStyle: TextStyle(fontSize: 14),
               ),
             ),
-          ],
-        ),
-    ];
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Billetes', style: TextStyle(fontWeight: FontWeight.w600)),
-        ..._filas('Billete'),
-        const SizedBox(height: 12),
-        const Text('Monedas', style: TextStyle(fontWeight: FontWeight.w600)),
-        ..._filas('Moneda'),
-        const Divider(),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Total efectivo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            Text(money(_total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
+        _seccion(context, 'Billete', Icons.payments_outlined, 'Billetes'),
+        const SizedBox(height: 16),
+        _seccion(context, 'Moneda', Icons.monetization_on_outlined, 'Monedas'),
+        const SizedBox(height: 16),
+        // Total destacado en una barra con el acento de la app.
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [scheme.primary, scheme.primary.withValues(alpha: 0.82)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('TOTAL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: scheme.onPrimary)),
+              Text(money(_total), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: scheme.onPrimary)),
+            ],
+          ),
         ),
       ],
     );
