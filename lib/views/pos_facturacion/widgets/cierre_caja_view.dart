@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/data/api_client.dart';
 import '../../../core/utils/formatters.dart';
+import 'conteo_denominacion.dart';
 
 /// Pantalla de cierre de turno: arqueo de caja y cierre (bloqueado si faltante).
 class CierreCajaView extends StatefulWidget {
@@ -17,7 +18,9 @@ class _CierreCajaViewState extends State<CierreCajaView> {
   bool _cerrando = false;
   String? _error;
 
-  final _efectivoFinal = TextEditingController();
+  // Efectivo contado físicamente, calculado por el widget de denominaciones.
+  double _efectivoContado = 0;
+
   final _propinaEfectivo = TextEditingController();
   final _propinaOtros = TextEditingController();
 
@@ -34,9 +37,6 @@ class _CierreCajaViewState extends State<CierreCajaView> {
       _arqueo = r.ok ? r.data : null;
       _loading = false;
       _error = r.ok ? null : r.message;
-      if (r.ok && r.data != null) {
-        _efectivoFinal.text = _num(r.data!['efectivo_teorico']).toStringAsFixed(0);
-      }
     });
   }
 
@@ -45,7 +45,7 @@ class _CierreCajaViewState extends State<CierreCajaView> {
 
   Future<void> _cerrar() async {
     final teorico = _num(_arqueo!['efectivo_teorico']);
-    final fisico = double.tryParse(_efectivoFinal.text.replaceAll(',', '.')) ?? 0;
+    final fisico = _efectivoContado;
     final faltante = teorico - fisico;
     if (faltante > 0) {
       _snack('No se puede cerrar: faltante de \$${faltante.toStringAsFixed(0)}. Cuadre la caja.');
@@ -75,8 +75,11 @@ class _CierreCajaViewState extends State<CierreCajaView> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     final a = _arqueo!;
-    final faltante = _num(a['faltante']);
-    final puedeCerrar = a['puedeCerrar'] == true;
+    final teorico = _num(a['efectivoTeorico']);
+    // Faltante/excedente recalculados en vivo según lo contado por el widget.
+    final faltante = teorico - _efectivoContado;
+    final excedente = _efectivoContado - teorico;
+    final puedeCerrar = a['puedeCerrar'] == true && faltante <= 0;
     return Scaffold(
       appBar: AppBar(title: Text('Cierre de caja — Turno ${widget.turno['numero_dia'] ?? ''}')),
       body: SingleChildScrollView(
@@ -99,10 +102,10 @@ class _CierreCajaViewState extends State<CierreCajaView> {
             const Divider(),
             _fila('Efectivo teórico esperado', money(_num(a['efectivoTeorico'])), bold: true),
             const SizedBox(height: 12),
-            TextField(
-              controller: _efectivoFinal,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Efectivo contado físicamente', prefixText: '\$'),
+            const Text('Cuente el efectivo contado físicamente por denominación.', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            ConteoDenominacion(
+              onTotalChanged: (t) => setState(() => _efectivoContado = t),
             ),
             if (faltante > 0)
               Padding(
@@ -110,10 +113,10 @@ class _CierreCajaViewState extends State<CierreCajaView> {
                 child: Text('⚠ Faltante: ${money(faltante)} — no se puede cerrar.',
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
               )
-            else if (_num(a['excedente']) > 0)
+            else if (excedente > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('Excedente (propina/sobrante): ${money(_num(a['excedente']))}',
+                child: Text('Excedente (propina/sobrante): ${money(excedente)}',
                     style: const TextStyle(color: Colors.green)),
               ),
             const SizedBox(height: 16),

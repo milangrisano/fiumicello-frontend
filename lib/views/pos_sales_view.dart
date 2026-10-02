@@ -14,6 +14,7 @@ import 'pos_facturacion/widgets/resumen_ventas_view.dart';
 import 'pos_facturacion/widgets/cierre_caja_view.dart';
 import 'pos_facturacion/widgets/movimientos_caja_view.dart';
 import 'pos_facturacion/widgets/pago_propina_view.dart';
+import 'pos_facturacion/widgets/conteo_denominacion.dart';
 import 'pos_facturacion/widgets/comandas_turno_view.dart';
 import 'pos_facturacion/widgets/items_turno_view.dart';
 import '../core/services/realtime_service.dart';
@@ -30,18 +31,9 @@ class PosSalesView extends StatefulWidget {
 }
 
 class _PosSalesViewState extends State<PosSalesView> {
-  // Denominaciones del cono monetario COP para el conteo al abrir caja.
-  // El billete de $1.000 salió del cono colombiano: el $1.000 es SOLO moneda.
-  static const _DENOMINACIONES = <Map<String, dynamic>>[
-    {'valor': 100000, 'tipo': 'Billete'}, {'valor': 50000, 'tipo': 'Billete'},
-    {'valor': 20000, 'tipo': 'Billete'},  {'valor': 10000, 'tipo': 'Billete'},
-    {'valor': 5000, 'tipo': 'Billete'},   {'valor': 2000, 'tipo': 'Billete'},
-    {'valor': 1000, 'tipo': 'Moneda'},
-    {'valor': 500, 'tipo': 'Moneda'},    {'valor': 200, 'tipo': 'Moneda'},
-    {'valor': 100, 'tipo': 'Moneda'},    {'valor': 50, 'tipo': 'Moneda'},
-  ];
-  // Controllers de cantidad por denominación (key = valor).
-  final _denominacionCtrl = <int, TextEditingController>{};
+  // Total de efectivo calculado por el widget compartido ConteoDenominacion
+  // (apertura de caja). Se actualiza en vivo vía callback.
+  double _efectivoApertura = 0;
 
   Map<String, dynamic>? _carta;
   List<Map<String, dynamic>> _formas = [];
@@ -698,17 +690,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
-  /// Total de efectivo inicial según las cantidades tecleadas por denominación.
-  double get _totalDenominaciones {
-    double t = 0;
-    for (final d in _DENOMINACIONES) {
-      final c = _denominacionCtrl[d['valor'] as int];
-      if (c == null) continue;
-      t += (d['valor'] as int) * (double.tryParse(c.text.replaceAll(',', '.')) ?? 0);
-    }
-    return t;
-  }
-
   Future<void> _abrirCaja(double efectivoInicial) async {
     setState(() => _cajaCargando = true);
     final r = await ApiClient.cajaAbrir(efectivoInicial);
@@ -753,22 +734,12 @@ class _PosSalesViewState extends State<PosSalesView> {
                   const SizedBox(height: 8),
                   const Text('Cuente las cantidades de cada denominación. El total se calcula solo.', style: TextStyle(fontSize: 13)),
                   const SizedBox(height: 12),
-                  const Text('Billetes', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ..._filasDenominacion('Billete'),
-                  const SizedBox(height: 12),
-                  const Text('Monedas', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ..._filasDenominacion('Moneda'),
-                  const Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total efectivo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      Text(money(_totalDenominaciones), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
+                  ConteoDenominacion(
+                    onTotalChanged: (t) => setState(() => _efectivoApertura = t),
                   ),
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: _cajaCargando ? null : () => _abrirCaja(_totalDenominaciones),
+                    onPressed: _cajaCargando ? null : () => _abrirCaja(_efectivoApertura),
                     child: _cajaCargando
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Abrir caja y empezar a facturar'),
@@ -780,27 +751,6 @@ class _PosSalesViewState extends State<PosSalesView> {
         ),
       ),
     );
-  }
-
-  List<Widget> _filasDenominacion(String tipo) {
-    return [
-      for (final d in _DENOMINACIONES.where((x) => x['tipo'] == tipo))
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(child: Text(money(d['valor'] as int), style: const TextStyle(fontSize: 14))),
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: _denominacionCtrl.putIfAbsent(d['valor'] as int, () => TextEditingController()),
-                keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'Cantidad', isDense: true, border: OutlineInputBorder()),
-              ),
-            ),
-          ],
-        ),
-    ];
   }
 
   @override
