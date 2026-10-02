@@ -8,6 +8,7 @@ typedef void CbBuscar(String v);
 typedef void CbCategoria(int? id);
 typedef void CbLinea(Linea l);
 typedef void CbEscenario(String escenario);
+typedef void CbAgregarMesa(Map<String, dynamic> mesa);
 
 /// Stage 1 — Comanda: catalog with product grid + the order being built.
 /// Receives data (read-only) + callbacks from the POS state; owns no logic,
@@ -22,6 +23,7 @@ class ComandaView extends StatelessWidget {
     required this.categoriaSel,
     required this.error,
     required this.escenario,
+    required this.mesas,
     required this.onAgregar,
     required this.onBuscar,
     required this.onCategoria,
@@ -33,6 +35,7 @@ class ComandaView extends StatelessWidget {
     required this.onContinuar,
     required this.onBorrar,
     required this.onVolver,
+    required this.onAgregarMesa,
   });
 
   final List<Linea> items;
@@ -42,6 +45,7 @@ class ComandaView extends StatelessWidget {
   final int? categoriaSel;
   final String? error;
   final String escenario;
+  final List<Map<String, dynamic>> mesas;
   final CbAgregar onAgregar;
   final CbBuscar onBuscar;
   final CbCategoria onCategoria;
@@ -53,6 +57,7 @@ class ComandaView extends StatelessWidget {
   final VoidCallback onContinuar;
   final VoidCallback onBorrar;
   final VoidCallback onVolver;
+  final CbAgregarMesa onAgregarMesa;
 
   List<Map<String, dynamic>> _itemsDeCategoriaSel() {
     final b = busqueda.toLowerCase();
@@ -164,7 +169,14 @@ class ComandaView extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Flexible(flex: 3, child: cuerpo),
+                    // Columna de productos + tabs de mesas abiertas debajo.
+                    Flexible(flex: 3, child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: cuerpo),
+                        _tabsMesas(context),
+                      ],
+                    )),
                     SizedBox(width: 8),
                     SizedBox(width: 380, child: panelComanda),
                   ],
@@ -229,6 +241,8 @@ class ComandaView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _catalogoPanel(context, gap, borde, movil: true),
+                    SizedBox(height: gap),
+                    _tabsMesas(context),
                     SizedBox(height: gap),
                     const Divider(),
                     SizedBox(height: 4),
@@ -377,6 +391,42 @@ class ComandaView extends StatelessWidget {
         chip('Para llevar', 'para_llevar', Icons.takeout_dining),
         chip('Domicilio', 'domicilio', Icons.local_shipping),
       ],
+    );
+  }
+
+  /// Tabs de las mesas abiertas: una pestaña por mesa. Al tocar, el POS carga
+  /// esa mesa en modo "agregar producto" (equivale al botón Agregar de la mesa).
+  Widget _tabsMesas(BuildContext context) {
+    if (mesas.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Mesas abiertas', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        SizedBox(height: 4),
+        // Tabs horizontales: una pestaña por mesa abierta.
+        ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final m in mesas)
+              Padding(padding: const EdgeInsets.only(right: 6), child: _tabMesa(context, m)),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _tabMesa(BuildContext context, Map<String, dynamic> m) {
+    return InkWell(
+      onTap: () => onAgregarMesa(m),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text('Mesa ${m['numero_mesa'] ?? m['id']}',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Theme.of(context).colorScheme.primary)),
+        ),
+        // Subrayado tipo pestaña (las mesas abiertas son las accionables).
+        SizedBox(height: 2, child: Divider(color: Theme.of(context).colorScheme.primary, thickness: 2)),
+      ]),
     );
   }
 

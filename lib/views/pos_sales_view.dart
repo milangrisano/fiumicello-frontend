@@ -30,6 +30,19 @@ class PosSalesView extends StatefulWidget {
 }
 
 class _PosSalesViewState extends State<PosSalesView> {
+  // Denominaciones del cono monetario COP para el conteo al abrir caja.
+  // El billete de $1.000 salió del cono colombiano: el $1.000 es SOLO moneda.
+  static const _DENOMINACIONES = <Map<String, dynamic>>[
+    {'valor': 100000, 'tipo': 'Billete'}, {'valor': 50000, 'tipo': 'Billete'},
+    {'valor': 20000, 'tipo': 'Billete'},  {'valor': 10000, 'tipo': 'Billete'},
+    {'valor': 5000, 'tipo': 'Billete'},   {'valor': 2000, 'tipo': 'Billete'},
+    {'valor': 1000, 'tipo': 'Moneda'},
+    {'valor': 500, 'tipo': 'Moneda'},    {'valor': 200, 'tipo': 'Moneda'},
+    {'valor': 100, 'tipo': 'Moneda'},    {'valor': 50, 'tipo': 'Moneda'},
+  ];
+  // Controllers de cantidad por denominación (key = valor).
+  final _denominacionCtrl = <int, TextEditingController>{};
+
   Map<String, dynamic>? _carta;
   List<Map<String, dynamic>> _formas = [];
   final List<Linea> _comanda = [];
@@ -518,12 +531,26 @@ class _PosSalesViewState extends State<PosSalesView> {
       formaSel = _formas.first['id'] as int?;
     }
     final propinaCtrl = TextEditingController();
+    final entregaCtrl = TextEditingController();
     final monto = montoMostrar ?? _totalComanda;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Pagar'),
         content: StatefulBuilder(builder: (ctx, setStateDlg) {
+          // ¿La forma de pago elegida es Efectivo? (por nombre, robusto).
+          bool esEfectivo = false;
+          for (final f in _formas) {
+            if ((f['id'] as int?) == formaSel) {
+              esEfectivo = (f['nombre'] ?? '').toString().toLowerCase() == 'efectivo';
+              break;
+            }
+          }
+          final propina = double.tryParse(propinaCtrl.text.replaceAll(',', '.')) ?? 0;
+          final aPagar = monto + propina;
+          final recibido = double.tryParse(entregaCtrl.text.replaceAll(',', '.')) ?? 0;
+          final cambio = recibido - aPagar;
+          final cobrable = !esEfectivo || recibido >= aPagar;
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -542,16 +569,34 @@ class _PosSalesViewState extends State<PosSalesView> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Propina (opcional)', border: OutlineInputBorder(), isDense: true),
               ),
+              // Solo en efectivo: cuánto entrega el cliente y el cambio a devolver.
+              if (esEfectivo) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: entregaCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setStateDlg(() {}),
+                  decoration: const InputDecoration(labelText: 'Con cuánto paga el cliente', prefixText: '\$', border: OutlineInputBorder(), isDense: true),
+                ),
+                SizedBox(height: 4),
+                Text('A pagar (total + propina): ${money(aPagar)}', style: const TextStyle(fontSize: 13)),
+                if (recibido > 0 && cambio >= 0)
+                  Text('Cambio a devolver: ${money(cambio)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary))
+                else if (recibido > 0 && cambio < 0)
+                  Text('Falta dinero: ${money(-cambio)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.red)),
+              ],
+              const SizedBox(height: 12),
+              Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: cobrable ? () => Navigator.pop(ctx, true) : null,
+                  child: const Text('Cobrar'),
+                ),
+              ])),
             ],
           );
         }),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cobrar'),
-          ),
-        ],
       ),
     );
     if (confirmado != true) {
@@ -653,6 +698,17 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
+  /// Total de efectivo inicial según las cantidades tecleadas por denominación.
+  double get _totalDenominaciones {
+    double t = 0;
+    for (final d in _DENOMINACIONES) {
+      final c = _denominacionCtrl[d['valor'] as int];
+      if (c == null) continue;
+      t += (d['valor'] as int) * (double.tryParse(c.text.replaceAll(',', '.')) ?? 0);
+    }
+    return t;
+  }
+
   Future<void> _abrirCaja(double efectivoInicial) async {
     setState(() => _cajaCargando = true);
     final r = await ApiClient.cajaAbrir(efectivoInicial);
@@ -681,45 +737,70 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Widget _pantallaAbrirCaja() {
-    final ctrl = TextEditingController();
     return Center(
       child: Card(
         margin: const EdgeInsets.all(24),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Abrir caja', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                const Text('Contabilice y registre el efectivo con el que recibe la caja para poder facturar.'),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: ctrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Efectivo inicial', prefixText: '\$'),
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _cajaCargando
-                      ? null
-                      : () {
-                          final v = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
-                          _abrirCaja(v);
-                        },
-                  child: _cajaCargando
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Abrir caja y empezar a facturar'),
-                ),
-              ],
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Abrir caja', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  const Text('Cuente las cantidades de cada denominación. El total se calcula solo.', style: TextStyle(fontSize: 13)),
+                  const SizedBox(height: 12),
+                  const Text('Billetes', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ..._filasDenominacion('Billete'),
+                  const SizedBox(height: 12),
+                  const Text('Monedas', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ..._filasDenominacion('Moneda'),
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total efectivo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      Text(money(_totalDenominaciones), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: _cajaCargando ? null : () => _abrirCaja(_totalDenominaciones),
+                    child: _cajaCargando
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Abrir caja y empezar a facturar'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _filasDenominacion(String tipo) {
+    return [
+      for (final d in _DENOMINACIONES.where((x) => x['tipo'] == tipo))
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(money(d['valor'] as int), style: const TextStyle(fontSize: 14))),
+            SizedBox(
+              width: 100,
+              child: TextField(
+                controller: _denominacionCtrl.putIfAbsent(d['valor'] as int, () => TextEditingController()),
+                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'Cantidad', isDense: true, border: OutlineInputBorder()),
+              ),
+            ),
+          ],
+        ),
+    ];
   }
 
   @override
@@ -894,6 +975,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       categoriaSel: _categoriaSel,
       error: _error,
       escenario: _escenario,
+      mesas: _mesasAbiertas,
       onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
@@ -905,6 +987,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       onContinuar: _siguienteEtapa,
       onBorrar: _borrarComanda,
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
+      onAgregarMesa: (m) async { await _refreshVivos(); await _agregarProductoMesa(m); },
     );
   }
 
