@@ -394,22 +394,35 @@ class ComandaView extends StatelessWidget {
     );
   }
 
-  /// Tabs de las mesas abiertas: una pestaña por mesa. Al tocar, el POS carga
-  /// esa mesa en modo "agregar producto" (equivale al botón Agregar de la mesa).
+  /// Franja fija de tabs con las mesas abiertas, anclada bajo la columna de
+  /// productos. Al tocar, el POS carga esa mesa en modo "agregar producto"
+  /// (equivale al botón Agregar de la mesa). Usa un scroll horizontal content
+  /// que se ajusta a su altura (evita unbounded-height de ListView en Column).
   Widget _tabsMesas(BuildContext context) {
     if (mesas.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Mesas abiertas', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        SizedBox(height: 4),
-        // Tabs horizontales: una pestaña por mesa abierta.
-        ListView(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text('Mesas abiertas', style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+        ),
+        const SizedBox(height: 4),
+        SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          children: [
-            for (final m in mesas)
-              Padding(padding: const EdgeInsets.only(right: 6), child: _tabMesa(context, m)),
-          ],
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              for (final m in mesas)
+                Padding(padding: const EdgeInsets.only(right: 6), child: _tabMesa(context, m)),
+            ],
+          ),
         ),
       ]),
     );
