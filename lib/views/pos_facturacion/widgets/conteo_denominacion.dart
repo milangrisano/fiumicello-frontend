@@ -109,20 +109,33 @@ class _ConteoDenominacionState extends State<ConteoDenominacion> {
       _notificar();
     }
 
-    // Botones con fondo de color para que resalten contra el fondo del campo
-    // (en tema oscuro los iconos sueltos se pierden).
+    // Botones con fondo de color para que resalten contra el fondo del campo.
+    // Se renderizan con texto del símbolo en negrita para que el "−" se vea tan
+    // claro como el "+" (el icono remo del guión era demasiado fino).
     Widget _boton(IconData icono) {
+      final esSuma = icono == Icons.add;
       return InkWell(
-        onTap: () => _cambiar(icono == Icons.add ? 1 : -1),
+        onTap: () => _cambiar(esSuma ? 1 : -1),
         borderRadius: BorderRadius.circular(20),
         child: Container(
           margin: const EdgeInsets.all(4),
           padding: const EdgeInsets.all(4),
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: scheme.primary,
             shape: BoxShape.circle,
           ),
-          child: Icon(icono, size: 20, color: scheme.onPrimary),
+          child: Text(
+            esSuma ? '+' : '−',
+            style: TextStyle(
+              color: scheme.onPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
         ),
       );
     }
