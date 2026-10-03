@@ -926,6 +926,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       error: _error,
       escenario: _escenario,
       mesas: _mesasAbiertas,
+      mesaActiva: _modoAgregarMesaId,
       onAgregar: (it, tam) => _agregar(it, tam),
       onBuscar: (v) => setState(() => _busqueda = v),
       onCategoria: (id) => setState(() => _categoriaSel = id),
@@ -937,7 +938,16 @@ class _PosSalesViewState extends State<PosSalesView> {
       onContinuar: _siguienteEtapa,
       onBorrar: _borrarComanda,
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
-      onAgregarMesa: (m) async { await _refreshVivos(); await _agregarProductoMesa(m); },
+      onAgregarMesa: (m) async {
+        // Opción C: volver a tocar el tab de la mesa activa = comanda nueva vacía;
+        // tocar otra mesa = cargar sus productos en modo "agregar".
+        if (_modoAgregarMesaId == (m['id'] as int?)) {
+          _limpiarComanda();
+        } else {
+          await _refreshVivos();
+          await _agregarProductoMesa(m);
+        }
+      },
     );
   }
 

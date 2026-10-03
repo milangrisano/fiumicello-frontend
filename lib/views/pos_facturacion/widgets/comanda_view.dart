@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_themes.dart';
 import '../../../core/utils/formatters.dart';
 import '../pos_models.dart';
 
@@ -24,6 +25,7 @@ class ComandaView extends StatelessWidget {
     required this.error,
     required this.escenario,
     required this.mesas,
+    required this.mesaActiva,
     required this.onAgregar,
     required this.onBuscar,
     required this.onCategoria,
@@ -46,6 +48,7 @@ class ComandaView extends StatelessWidget {
   final String? error;
   final String escenario;
   final List<Map<String, dynamic>> mesas;
+  final int? mesaActiva;
   final CbAgregar onAgregar;
   final CbBuscar onBuscar;
   final CbCategoria onCategoria;
@@ -429,16 +432,20 @@ class ComandaView extends StatelessWidget {
   }
 
   Widget _tabMesa(BuildContext context, Map<String, dynamic> m) {
+    final activa = (m['id'] as int?) == mesaActiva;
+    final scheme = Theme.of(context).colorScheme;
+    // Mesa seleccionada = turquesa; las demás = color primario actual.
+    final color = activa ? AppPalette.darkPrimary : scheme.primary;
     return InkWell(
       onTap: () => onAgregarMesa(m),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Text('Mesa ${m['numero_mesa'] ?? m['id']}',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Theme.of(context).colorScheme.primary)),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: color)),
         ),
-        // Subrayado tipo pestaña (las mesas abiertas son las accionables).
-        SizedBox(height: 2, child: Divider(color: Theme.of(context).colorScheme.primary, thickness: 2)),
+        // Subrayado tipo pestaña: grueso si está activa, fino si no.
+        SizedBox(height: 2, child: Divider(color: color, thickness: activa ? 3 : 2)),
       ]),
     );
   }
