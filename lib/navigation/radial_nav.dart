@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_sections.dart';
 
 /// Floating radial navigation (replaces the bottom NavigationBar on mobile).
@@ -8,6 +9,10 @@ import 'app_sections.dart';
 /// set of icon buttons that fan out in an arc of ~90° towards up-left. The arc
 /// is INSET (angled so no icon touches the screen edges). Tapping an icon
 /// navigates to its section. Each icon is a mini circular FAB.
+///
+/// The main FAB is DRAGGABLE (can be moved with a drag gesture) so it never
+/// covers interactive elements (e.g. the "Borrar comanda" button at the bottom
+/// when scrolled to the end). Its position is persisted across sessions.
 class RadialNav extends StatefulWidget {
   final List<SectionEntry> sections;
   final int selectedIndex;
@@ -26,6 +31,44 @@ class RadialNav extends StatefulWidget {
 
 class _RadialNavState extends State<RadialNav> {
   bool _abierto = false;
+
+  // Posición del FAB como offset desde la esquina inferior derecha de la
+  // pantalla (right: _dx, bottom: _dy). Persistida en SharedPreferences.
+  double _dx = 16;
+  double _dy = 16;
+
+  static const _fabSize = 56.0; // tamaño estándar de FloatingActionButton
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarPosicion();
+  }
+
+  Future<void> _cargarPosicion() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _dx = prefs.getDouble('radial_fab_dx') ?? 16;
+      _dy = prefs.getDouble('radial_fab_dy') ?? 16;
+    });
+  }
+
+  Future<void> _guardarPosicion() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('radial_fab_dx', _dx);
+    await prefs.setDouble('radial_fab_dy', _dy);
+  }
+
+  void _mover(double px, double py, double ancho, double alto) {
+    // Clamp para que el FAB nunca quede parcialmente fuera de la pantalla.
+    final maxRight = max(0.0, ancho - _fabSize - 4); // margen mínimo de 4
+    final maxBottom = max(0.0, alto - _fabSize - 4);
+    setState(() {
+      _dx = px.clamp(0.0, maxRight);
+      _dy = py.clamp(0.0, maxBottom);
+    });
+  }
 
   /// Íconos del arco distribuidos en un cuarto de círculo (0..90°) insertado.
   List<_ArcoIcono> _arcos(double radio, double m) {
@@ -55,31 +98,43 @@ class _RadialNavState extends State<RadialNav> {
 
   @override
   Widget build(BuildContext context) {
-    final radio = 130.0; // radio moderado: separación circunferencial uniforme entre
-    // íconos sin que se salgan de la pantalla ni se encimen.
+    final ancho = MediaQuery.of(context).size.width;
+    final alto = MediaQuery.of(context).size.height;
+    final radio = 130.0;
     final m = 130.0;
     final iconos = _arcos(radio, m);
 
     return Stack(children: [
-      // FAB principal (esquina inferior derecha), toggle.
+      // FAB principal (offset desde abajo-derecha), toggle + GESTIÓN DE ARRASTRE.
       Positioned(
-        right: 16,
-        bottom: 16,
-        child: FloatingActionButton(
-          onPressed: () => setState(() => _abierto = !_abierto),
-          mini: false,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          shape: const CircleBorder(),
-          child: Icon(_abierto ? Icons.close : Icons.add),
+        right: _dx,
+        bottom: _dy,
+        child: GestureDetector(
+          // Arrastrar mueve el FAB (offset se computa en coordenadas desde
+          // abajo-derecha, por eso restamos el delta invertido).
+          onPanUpdate: (detalles) {
+            final px = _dx - detalles.delta.dx;
+            final py = _dy - detalles.delta.dy;
+            _mover(px, py, ancho, alto);
+          },
+          onPanEnd: (_) => _guardarPosicion(),
+          child: FloatingActionButton(
+            onPressed: () => setState(() => _abierto = !_abierto),
+            mini: false,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            shape: const CircleBorder(),
+            child: Icon(_abierto ? Icons.close : Icons.add),
+          ),
         ),
       ),
       // Íconos del arco (visibles al abrir), cada uno en su posición insetada.
+      // Siguen al FAB: mismo offset de base.
       for (final ic in iconos)
         if (_abierto)
           Positioned(
-            right: 16 + ic.x,
-            bottom: 16 + ic.y,
+            right: _dx + ic.x,
+            bottom: _dy + ic.y,
             child: SizedBox(
               width: 36,
               height: 36,
