@@ -6,13 +6,15 @@ import 'app_sections.dart';
 /// Floating radial navigation (replaces the bottom NavigationBar on mobile).
 ///
 /// A FloatingActionButton sits in the bottom-right corner. Tapping it toggles a
-/// set of icon buttons that fan out in an arc of ~90° towards up-left. The arc
-/// is INSET (angled so no icon touches the screen edges). Tapping an icon
-/// navigates to its section. Each icon is a mini circular FAB.
+/// set of icon buttons that fan out in an arc. Each icon is a mini circular FAB
+/// that navigates to its section.
 ///
 /// The main FAB is DRAGGABLE (can be moved with a drag gesture) so it never
-/// covers interactive elements (e.g. the "Borrar comanda" button at the bottom
-/// when scrolled to the end). Its position is persisted across sessions.
+/// covers interactive elements. Its position is persisted across sessions.
+///
+/// The arc OPENS TOWARD THE FREE SPACE on the screen: the spread direction is
+/// computed from the FAB's current position so it always fans into the area
+/// with the most room, instead of a fixed up-left quadrant.
 class RadialNav extends StatefulWidget {
   final List<SectionEntry> sections;
   final int selectedIndex;
@@ -38,6 +40,9 @@ class _RadialNavState extends State<RadialNav> {
   double _dy = 16;
 
   static const _fabSize = 56.0; // tamaño estándar de FloatingActionButton
+  static const _miniSize = 36.0; // tamaño de los mini-botones del arco
+  static const _radio = 130.0; // radio del arco
+  static const _spreadDeg = 68.0; // ángulo total del arco (≈70° útiles)
 
   @override
   void initState() {
@@ -61,8 +66,7 @@ class _RadialNavState extends State<RadialNav> {
   }
 
   void _mover(double px, double py, double ancho, double alto) {
-    // Clamp para que el FAB nunca quede parcialmente fuera de la pantalla.
-    final maxRight = max(0.0, ancho - _fabSize - 4); // margen mínimo de 4
+    final maxRight = max(0.0, ancho - _fabSize - 4);
     final maxBottom = max(0.0, alto - _fabSize - 4);
     setState(() {
       _dx = px.clamp(0.0, maxRight);
@@ -70,27 +74,42 @@ class _RadialNavState extends State<RadialNav> {
     });
   }
 
-  /// Íconos del arco distribuidos en un cuarto de círculo (0..90°) insertado.
-  List<_ArcoIcono> _arcos(double radio, double m) {
+  /// Centro del FAB en coordenadas de pantalla (x crece a la derecha, y abajo).
+  (double, double) _centroFab(double ancho, double alto) {
+    final cx = ancho - _dx - _fabSize / 2;
+    final cy = alto - _dy - _fabSize / 2;
+    return (cx, cy);
+  }
+
+  /// Posición (left, top) de cada mini-botón del arco. Los iconos se reparten en
+  /// un ángulo centrado en la dirección que va del FAB hacia el CENTRO de la
+  /// pantalla, así el menú abre hacia el espacio libre (sin salirse de la vista).
+  List<({double left, double top, int index, IconData icon})> _iconos(
+      double ancho, double alto) {
     final n = widget.sections.length;
-    final out = <_ArcoIcono>[];
+    final out = <({double left, double top, int index, IconData icon})>[];
     if (n == 0) return out;
-    // Con botones mini de ~32px, para no montarse necesitamos separación angular.
-    // Abrimos el arco en ~70° útiles (inset 10°) y usado radio moderado.
-    final insetDeg = 10.0;
-    final angMin = insetDeg;
-    final angMax = 90.0 - insetDeg;
+
+    final (cx, cy) = _centroFab(ancho, alto);
+    final centroX = ancho / 2;
+    final centroY = alto / 2;
+
+    // Dirección base (grados) del FAB hacia el centro de la pantalla.
+    // 0° = derecha, 90° = abajo (coordenadas de pantalla, y hacia abajo).
+    var baseAng = atan2(centroY - cy, centroX - cx) * 180 / pi;
+
+    // Distribuir los iconos a lo largo del rango centrado en baseAng.
     for (int i = 0; i < n; i++) {
       final t = n == 1 ? 0.5 : (i / (n - 1));
-      // ang: 0° = arriba, 90° = izquierda (arco hacia arriba-izquierda).
-      final ang = angMin + (angMax - angMin) * t;
-      final rad = ang * 3.14159265 / 180.0;
-      out.add(_ArcoIcono(
-        x: radio * sin(rad), // hacia la izquierda (ignora, ver posición)
-        y: radio * cos(rad), // hacia arriba
-        icon: widget.sections[i].icon,
+      final ang = baseAng - _spreadDeg / 2 + _spreadDeg * t;
+      final rad = ang * pi / 180;
+      final ix = cx + _radio * cos(rad);
+      final iy = cy + _radio * sin(rad);
+      out.add((
+        left: (ix - _miniSize / 2).clamp(0.0, max(0.0, ancho - _miniSize)),
+        top: (iy - _miniSize / 2).clamp(0.0, max(0.0, alto - _miniSize)),
         index: widget.sections[i].index,
-        label: widget.sections[i].label,
+        icon: widget.sections[i].icon,
       ));
     }
     return out;
@@ -100,9 +119,7 @@ class _RadialNavState extends State<RadialNav> {
   Widget build(BuildContext context) {
     final ancho = MediaQuery.of(context).size.width;
     final alto = MediaQuery.of(context).size.height;
-    final radio = 130.0;
-    final m = 130.0;
-    final iconos = _arcos(radio, m);
+    final iconos = _iconos(ancho, alto);
 
     return Stack(children: [
       // FAB principal (offset desde abajo-derecha), toggle + GESTIÓN DE ARRASTRE.
@@ -110,8 +127,6 @@ class _RadialNavState extends State<RadialNav> {
         right: _dx,
         bottom: _dy,
         child: GestureDetector(
-          // Arrastrar mueve el FAB (offset se computa en coordenadas desde
-          // abajo-derecha, por eso restamos el delta invertido).
           onPanUpdate: (detalles) {
             final px = _dx - detalles.delta.dx;
             final py = _dy - detalles.delta.dy;
@@ -128,16 +143,15 @@ class _RadialNavState extends State<RadialNav> {
           ),
         ),
       ),
-      // Íconos del arco (visibles al abrir), cada uno en su posición insetada.
-      // Siguen al FAB: mismo offset de base.
+      // Íconos del arco (visibles al abrir), en su posición según el espacio libre.
       for (final ic in iconos)
         if (_abierto)
           Positioned(
-            right: _dx + ic.x,
-            bottom: _dy + ic.y,
+            left: ic.left,
+            top: ic.top,
             child: SizedBox(
-              width: 36,
-              height: 36,
+              width: _miniSize,
+              height: _miniSize,
               child: FloatingActionButton(
                 mini: true,
                 backgroundColor: Theme.of(context).colorScheme.surface,
@@ -153,13 +167,4 @@ class _RadialNavState extends State<RadialNav> {
           ),
     ]);
   }
-}
-
-class _ArcoIcono {
-  final double x;
-  final double y;
-  final IconData icon;
-  final int index;
-  final String label;
-  _ArcoIcono({required this.x, required this.y, required this.icon, required this.index, required this.label});
 }
