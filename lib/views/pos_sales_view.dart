@@ -61,6 +61,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   // Caja / turno activo
   Map<String, dynamic>? _turno;
   bool _cajaCargando = false;
+  bool _dialogAperturaAbierto = false;
   // Lista de turnos (para consultar turnos anteriores) y el índice seleccionado.
   List<Map<String, dynamic>> _turnos = [];
 
@@ -95,6 +96,12 @@ class _PosSalesViewState extends State<PosSalesView> {
       });
       await _refreshVivos();
       await _cargarTurno();
+      // Si no hay turno abierto, pedir apertura como ventana emergente.
+      if (mounted && _turno == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _turno == null) _dialogAbrirCaja();
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() { _loading = false; _error = '$e'; });
@@ -690,23 +697,61 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
-  Future<void> _abrirCaja(double efectivoInicial) async {
+  Future<bool> _abrirCaja(double efectivoInicial) async {
     setState(() => _cajaCargando = true);
     final r = await ApiClient.cajaAbrir(efectivoInicial);
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _cajaCargando = false);
     if (r.ok) {
       _snack('Caja abierta.');
       await _cargarTurno();
       if (mounted) setState(() => _pantalla = Pantalla.inicio);
+      return true;
     } else {
       _snack(r.message);
+      return false;
     }
   }
 
+  /// Abre la caja como ventana emergente (dialog) en vez de una view completa.
+  Future<void> _dialogAbrirCaja() async {
+    if (_dialogAperturaAbierto) return;
+    if (_turno != null) return;
+    _dialogAperturaAbierto = true;
+    _efectivoApertura = 0;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 560),
+            child: StatefulBuilder(
+              builder: (ctx, setDlg) {
+                return _pantallaAbrirCaja(
+                  onAbrir: () async {
+                    final ok = await _abrirCaja(_efectivoApertura);
+                    if (ok && ctx.mounted) Navigator.of(ctx).pop();
+                  },
+                  onChange: (t) => _efectivoApertura = t,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    } finally {
+      _dialogAperturaAbierto = false;
+    }
+    // Tras cerrarse el dialog, si ya hay turno volvemos a inicio (el gate de
+    // build ya no muestra la view de apertura).
+    if (mounted && _turno != null) setState(() => _pantalla = Pantalla.inicio);
+  }
+
   Future<void> _cerrarTurno() async {
-    final cerrado = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => CierreCajaView(turno: _turno!)),
+    final cerrado = await showDialog<bool>(
+      context: context,
+      builder: (_) => Dialog(child: CierreCajaView(turno: _turno!)),
     );
     if (cerrado == true) await _cargarTurno();
   }
@@ -717,37 +762,30 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
-  Widget _pantallaAbrirCaja() {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Abrir caja', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  const Text('Cuente las cantidades de cada denominación. El total se calcula solo.', style: TextStyle(fontSize: 13)),
-                  const SizedBox(height: 12),
-                  ConteoDenominacion(
-                    onTotalChanged: (t) => setState(() => _efectivoApertura = t),
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _cajaCargando ? null : () => _abrirCaja(_efectivoApertura),
-                    child: _cajaCargando
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Abrir caja y empezar a facturar'),
-                  ),
-                ],
-              ),
+  Widget _pantallaAbrirCaja({required Future<void> Function() onAbrir, required ValueChanged<double> onChange}) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Abrir caja', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            const Text('Cuente las cantidades de cada denominación. El total se calcula solo.', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            ConteoDenominacion(
+              onTotalChanged: (t) { onChange(t); setState(() {}); },
             ),
-          ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _cajaCargando ? null : onAbrir,
+              child: _cajaCargando
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Abrir caja y empezar a facturar'),
+            ),
+          ],
         ),
       ),
     );
@@ -761,7 +799,8 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
     _pintarTitulo();
     // Pantallas que NO requieren caja abierta (cards de inicio y resumen) se
-    // muestran siempre. Las de facturación/cobro/entregas SÍ exigen turno abierto.
+    // muestran siempre. Las de facturación/cobro/entregas SÍ exigen turno abierto
+    // (si no hay turno, se abre el dialog de apertura antes de facturar).
     // (Comandas/Ítems del turno se abren con Navigator.push desde las cards.)
     if (_pantalla == Pantalla.inicio || _pantalla == Pantalla.resumen) {
       switch (_pantalla) {
@@ -776,10 +815,14 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_pantalla == Pantalla.cocina) {
       return CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
     }
-    // Pantalla explícita de abrir caja.
-    if (_pantalla == Pantalla.abrirCaja) return _pantallaAbrirCaja();
-    // Gate de caja: sin turno abierto no se puede facturar (ni cerrar).
-    if (_turno == null) return _pantallaAbrirCaja();
+    // Gate de caja: sin turno abierto no se puede facturar. Abre la ventana
+    // emergente de apertura en lugar de una view de pantalla completa.
+    if (_turno == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _dialogAbrirCaja();
+      });
+      return _vistaInicio();
+    }
     // Renderizado por pantalla del flujo POS que requiere caja abierta.
     switch (_pantalla) {
       case Pantalla.comanda:
@@ -820,11 +863,11 @@ class _PosSalesViewState extends State<PosSalesView> {
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
       _inicioCard('Cocina', Icons.kitchen, () => setState(() => _pantalla = Pantalla.cocina)),
       _inicioCard('Cerrar turno (arqueo)', Icons.account_balance_wallet, () {
-        if (_turno == null) { setState(() => _pantalla = Pantalla.abrirCaja); return; }
+        if (_turno == null) { _dialogAbrirCaja(); return; }
         _cerrarTurno();
       }),
       _inicioCard('Movimientos de caja', Icons.swap_horiz, () {
-        if (_turno == null) { setState(() => _pantalla = Pantalla.abrirCaja); return; }
+        if (_turno == null) { _dialogAbrirCaja(); return; }
         _movimientosCaja();
       }),
       _inicioCard('Pago de propinas', Icons.redeem, () async {
@@ -938,6 +981,8 @@ class _PosSalesViewState extends State<PosSalesView> {
       onContinuar: _siguienteEtapa,
       onBorrar: _borrarComanda,
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
+      turnoAbierto: _turno != null,
+      onCerrarTurno: () => _cerrarTurno(),
       onAgregarMesa: (m) async {
         // Opción C: volver a tocar el tab de la mesa activa = comanda nueva vacía;
         // tocar otra mesa = cargar sus productos en modo "agregar".

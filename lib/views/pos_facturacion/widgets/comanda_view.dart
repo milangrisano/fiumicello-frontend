@@ -38,6 +38,8 @@ class ComandaView extends StatelessWidget {
     required this.onBorrar,
     required this.onVolver,
     required this.onAgregarMesa,
+    required this.turnoAbierto,
+    this.onCerrarTurno,
   });
 
   final List<Linea> items;
@@ -61,6 +63,8 @@ class ComandaView extends StatelessWidget {
   final VoidCallback onBorrar;
   final VoidCallback onVolver;
   final CbAgregarMesa onAgregarMesa;
+  final bool turnoAbierto;
+  final VoidCallback? onCerrarTurno;
 
   List<Map<String, dynamic>> _itemsDeCategoriaSel() {
     final b = busqueda.toLowerCase();
@@ -125,11 +129,28 @@ class ComandaView extends StatelessWidget {
                     label: const Text('Continuar'),
                   ),
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
+                // Botón de cierre de turno (solo si hay turno abierto).
+                if (turnoAbierto && onCerrarTurno != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Cerrar turno',
+                    onPressed: onCerrarTurno,
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    style: IconButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 4),
+                // Borrar comanda como icono circular de basura (sin texto).
+                IconButton(
+                  tooltip: 'Borrar comanda',
                   onPressed: items.isEmpty ? null : onBorrar,
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Borrar comanda'),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  ),
                 ),
               ],
             ),
@@ -276,10 +297,27 @@ class ComandaView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        OutlinedButton.icon(
+                        // Botón de cierre de turno (solo si hay turno abierto).
+                        if (turnoAbierto && onCerrarTurno != null) ...[
+                          IconButton(
+                            tooltip: 'Cerrar turno',
+                            onPressed: onCerrarTurno,
+                            icon: const Icon(Icons.account_balance_wallet_outlined),
+                            style: IconButton.styleFrom(
+                              foregroundColor: Theme.of(context).colorScheme.error,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        // Borrar comanda como icono circular de basura (sin texto).
+                        IconButton(
+                          tooltip: 'Borrar comanda',
                           onPressed: items.isEmpty ? null : onBorrar,
                           icon: const Icon(Icons.delete_outline),
-                          label: const Text('Borrar comanda'),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          ),
                         ),
                       ],
                     ),

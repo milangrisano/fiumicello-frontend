@@ -3,7 +3,9 @@ import '../../../core/data/api_client.dart';
 import '../../../core/utils/formatters.dart';
 import 'conteo_denominacion.dart';
 
-/// Pantalla de cierre de turno: arqueo de caja y cierre (bloqueado si faltante).
+/// Ventana emergente (dialog) de cierre de turno: arqueo de caja y cierre
+/// (bloqueado si faltante). Sin Scaffold propio: se muestra dentro de un
+/// [Dialog], que le da el marco y el botón de cerrar (X).
 class CierreCajaView extends StatefulWidget {
   final Map<String, dynamic> turno;
   const CierreCajaView({super.key, required this.turno});
@@ -72,27 +74,37 @@ class _CierreCajaViewState extends State<CierreCajaView> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
+    if (_loading) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+    if (_error != null) return Padding(padding: const EdgeInsets.all(24), child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     final a = _arqueo!;
     final teorico = _num(a['efectivoTeorico']);
     // Faltante/excedente recalculados en vivo según lo contado por el widget.
     final faltante = teorico - _efectivoContado;
     final excedente = _efectivoContado - teorico;
     final puedeCerrar = a['puedeCerrar'] == true && faltante <= 0;
-    return Scaffold(
-      appBar: AppBar(title: Text('Cierre de caja — Turno ${widget.turno['numero_dia'] ?? ''}')),
-      // Mismo contenedor que la apertura: centrado, con card y ancho máx 420 px
-      // (para que el conteo no se expanda hacia los bordes ni quede pegado).
-      body: Center(
-        child: Card(
-          margin: const EdgeInsets.all(16),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(8),
+    // Contenido de la ventana emergente (sin Scaffold/AppBar: el Dialog le da
+    // el marco). Encabezado con título y botón de cerrar (X).
+    return SizedBox(
+      width: 520,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            child: Row(
+              children: [
+                Expanded(child: Text('Cierre de caja — Turno ${widget.turno['numero_dia'] ?? ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(false)),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,6 +112,7 @@ class _CierreCajaViewState extends State<CierreCajaView> {
             const Text('Ventas por medio de pago', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             ...((a['porMedio'] as List? ?? []).map<Widget>((m) => ListTile(
+                  contentPadding: EdgeInsets.zero,
                   title: Text('${m['medio']}'),
                   trailing: Text(money(_num(m['total']))),
                 ))),
@@ -136,7 +149,7 @@ class _CierreCajaViewState extends State<CierreCajaView> {
               const SizedBox(width: 12),
               Expanded(child: TextField(controller: _propinaOtros, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Propina otros medios', prefixText: '\$'))),
             ]),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             FilledButton(
               onPressed: (_cerrando || !puedeCerrar) ? null : _cerrar,
               child: _cerrando
@@ -153,7 +166,7 @@ class _CierreCajaViewState extends State<CierreCajaView> {
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
