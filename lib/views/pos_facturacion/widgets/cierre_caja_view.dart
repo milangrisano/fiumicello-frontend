@@ -82,11 +82,21 @@ class _CierreCajaViewState extends State<CierreCajaView> {
     final puedeCerrar = a['puedeCerrar'] == true && faltante <= 0;
     return Scaffold(
       appBar: AppBar(title: Text('Cierre de caja — Turno ${widget.turno['numero_dia'] ?? ''}')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      // Mismo contenedor que la apertura: centrado, con card y ancho máx 420 px
+      // (para que el conteo no se expanda hacia los bordes ni quede pegado).
+      body: Center(
+        child: Card(
+          margin: const EdgeInsets.all(16),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
             const Text('Ventas por medio de pago', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             ...((a['porMedio'] as List? ?? []).map<Widget>((m) => ListTile(
@@ -139,6 +149,10 @@ class _CierreCajaViewState extends State<CierreCajaView> {
                 child: Text('El cierre está bloqueado hasta cuadrar el efectivo.', style: TextStyle(color: Colors.red)),
               ),
           ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
