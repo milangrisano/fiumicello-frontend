@@ -705,7 +705,8 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (r.ok) {
       _snack('Caja abierta.');
       await _cargarTurno();
-      if (mounted) setState(() => _pantalla = Pantalla.inicio);
+      // Al abrir la caja se va a la pantalla de comanda (nueva, vacía).
+      if (mounted) setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; });
       return true;
     } else {
       _snack(r.message);
@@ -743,9 +744,8 @@ class _PosSalesViewState extends State<PosSalesView> {
     } finally {
       _dialogAperturaAbierto = false;
     }
-    // Tras cerrarse el dialog, si ya hay turno volvemos a inicio (el gate de
-    // build ya no muestra la view de apertura).
-    if (mounted && _turno != null) setState(() => _pantalla = Pantalla.inicio);
+    // Tras cerrarse el dialog: si ya hay turno abierto, ir a comanda (nueva).
+    if (mounted && _turno != null) setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; });
   }
 
   Future<void> _cerrarTurno() async {
@@ -753,7 +753,11 @@ class _PosSalesViewState extends State<PosSalesView> {
       context: context,
       builder: (_) => Dialog(child: CierreCajaView(turno: _turno!)),
     );
-    if (cerrado == true) await _cargarTurno();
+    if (cerrado == true) {
+      await _cargarTurno();
+      // Al cerrar la caja se va a la pantalla de POS de facturación (inicio).
+      if (mounted) setState(() => _pantalla = Pantalla.inicio);
+    }
   }
 
   Future<void> _movimientosCaja() async {
@@ -862,10 +866,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
       _inicioCard('Cocina', Icons.kitchen, () => setState(() => _pantalla = Pantalla.cocina)),
-      _inicioCard('Cerrar turno (arqueo)', Icons.account_balance_wallet, () {
-        if (_turno == null) { _dialogAbrirCaja(); return; }
-        _cerrarTurno();
-      }),
       _inicioCard('Movimientos de caja', Icons.swap_horiz, () {
         if (_turno == null) { _dialogAbrirCaja(); return; }
         _movimientosCaja();
