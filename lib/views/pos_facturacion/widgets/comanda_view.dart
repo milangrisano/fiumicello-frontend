@@ -139,20 +139,21 @@ class ComandaView extends StatelessWidget {
                     backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                 ),
-                // Botón de cierre de turno (solo si hay turno abierto), como caja
-                // registradora, al lado derecho de la basura.
-                if (turnoAbierto && onCerrarTurno != null) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Cerrar turno',
-                    onPressed: onCerrarTurno,
-                    icon: const Icon(Icons.point_of_sale),
-                    style: IconButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    ),
+                // Botón de cierre de turno SIEMPRE visible (caja registradora, a
+                // la derecha de la basura). Deshabilitado si no hay turno abierto
+                // que cerrar (en vez de ocultarse, para que se entienda el estado).
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Cerrar turno',
+                  onPressed: turnoAbierto && onCerrarTurno != null ? onCerrarTurno : null,
+                  icon: const Icon(Icons.point_of_sale),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    disabledForegroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    disabledBackgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                    foregroundColor: Theme.of(context).colorScheme.error,
                   ),
-                ],
+                ),
               ],
             ),
           ],
@@ -307,20 +308,20 @@ class ComandaView extends StatelessWidget {
                             backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                           ),
                         ),
-                        // Botón de cierre de turno (solo si hay turno abierto), como
-                        // caja registradora, al lado derecho de la basura.
-                        if (turnoAbierto && onCerrarTurno != null) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: 'Cerrar turno',
-                            onPressed: onCerrarTurno,
-                            icon: const Icon(Icons.point_of_sale),
-                            style: IconButton.styleFrom(
-                              foregroundColor: Theme.of(context).colorScheme.error,
-                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            ),
+                        // Botón de cierre de turno SIEMPRE visible (caja registradora, a la
+                        // derecha de la basura). Deshabilitado si no hay turno abierto.
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Cerrar turno',
+                          onPressed: turnoAbierto && onCerrarTurno != null ? onCerrarTurno : null,
+                          icon: const Icon(Icons.point_of_sale),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            disabledForegroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                            disabledBackgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                            foregroundColor: Theme.of(context).colorScheme.error,
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ],
