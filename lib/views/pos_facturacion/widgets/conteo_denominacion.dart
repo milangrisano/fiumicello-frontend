@@ -92,9 +92,34 @@ class _ConteoDenominacionState extends State<ConteoDenominacion> {
     );
   }
 
-  /// Fila de una denominación: valor a la izquierda + campo de cantidad a la derecha.
+  /// Fila de una denominación: valor a la izquierda + stepper (− cantidad +) a la derecha.
   Widget _filaDenominacion(BuildContext context, Map<String, dynamic> d) {
     final valor = d['valor'] as int;
+    final scheme = Theme.of(context).colorScheme;
+    final ctrl = _denominacionCtrl.putIfAbsent(valor, () => TextEditingController());
+
+    int _valorActual() => int.tryParse(ctrl.text.replaceAll(',', '.').trim()) ?? 0;
+
+    void _cambiar(int delta) {
+      setState(() {
+        final n = _valorActual() + delta;
+        if (n < 0) return;
+        ctrl.text = n == 0 ? '' : '$n';
+      });
+      _notificar();
+    }
+
+    Widget _boton(IconData icono) {
+      return InkWell(
+        onTap: () => _cambiar(icono == Icons.add ? 1 : -1),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icono, size: 22, color: scheme.primary),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -102,32 +127,42 @@ class _ConteoDenominacionState extends State<ConteoDenominacion> {
           Expanded(
             child: Text(
               money(valor),
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: scheme.onSurface),
             ),
           ),
+          // Stepper: botón −, campo de cantidad, botón +.
           Container(
-            width: 92,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: scheme.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              border: Border.all(color: scheme.outlineVariant),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: TextField(
-              controller: _denominacionCtrl.putIfAbsent(valor, () => TextEditingController()),
-              keyboardType: const TextInputType.numberWithOptions(decimal: false),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 15),
-              onChanged: (_) {
-                setState(() {});
-                _notificar();
-              },
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                hintText: '0',
-                hintStyle: TextStyle(fontSize: 14),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _boton(Icons.remove),
+                SizedBox(
+                  width: 44,
+                  child: TextField(
+                    controller: ctrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15),
+                    onChanged: (_) {
+                      setState(() {});
+                      _notificar();
+                    },
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      hintText: '0',
+                      hintStyle: TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
+                _boton(Icons.add),
+              ],
             ),
           ),
         ],
