@@ -753,6 +753,24 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   Future<void> _cerrarTurno() async {
+    // Gate: no se puede cerrar la caja con mesas abiertas sin cobrar o pedidos
+    // pendientes de entrega. Refresca los vivos para tener el estado real.
+    await _refreshVivos();
+    if (!mounted) return;
+    final nMesas = _mesasAbiertas.length;
+    final nPendientes = _pendientes.length;
+    if (nMesas > 0 || nPendientes > 0) {
+      var aviso = 'No se puede cerrar la caja:\n';
+      if (nMesas > 0) {
+        aviso += '• $nMesas mesas abiertas sin cobrar\n';
+      }
+      if (nPendientes > 0) {
+        aviso += '• $nPendientes pedidos por entregar\n';
+      }
+      aviso += '\nCuadre y cobre las mesas/pedidos pendientes primero.';
+      await _dialogAviso('Cierre bloqueado', aviso);
+      return;
+    }
     final cerrado = await showDialog<bool>(
       context: context,
       builder: (_) => Dialog(child: CierreCajaView(turno: _turno!)),
@@ -762,6 +780,21 @@ class _PosSalesViewState extends State<PosSalesView> {
       // Al cerrar la caja se va a la pantalla de POS de facturación (inicio).
       if (mounted) setState(() => _pantalla = Pantalla.inicio);
     }
+  }
+
+  /// Diálogo de aviso informativo (un botón "Entendido").
+  Future<void> _dialogAviso(String titulo, String mensaje) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(titulo),
+        content: Text(mensaje, style: const TextStyle(fontSize: 14)),
+        actions: [
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Entendido')),
+        ],
+      ),
+    );
   }
 
   Future<void> _movimientosCaja() async {
