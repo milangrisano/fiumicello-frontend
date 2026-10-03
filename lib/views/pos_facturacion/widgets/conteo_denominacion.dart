@@ -109,13 +109,20 @@ class _ConteoDenominacionState extends State<ConteoDenominacion> {
       _notificar();
     }
 
+    // Botones con fondo de color para que resalten contra el fondo del campo
+    // (en tema oscuro los iconos sueltos se pierden).
     Widget _boton(IconData icono) {
       return InkWell(
         onTap: () => _cambiar(icono == Icons.add ? 1 : -1),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          margin: const EdgeInsets.all(4),
           padding: const EdgeInsets.all(4),
-          child: Icon(icono, size: 22, color: scheme.primary),
+          decoration: BoxDecoration(
+            color: scheme.primary,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icono, size: 20, color: scheme.onPrimary),
         ),
       );
     }
