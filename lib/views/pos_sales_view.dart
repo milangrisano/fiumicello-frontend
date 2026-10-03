@@ -96,12 +96,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       });
       await _refreshVivos();
       await _cargarTurno();
-      // Si no hay turno abierto, pedir apertura como ventana emergente.
-      if (mounted && _turno == null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _turno == null) _dialogAbrirCaja();
-        });
-      }
     } catch (e) {
       if (!mounted) return;
       setState(() { _loading = false; _error = '$e'; });
@@ -184,6 +178,16 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_comanda.isEmpty) {
       _snack('Agrega al menos un producto.');
       return;
+    }
+    // Gate de apertura de turno: para facturar hay que tener la caja/turno
+    // abierto. Si no hay turno, se pide abrir la caja aquí, no al entrar.
+    if (_turno == null) {
+      await _dialogAbrirCaja();
+      if (!mounted) return;
+      if (_turno == null) {
+        _snack('Debe abrir la caja para facturar.');
+        return;
+      }
     }
     // Modo "agregar a mesa abierta": añade la comanda a ese pedido y vuelve a
     // las mesas (sin pasar por la asignación, que ya se hizo la primera vez).
@@ -819,15 +823,8 @@ class _PosSalesViewState extends State<PosSalesView> {
     if (_pantalla == Pantalla.cocina) {
       return CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
     }
-    // Gate de caja: sin turno abierto no se puede facturar. Abre la ventana
-    // emergente de apertura en lugar de una view de pantalla completa.
-    if (_turno == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _dialogAbrirCaja();
-      });
-      return _vistaInicio();
-    }
-    // Renderizado por pantalla del flujo POS que requiere caja abierta.
+    // Renderizado por pantalla del flujo POS. Sin turno abierto se puede armar la
+    // comanda libremente; el gate de apertura se pide al pulsar "Continuar".
     switch (_pantalla) {
       case Pantalla.comanda:
         return _vistaComanda();
