@@ -178,8 +178,15 @@ class ApiClient {
         _user = null;
       }
     }
-    // Si la cookie HttpOnly existe, intenta renovar de inmediato (cubre el caso
-    // de recarga con access ya vencido). Luego arranca el refresco periódico.
+    // Solo hay algo que renovar si existe una sesión previa (un access guardado o
+    // una cookie HttpOnly). En el landing público (sin token) NO se llama a
+    // /auth/refresh: no hay cookie que renovar y hacerlo dispararía un 401 -> logout
+    // que bloquearía la navegación a /login (bug del botón "Ingresar").
+    if (_token == null || _token!.isEmpty) {
+      return; // sin sesión previa: no hay cookie que renovar, no arrancar timer
+    }
+    // Si hay token, intenta renovar de inmediato (recarga con access vencido)
+    // y arranca el refresco periódico.
     await refreshIfNeeded();
     iniciarAutoRefresh();
     await cargarPermisos();
