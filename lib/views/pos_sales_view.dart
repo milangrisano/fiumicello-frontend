@@ -782,17 +782,50 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
-  /// Diálogo de aviso informativo (un botón "Entendido").
+  /// Diálogo de aviso informativo (un botón "Entendido"), presentable y
+  /// centrado con ancho acotado para que se vea bien en móvil y escritorio.
   Future<void> _dialogAviso(String titulo, String mensaje) async {
+    final scheme = Theme.of(context).colorScheme;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(titulo),
-        content: Text(mensaje, style: const TextStyle(fontSize: 14)),
-        actions: [
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Entendido')),
-        ],
+      builder: (ctx) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.warning_amber_outlined, size: 30, color: scheme.primary),
+                ),
+                const SizedBox(height: 14),
+                Text(titulo,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text(mensaje, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Entendido'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
