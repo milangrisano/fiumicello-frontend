@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,6 +55,89 @@ class ApiClient {
     }
   }
 
+  // ====================== Reauth automático (cookie HttpOnly) ======================
+  // El JWT de acceso es corto (p. ej. 15 min). Para que la app no muera si queda
+  // abierta mucho tiempo, se refresca la sesión con la cookie HttpOnly en dos
+  // vías: (1) al restaurar la sesión, y (2) con un Timer periódico (~10 min)
+  // mientras hay sesión. El refresh rota el token en el servidor.
+  static Timer? _refreshTimer;
+  static DateTime? _tokenExpira; // momento en que vence el access (si se conoce)
+
+  /// Si el access token vence pronto (< 2 min) o ya venció, renueva la sesión.
+  /// Devuelve true si el token está fresco (sin necesidad de renovar o ya ok).
+  static bool _tokenNecesitaRefresh() {
+    final exp = _tokenExpira;
+    if (exp == null) return false;
+    return exp.difference(DateTime.now()).inSeconds < 120;
+  }
+
+  /// Renueva el access token usando la cookie HttpOnly (POST /auth/refresh).
+  /// Actualiza `_token`/`_user` si hay una cookie válida. Devuelve true si ok.
+  static Future<bool> refreshIfNeeded() async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: '{}',
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final t = (body is Map) ? body['access_token'] as String? : null;
+        if (t != null && t.isNotEmpty) {
+          _token = t;
+          _tokenExpira = _decodificarExp(t);
+          final u = (body is Map) ? body['user'] : null;
+          if (u is Map) _user = Map<String, dynamic>.from(u);
+          await _persistirUser();
+          return true;
+        }
+      } else if (res.statusCode == 401) {
+        // Cookie inválida/revocada o cadena comprometida -> cerrar sesión.
+        await logout();
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static void iniciarAutoRefresh() {
+    _refreshTimer?.cancel();
+    // Revisa cada minuto; renueva SOLO cuando el access vence pronto (< 2 min)
+    // o ya venció. Así se mantiene el token fresco antes de que caduque sin
+    // sobrecargar el servidor con refrescos constantes.
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (_token != null && _token!.isNotEmpty && _tokenNecesitaRefresh()) {
+        refreshIfNeeded();
+      }
+    });
+  }
+
+  static void detenerAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  /// Lee el `exp` (epoch) del JWT para saber cuándo vence; null si no se puede.
+  static DateTime? _decodificarExp(String jwt) {
+    try {
+      final parts = jwt.split('.');
+      if (parts.length < 2) return null;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      final exp = (payload is Map) ? payload['exp'] : null;
+      if (exp is int && exp > 0) return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> _persistirUser() async {
+    if (_user == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(_user!));
+  }
+
   static String get baseUrl {
     if (_apiBaseOverride.isNotEmpty) {
       if (_apiBaseOverride.startsWith('/')) {
@@ -85,6 +169,7 @@ class ApiClient {
   static Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);
+    _tokenExpira = _decodificarExp(_token ?? '');
     final u = prefs.getString(_userKey);
     if (u != null && u.isNotEmpty) {
       try {
@@ -93,6 +178,10 @@ class ApiClient {
         _user = null;
       }
     }
+    // Si la cookie HttpOnly existe, intenta renovar de inmediato (cubre el caso
+    // de recarga con access ya vencido). Luego arranca el refresco periódico.
+    await refreshIfNeeded();
+    iniciarAutoRefresh();
     await cargarPermisos();
   }
 
@@ -107,16 +196,28 @@ class ApiClient {
     final token = body['access_token'] as String?;
     if (token == null || token.isEmpty) return false;
     _token = token;
+    _tokenExpira = _decodificarExp(token);
     _user = Map<String, dynamic>.from(body['user']);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userKey, jsonEncode(_user!));
+    iniciarAutoRefresh(); // refresh automático mientras haya sesión
     await cargarPermisos(); // load role permissions for the dynamic menu
     return true;
   }
 
   static Future<void> logout() async {
+    // Revoca la cookie HttpOnly en el backend (borra la sesión del dispositivo).
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/auth/logout'),
+        headers: {'Content-Type': 'application/json'},
+        body: '{}',
+      );
+    } catch (_) {}
+    detenerAutoRefresh();
     _token = null;
+    _tokenExpira = null;
     _user = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
