@@ -768,7 +768,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         aviso += '• $nPendientes pedidos por entregar\n';
       }
       aviso += '\nCuadre y cobre las mesas/pedidos pendientes primero.';
-      await _dialogAviso('Cierre bloqueado', aviso);
+      await _dialogAviso('Cobro pendiente', aviso);
       return;
     }
     final cerrado = await showDialog<bool>(
