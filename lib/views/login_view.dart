@@ -16,6 +16,7 @@ class _LoginViewState extends State<LoginView> {
   final _user = TextEditingController();
   final _pass = TextEditingController();
   bool _loading = false;
+  bool _showPass = false; // toggle mostrar/ocultar contraseña
   String? _error;
 
   @override
@@ -74,11 +75,16 @@ class _LoginViewState extends State<LoginView> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _pass,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: !_showPass,
+                  decoration: InputDecoration(
                     labelText: 'Contraseña',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => _showPass = !_showPass),
+                      tooltip: _showPass ? 'Ocultar contraseña' : 'Mostrar contraseña',
+                    ),
                   ),
                   onSubmitted: (_) => _submit(),
                 ),
