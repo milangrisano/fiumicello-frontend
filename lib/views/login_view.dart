@@ -81,6 +81,9 @@ class _LoginViewState extends State<LoginView> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
+                      // Icono del ojo siempre visible (mismo color del texto/hint),
+                      // no solo al pasar el mouse.
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility),
                       onPressed: () => setState(() => _showPass = !_showPass),
                       tooltip: _showPass ? 'Ocultar contraseña' : 'Mostrar contraseña',
