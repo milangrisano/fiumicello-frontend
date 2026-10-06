@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import '../../core/data/api_client.dart';
 
 /// Superadmin admin panel: manage service tokens (herb and future services)
@@ -52,6 +53,19 @@ class _AdminTokensViewState extends State<AdminTokensView> {
     _load();
   }
 
+  Future<void> _copiarToken() async {
+    final t = _newToken;
+    if (t == null || t.isEmpty) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: t));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Token copiado al portapapeles.')));
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo copiar el token.')));
+    }
+  }
+
   Future<void> _revocar(int id) async {
     final r = await ApiClient.revocarServicio(id);
     if (!mounted) return;
@@ -100,7 +114,18 @@ class _AdminTokensViewState extends State<AdminTokensView> {
               const Text('NUEVO TOKEN (cópialo ahora — no volverá a mostrarse):',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              SelectableText(_newToken!, style: const TextStyle(fontFamily: 'monospace')),
+              Row(children: [
+                Expanded(
+                  child: SelectableText(_newToken!,
+                      style: const TextStyle(fontFamily: 'monospace')),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.content_copy),
+                  onPressed: _copiarToken,
+                  tooltip: 'Copiar token',
+                ),
+              ]),
             ]),
           ),
         ],
