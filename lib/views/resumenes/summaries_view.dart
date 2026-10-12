@@ -301,27 +301,109 @@ class _SummariesViewState extends State<SummariesView> {
           ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // Utilidad destacada con degradado del acento.
+      // Panel de Utilidad: destaca la utilidad y llena la franja con una
+      // descomposición visual (Ventas − Gastos) + barra proporcional, para que
+      // no quede un texto suelto con espacio vacío a los lados.
       Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [
-            utilidad >= 0 ? cs.primary : Colors.redAccent,
-            utilidad >= 0
-                ? cs.primary.withValues(alpha: 0.7)
-                : Colors.redAccent.withValues(alpha: 0.7),
-          ]),
+          gradient: LinearGradient(
+            colors: [
+              utilidad >= 0 ? cs.primary : Colors.redAccent,
+              utilidad >= 0
+                  ? cs.primary.withValues(alpha: 0.75)
+                  : Colors.redAccent.withValues(alpha: 0.75),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Utilidad',
-              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-          Text(money(utilidad),
-              style: const TextStyle(
-                  color: Colors.black, fontSize: 26, fontWeight: FontWeight.bold)),
-          Text(utilidad >= 0 ? 'Ingresos superan los gastos' : 'Los gastos superan los ingresos',
-              style: const TextStyle(color: Colors.black87, fontSize: 12)),
-        ]),
+        child: LayoutBuilder(builder: (ctx, c) {
+          final fila = c.maxWidth >= 700;
+          // Proporción de gasto sobre ingresos para la barra.
+          final porcGasto =
+              ventas > 0 ? ((facturas / ventas) * 100).clamp(0, 100) : 100.0;
+          final porcUtilidad = ventas > 0 ? ((utilidad / ventas) * 100).clamp(0, 100) : 0.0;
+
+          final bloqueUtilidad = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Utilidad',
+                  style: TextStyle(
+                      color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(money(utilidad),
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold)),
+              Text(
+                utilidad >= 0
+                    ? 'Ingresos superan los gastos'
+                    : 'Los gastos superan los ingresos',
+                style: const TextStyle(color: Colors.black87, fontSize: 12),
+              ),
+            ],
+          );
+
+          final barra = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ventas − Gastos = Utilidad
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Ventas  ${money(ventas)}',
+                    style: const TextStyle(color: Colors.black87, fontSize: 12)),
+                Text('${porcUtilidad.toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                        color: Colors.black, fontWeight: FontWeight.w700, fontSize: 12)),
+              ]),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: porcUtilidad / 100,
+                  minHeight: 10,
+                  backgroundColor: Colors.black.withValues(alpha: 0.18),
+                  valueColor: const AlwaysStoppedAnimation(Colors.white),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Gastos  ${money(facturas)}',
+                    style: const TextStyle(color: Colors.black87, fontSize: 12)),
+                Text('${porcGasto.toStringAsFixed(0)}%',
+                    style: const TextStyle(color: Colors.black87, fontSize: 12)),
+              ]),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: porcGasto / 100,
+                  minHeight: 10,
+                  backgroundColor: Colors.black.withValues(alpha: 0.18),
+                  valueColor: const AlwaysStoppedAnimation(Colors.orangeAccent),
+                ),
+              ),
+            ],
+          );
+
+          if (fila) {
+            // PC/tablet: utilidad a la izquierda, descomposición a la derecha.
+            return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Expanded(flex: 2, child: bloqueUtilidad),
+              const SizedBox(width: 24),
+              Expanded(flex: 3, child: barra),
+            ]);
+          }
+          // Móvil: utilidad arriba y la descomposición debajo.
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            bloqueUtilidad,
+            const SizedBox(height: 14),
+            barra,
+          ]);
+        }),
       ),
       SizedBox(height: gap),
       // Tarjetas resumen: SIEMPRE en una sola línea (móvil y PC).
