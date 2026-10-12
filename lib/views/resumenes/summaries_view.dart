@@ -300,129 +300,77 @@ class _SummariesViewState extends State<SummariesView> {
               ),
           ];
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // Panel de Utilidad: destaca la utilidad y llena la franja con una
-      // descomposición visual (Ventas − Gastos) + barra proporcional, para que
-      // no quede un texto suelto con espacio vacío a los lados.
-      Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              utilidad >= 0 ? cs.primary : Colors.redAccent,
-              utilidad >= 0
-                  ? cs.primary.withValues(alpha: 0.75)
-                  : Colors.redAccent.withValues(alpha: 0.75),
-            ],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
+    // 4 tarjetas: Utilidad, Ventas, Gastos, Comprobantes.
+    // Grid: móvil (ancho < 700) => 2x2; PC/tablet => 4x1.
+    final cardUtilidad = Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            utilidad >= 0 ? cs.primary : Colors.redAccent,
+            utilidad >= 0
+                ? cs.primary.withValues(alpha: 0.75)
+                : Colors.redAccent.withValues(alpha: 0.75),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: LayoutBuilder(builder: (ctx, c) {
-          final fila = c.maxWidth >= 700;
-          // Proporción de gasto sobre ingresos para la barra.
-          final porcGasto =
-              ventas > 0 ? ((facturas / ventas) * 100).clamp(0, 100) : 100.0;
-          final porcUtilidad = ventas > 0 ? ((utilidad / ventas) * 100).clamp(0, 100) : 0.0;
-
-          final bloqueUtilidad = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Utilidad',
-                  style: TextStyle(
-                      color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(money(utilidad),
-                  style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold)),
-              Text(
-                utilidad >= 0
-                    ? 'Ingresos superan los gastos'
-                    : 'Los gastos superan los ingresos',
-                style: const TextStyle(color: Colors.black87, fontSize: 12),
-              ),
-            ],
-          );
-
-          final barra = Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Ventas − Gastos = Utilidad
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Ventas  ${money(ventas)}',
-                    style: const TextStyle(color: Colors.black87, fontSize: 12)),
-                Text('${porcUtilidad.toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                        color: Colors.black, fontWeight: FontWeight.w700, fontSize: 12)),
-              ]),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: porcUtilidad / 100,
-                  minHeight: 10,
-                  backgroundColor: Colors.black.withValues(alpha: 0.18),
-                  valueColor: const AlwaysStoppedAnimation(Colors.white),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Gastos  ${money(facturas)}',
-                    style: const TextStyle(color: Colors.black87, fontSize: 12)),
-                Text('${porcGasto.toStringAsFixed(0)}%',
-                    style: const TextStyle(color: Colors.black87, fontSize: 12)),
-              ]),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: porcGasto / 100,
-                  minHeight: 10,
-                  backgroundColor: Colors.black.withValues(alpha: 0.18),
-                  valueColor: const AlwaysStoppedAnimation(Colors.orangeAccent),
-                ),
-              ),
-            ],
-          );
-
-          if (fila) {
-            // PC/tablet: utilidad a la izquierda, descomposición a la derecha.
-            return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              Expanded(flex: 2, child: bloqueUtilidad),
-              const SizedBox(width: 24),
-              Expanded(flex: 3, child: barra),
-            ]);
-          }
-          // Móvil: utilidad arriba y la descomposición debajo.
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            bloqueUtilidad,
-            const SizedBox(height: 14),
-            barra,
-          ]);
-        }),
+        borderRadius: BorderRadius.circular(14),
       ),
-      SizedBox(height: gap),
-      // Tarjetas resumen: SIEMPRE en una sola línea (móvil y PC).
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-              child: _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long,
-                  color: cs.primary)),
-          const SizedBox(width: 8),
-          Expanded(
-              child: _kpiCard('Gastos ($nFacturas)', facturas, Icons.receipt,
-                  color: Colors.orange)),
-          const SizedBox(width: 8),
-          Expanded(
-              child: _kpiCard('Comprobantes ($nComprobantes)', comprobantes,
-                  Icons.account_balance_wallet, color: Colors.blueGrey)),
+          const Icon(Icons.savings, size: 28, color: Colors.black87),
+          const SizedBox(height: 6),
+          Text(money(utilidad),
+              style: const TextStyle(
+                  color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          const Text('Utilidad',
+              style: TextStyle(color: Colors.black87, fontSize: 11),
+              textAlign: TextAlign.center),
         ],
       ),
+    );
+
+    final cards = [
+      cardUtilidad,
+      _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long, color: cs.primary),
+      _kpiCard('Gastos ($nFacturas)', facturas, Icons.receipt, color: Colors.orange),
+      _kpiCard('Comprobantes ($nComprobantes)', comprobantes,
+          Icons.account_balance_wallet, color: Colors.blueGrey),
+    ];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      LayoutBuilder(builder: (ctx, c) {
+        if (c.maxWidth >= 700) {
+          // PC/tablet: 4 en una sola fila.
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              Expanded(child: cards[i]),
+              if (i < cards.length - 1) const SizedBox(width: 10),
+            ],
+          ]);
+        }
+        // Móvil: grid 2x2.
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: cards[0]),
+            const SizedBox(width: 10),
+            Expanded(child: cards[1]),
+          ]),
+          const SizedBox(height: 10),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: cards[2]),
+            const SizedBox(width: 10),
+            Expanded(child: cards[3]),
+          ]),
+        ]);
+      }),
       SizedBox(height: gap),
       Divider(color: cs.outlineVariant),
       const SizedBox(height: 4),
