@@ -171,24 +171,25 @@ class _SummariesViewState extends State<SummariesView> {
       );
     }
 
-    // Panel colapsable: total + detalle
-    Widget panel(String titulo, String resumen, IconData icon, List<Widget> filas) {
-      final abierto = _abiertos.contains(titulo);
-      return Card(
-        margin: EdgeInsets.zero,
-        elevation: 0,
-        color: cs.surfaceContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: ExpansionTile(
-          leading: Icon(icon, color: cs.primary),
-          title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(resumen, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          initiallyExpanded: abierto,
-          onExpansionChanged: (_) => _toggle(titulo),
-          children: filas,
-        ),
-      );
-    }
+    // Panel colapsable: total + detalle (método de clase para reusarlo en _buildResumen).
+  Widget _panel(String titulo, String resumen, IconData icon, List<Widget> filas) {
+    final cs = Theme.of(context).colorScheme;
+    final abierto = _abiertos.contains(titulo);
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ExpansionTile(
+        leading: Icon(icon, color: cs.primary),
+        title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(resumen, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        initiallyExpanded: abierto,
+        onExpansionChanged: (_) => _toggle(titulo),
+        children: filas,
+      ),
+    );
+  }
 
     final contenido = _loading
         ? const Center(child: CircularProgressIndicator())
@@ -311,11 +312,11 @@ class _SummariesViewState extends State<SummariesView> {
       const SizedBox(height: gap),
       Divider(color: cs.outlineVariant),
       const SizedBox(height: 4),
-      panel('Gastos (facturas de compra)',
+      _panel('Gastos (facturas de compra)',
           '${facturasDetalle.length} en el período · ${money(facturas)}',
           Icons.receipt_long, filasFacturas),
       const SizedBox(height: gap),
-      panel('Movimientos de dinero (comprobantes)',
+      _panel('Movimientos de dinero (comprobantes)',
           '${comprobantesDetalle.length} en el período · ${money(comprobantes)}',
           Icons.account_balance_wallet, filasComprobantes),
     ]);
