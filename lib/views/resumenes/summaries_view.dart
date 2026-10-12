@@ -128,23 +128,25 @@ class _SummariesViewState extends State<SummariesView> {
         }
       });
 
-  // Tarjeta KPI genérica (método de clase)
-  Widget _kpiCard(String etiqueta, double valor, IconData icon, {Color? color}) {
-    final cs = Theme.of(context).colorScheme;
+  // Tarjeta KPI genérica (método de clase) con fondo de color y contenido claro
+  // para que los iconos/texto no se pierdan en el fondo.
+  Widget _kpiCard(String etiqueta, double valor, IconData icon,
+      {required Color fondo}) {
     return Material(
-      color: cs.surfaceContainer,
+      color: fondo,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 28, color: color ?? cs.primary),
+          Icon(icon, size: 28, color: Colors.white),
           const SizedBox(height: 6),
           Text(money(valor),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
               textAlign: TextAlign.center),
           const SizedBox(height: 2),
           Text(etiqueta,
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
               textAlign: TextAlign.center),
         ]),
       ),
@@ -339,10 +341,13 @@ class _SummariesViewState extends State<SummariesView> {
 
     final cards = [
       cardUtilidad,
-      _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long, color: cs.primary),
-      _kpiCard('Gastos ($nFacturas)', facturas, Icons.receipt, color: Colors.orange),
+      _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long,
+          fondo: const Color(0xFF2FB9A6)), // turquesa
+      _kpiCard('Gastos ($nFacturas)', facturas, Icons.receipt,
+          fondo: const Color(0xFFC65D3B)), // terracota
       _kpiCard('Comprobantes ($nComprobantes)', comprobantes,
-          Icons.account_balance_wallet, color: Colors.blueGrey),
+          Icons.account_balance_wallet,
+          fondo: const Color(0xFFC65D3B)), // terracota
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
