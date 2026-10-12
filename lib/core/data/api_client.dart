@@ -607,6 +607,46 @@ class ApiClient {
     }
   }
 
+  /// Resumen contable (haber/deber): ventas vs gastos por período.
+  static Future<(bool, Map<String, dynamic>?, String)> obtenerContable(
+      {String? periodo,
+      String? referencia,
+      String? desde,
+      String? hasta}) async {
+    try {
+      var uri = '$baseUrl/resumenes/contable?periodo=${periodo ?? 'mes'}';
+      if (referencia != null && referencia.isNotEmpty) uri += '&referencia=$referencia';
+      if (desde != null && desde.isNotEmpty) uri += '&desde=$desde';
+      if (hasta != null && hasta.isNotEmpty) uri += '&hasta=$hasta';
+      final res = await http.get(Uri.parse(uri), headers: _headers());
+      if (res.statusCode == 200) {
+        return (true, Map<String, dynamic>.from(jsonDecode(res.body)), '');
+      }
+      return (false, null, _msg(res.body));
+    } catch (e) {
+      return (false, null, '$e');
+    }
+  }
+
+  /// Asigna manualmente un comprobante de pago a una factura (trasabilidad).
+  static Future<(bool, String)> asignarComprobante(
+      int facturaId, int comprobanteId) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/resumenes/asignar-comprobante'),
+        headers: {..._headers(), 'Content-Type': 'application/json'},
+        body: jsonEncode({'facturaId': facturaId, 'comprobanteId': comprobanteId}),
+      );
+      if (res.statusCode == 200) {
+        final d = Map<String, dynamic>.from(jsonDecode(res.body));
+        return (d['ok'] == true, (d['mensaje'] ?? '').toString());
+      }
+      return (false, _msg(res.body));
+    } catch (e) {
+      return (false, '$e');
+    }
+  }
+
   static Future<ListResult> listarFormasPago() async {
     try {
       final res = await http.get(
