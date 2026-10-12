@@ -310,32 +310,23 @@ class _SummariesViewState extends State<SummariesView> {
         ]),
       ),
       SizedBox(height: gap),
-      // Tarjetas resumen
-      LayoutBuilder(builder: (ctx, c) {
-        final cards = [
-          _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long, color: cs.primary),
-          _kpiCard('Gastos ($nFacturas) · Deber', facturas, Icons.receipt, color: Colors.orange),
-          _kpiCard('Comprobantes ($nComprobantes) · Haber', comprobantes,
-              Icons.account_balance_wallet, color: Colors.blueGrey),
-        ];
-        if (c.maxWidth >= 720) {
-          return Row(children: [
-            for (final k in cards) ...[
-              Expanded(child: k),
-              if (k != cards.last) const SizedBox(width: 12),
-            ],
-          ]);
-        }
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(child: cards[0]),
-            const SizedBox(width: 12),
-            Expanded(child: cards[1])
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [Expanded(child: cards[2])]),
-        ]);
-      }),
+      // Tarjetas resumen: SIEMPRE en una sola línea (móvil y PC).
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+              child: _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long,
+                  color: cs.primary)),
+          const SizedBox(width: 8),
+          Expanded(
+              child: _kpiCard('Gastos ($nFacturas)', facturas, Icons.receipt,
+                  color: Colors.orange)),
+          const SizedBox(width: 8),
+          Expanded(
+              child: _kpiCard('Comprobantes ($nComprobantes)', comprobantes,
+                  Icons.account_balance_wallet, color: Colors.blueGrey)),
+        ],
+      ),
       SizedBox(height: gap),
       Divider(color: cs.outlineVariant),
       const SizedBox(height: 4),
