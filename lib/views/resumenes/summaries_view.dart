@@ -128,44 +128,56 @@ class _SummariesViewState extends State<SummariesView> {
         }
       });
 
-  // Tarjeta KPI genérica (método de clase) con fondo de color y contenido claro
-  // para que los iconos/texto no se pierdan en el fondo.
+  // Gris roca para bordes de las cards.
+  static const Color _grisRoca = Color(0xFF7D7D7D);
+
+  // Tarjeta KPI genérica: fondo de color, textos/iconos en amarillo pálido y
+  // borde gris roca.
   Widget _kpiCard(String etiqueta, double valor, IconData icon,
       {required Color fondo}) {
+    final amarillo = Theme.of(context).colorScheme.onSurface; // amarillo pálido
     return Material(
       color: fondo,
-      borderRadius: BorderRadius.circular(14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: _grisRoca, width: 1.5),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 28, color: Colors.white),
+          Icon(icon, size: 28, color: amarillo),
           const SizedBox(height: 6),
           Text(money(valor),
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(
+                  color: amarillo, fontWeight: FontWeight.bold, fontSize: 15),
               textAlign: TextAlign.center),
           const SizedBox(height: 2),
           Text(etiqueta,
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              style: TextStyle(color: amarillo, fontSize: 11),
               textAlign: TextAlign.center),
         ]),
       ),
     );
   }
 
-  // Panel colapsable: total + detalle (método de clase)
+  // Panel colapsable: total + detalle (método de clase). Borde gris roca.
   Widget _panel(String titulo, String resumen, IconData icon, List<Widget> filas) {
     final cs = Theme.of(context).colorScheme;
+    final amarillo = cs.onSurface; // amarillo pálido
     final abierto = _abiertos.contains(titulo);
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
       color: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: _grisRoca, width: 1.5),
+      ),
       child: ExpansionTile(
         leading: Icon(icon, color: cs.primary),
-        title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(resumen, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        title: Text(titulo,
+            style: TextStyle(color: amarillo, fontWeight: FontWeight.w600)),
+        subtitle: Text(resumen, style: TextStyle(color: amarillo, fontSize: 12)),
         initiallyExpanded: abierto,
         onExpansionChanged: (_) => _toggle(titulo),
         children: filas,
@@ -304,6 +316,7 @@ class _SummariesViewState extends State<SummariesView> {
 
     // 4 tarjetas: Utilidad, Ventas, Gastos, Comprobantes.
     // Grid: móvil (ancho < 700) => 2x2; PC/tablet => 4x1.
+    final amarillo = cs.onSurface; // amarillo pálido
     final cardUtilidad = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -318,22 +331,23 @@ class _SummariesViewState extends State<SummariesView> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _grisRoca, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.savings, size: 28, color: Colors.black87),
+          Icon(Icons.savings, size: 28, color: amarillo),
           const SizedBox(height: 6),
           Text(money(utilidad),
-              style: const TextStyle(
-                  color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(
+                  color: amarillo, fontWeight: FontWeight.bold, fontSize: 15),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          const Text('Utilidad',
-              style: TextStyle(color: Colors.black87, fontSize: 11),
+          Text('Utilidad',
+              style: TextStyle(color: amarillo, fontSize: 11),
               textAlign: TextAlign.center),
         ],
       ),
