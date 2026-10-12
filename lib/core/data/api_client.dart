@@ -587,6 +587,26 @@ class ApiClient {
     }
   }
 
+  static Future<String?> ultimaFechaResumen() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/resumenes/ultima-fecha'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final body = res.body.trim();
+        if (body.isEmpty || body == 'null') return null;
+        final s = (body.startsWith('"') && body.endsWith('"'))
+            ? body.substring(1, body.length - 1)
+            : body;
+        return s.isEmpty ? null : s;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<ListResult> listarFormasPago() async {
     try {
       final res = await http.get(

@@ -19,6 +19,9 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
   String _periodo = 'día';
   // Fecha de referencia local (YYYY-MM-DD del dispositivo, no UTC del servidor).
   String _referencia = _fechaLocalHoy();
+  // Última fecha con ventas (YYYY-MM-DD). Se usa como referencia por defecto de
+  // los chips día/semana/mes/año (muestran el último período facturado).
+  String? _ultimaFecha;
   // Rango libre elegido por calendario (desde→hasta). Null si no hay rango activo.
   DateTimeRange? _rango;
   bool _loading = false;
@@ -37,7 +40,19 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
   @override
   void initState() {
     super.initState();
-    _cargar();
+    _inicializar();
+  }
+
+  /// Obtiene la última fecha con ventas y la usa como referencia por defecto de
+  /// los chips (día/semana/mes/año muestran el último período facturado).
+  Future<void> _inicializar() async {
+    final ultima = await ApiClient.ultimaFechaResumen();
+    if (!mounted) return;
+    setState(() {
+      _ultimaFecha = ultima;
+      if (ultima != null) _referencia = ultima;
+    });
+    await _cargar();
   }
 
   /// Abre el selector de RANGO (desde→hasta) y recarga. Permite periodos libres
@@ -175,6 +190,8 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
             onSelected: (_) => setState(() {
               _periodo = p;
               _rango = null; // salir de modo rango
+              // Mostrar el último período con ventas (última fecha facturada).
+              if (_ultimaFecha != null) _referencia = _ultimaFecha!;
               _cargar();
             }),
           ),
