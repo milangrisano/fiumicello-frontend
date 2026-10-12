@@ -131,7 +131,9 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         for (final p in ['día', 'semana', 'mes', 'año'])
           ChoiceChip(
             label: Text(p),
-            selected: _periodo == p,
+            // Solo se marca en verde si el período seleccionado coincide
+            // EXACTAMENTE con ese chip. En modo rango libre, ninguno se marca.
+            selected: _rango == null && _periodo == p,
             shape: const StadiumBorder(),
             onSelected: (_) => setState(() {
               _periodo = p;
@@ -146,14 +148,6 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           tooltip: 'Elegir período (rango)',
           onPressed: _elegirRango,
         ),
-        if (_rango != null)
-          ActionChip(
-            label: Text(
-              '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            onPressed: _elegirRango,
-          ),
       ],
     );
 
