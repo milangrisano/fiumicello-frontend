@@ -180,6 +180,19 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
   /// El período efectivo es un día (chip "día" o rango de un solo día).
   bool _esDia() => _periodoEfectivo() == 'día';
 
+  /// Decide si se muestra el gráfico de barras "Ventas por día".
+  /// Reglas (documentadas en el build):
+  ///  - día  => siempre oculto.
+  ///  - año  => solo en pantallas grandes (PC/tablet); oculto en móvil para no
+  ///            saturar. Cambiar `ancho >= 720` a `false` si se pide desactivar
+  ///            también en PC/tablet.
+  ///  - semana/mes/rango ⇒ siempre visible.
+  bool _mostrarGrafico(double ancho) {
+    if (_esDia()) return false;
+    if (_periodoEfectivo() == 'año') return ancho >= 720;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final borde = 20.0;
@@ -471,10 +484,17 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           ],
         ),
         const SizedBox(height: 8),
-        if (!_esDia()) ...[
+        // 📊 GRÁFICO DE BARRAS ("Ventas por día")
+        // LÓGICA DE VISIBILIDAD (documentada):
+        //  - NO se muestra en período "día" (chip día o rango de 1 solo día).
+        //  - En período "año": solo se muestra en pantallas grandes (PC/tablet,
+        //    ancho >= 720px); se oculta en móvil (demasiada información para una
+        //    pantalla móvil). Si más adelante el usuario pide desactivarlo también
+        //    en PC/tablet, basta con volcar `esAnio` a false en `_anchoOcultaGrafico`.
+        //  - En semana/mes (y rango libre no-día) siempre se muestra.
+        if (_mostrarGrafico(ancho)) ...[
           Divider(color: Theme.of(context).colorScheme.outlineVariant),
           SizedBox(height: gap),
-          // Gráfico de barras de ventas por día (NO se muestra en período día).
           _buildGraficoBarras(context, serieDia),
         ],
       ]);
