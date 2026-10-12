@@ -81,12 +81,12 @@ class _SummariesViewState extends State<SummariesView> {
 
   Future<void> _asignarComprobante(Map<String, dynamic> factura) async {
     final comprobantes = _list(_data?['comprobantes_detalle']);
-    final pendientes = comprobantes.where((c) => !((c as Map?)?['conciliado'] == true)).toList();
+    final pendientes =
+        comprobantes.where((c) => !((c as Map?)?['conciliado'] == true)).toList();
     if (pendientes.isEmpty) {
       _aviso('No hay comprobantes sin asignar en este período.');
       return;
     }
-    // Selector del comprobante a vincular.
     final elegido = await showModalBottomSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -101,8 +101,7 @@ class _SummariesViewState extends State<SummariesView> {
             for (final c in pendientes)
               ListTile(
                 title: Text('${(c as Map)['referencia'] ?? 'Comp. ${c['id']}'}'),
-                subtitle: Text(
-                    '${c['fecha'] ?? ''} · ${money(_num(c['monto']))}'),
+                subtitle: Text('${c['fecha'] ?? ''} · ${money(_num(c['monto']))}'),
                 trailing: const Icon(Icons.link),
                 onTap: () => Navigator.of(ctx).pop(c['id'] as int),
               ),
@@ -122,56 +121,37 @@ class _SummariesViewState extends State<SummariesView> {
   }
 
   void _toggle(String key) => setState(() {
-        if (_abiertos.contains(key)) { _abiertos.remove(key); } else { _abiertos.add(key); }
+        if (_abiertos.contains(key)) {
+          _abiertos.remove(key);
+        } else {
+          _abiertos.add(key);
+        }
       });
 
-  @override
-  Widget build(BuildContext context) {
+  // Tarjeta KPI genérica (método de clase)
+  Widget _kpiCard(String etiqueta, double valor, IconData icon, {Color? color}) {
     final cs = Theme.of(context).colorScheme;
-    final borde = 20.0;
-    final gap = 16.0;
-
-    final chips = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final p in ['semana', 'mes', 'año'])
-          ChoiceChip(
-            label: Text(p),
-            selected: _rango == null && _periodo == p,
-            shape: const StadiumBorder(),
-            onSelected: (_) => setState(() { _periodo = p; _rango = null; _referencia = null; _cargar(); }),
-          ),
-        IconButton(
-          icon: const Icon(Icons.calendar_month),
-          tooltip: 'Elegir período (rango)',
-          onPressed: _elegirRango,
-        ),
-      ],
+    return Material(
+      color: cs.surfaceContainer,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 28, color: color ?? cs.primary),
+          const SizedBox(height: 6),
+          Text(money(valor),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 2),
+          Text(etiqueta,
+              style: const TextStyle(color: Colors.grey, fontSize: 11),
+              textAlign: TextAlign.center),
+        ]),
+      ),
     );
+  }
 
-    // Tarjeta KPI genérica
-    Widget kpiCard(String etiqueta, double valor, IconData icon, {Color? color}) {
-      return Material(
-        color: cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 28, color: color ?? cs.primary),
-            const SizedBox(height: 6),
-            Text(money(valor),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 2),
-            Text(etiqueta, style: const TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
-          ]),
-        ),
-      );
-    }
-
-    // Panel colapsable: total + detalle (método de clase para reusarlo en _buildResumen).
+  // Panel colapsable: total + detalle (método de clase)
   Widget _panel(String titulo, String resumen, IconData icon, List<Widget> filas) {
     final cs = Theme.of(context).colorScheme;
     final abierto = _abiertos.contains(titulo);
@@ -191,24 +171,61 @@ class _SummariesViewState extends State<SummariesView> {
     );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final borde = 20.0;
+    final gap = 16.0;
+
+    final chips = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final p in ['semana', 'mes', 'año'])
+          ChoiceChip(
+            label: Text(p),
+            selected: _rango == null && _periodo == p,
+            shape: const StadiumBorder(),
+            onSelected: (_) => setState(() {
+              _periodo = p;
+              _rango = null;
+              _referencia = null;
+              _cargar();
+            }),
+          ),
+        IconButton(
+          icon: const Icon(Icons.calendar_month),
+          tooltip: 'Elegir período (rango)',
+          onPressed: _elegirRango,
+        ),
+      ],
+    );
+
     final contenido = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
-            ? Padding(padding: EdgeInsets.all(borde), child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
+            ? Padding(
+                padding: EdgeInsets.all(borde),
+                child: Text('Error: $_error',
+                    style: const TextStyle(color: Colors.red)))
             : _data == null
-                ? const Padding(padding: EdgeInsets.all(20), child: Text('Sin datos aún.', style: TextStyle(color: Colors.grey)))
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('Sin datos aún.',
+                        style: TextStyle(color: Colors.grey)))
                 : _buildResumen(context, gap);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(borde, 8, borde, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Resumen contable', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+        const Text('Resumen contable',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
         const SizedBox(height: 2),
         Text('Periodo: ${(_data?['etiqueta'] ?? '')}',
             style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        const SizedBox(height: gap),
+        SizedBox(height: gap),
         chips,
-        const SizedBox(height: gap),
+        SizedBox(height: gap),
         contenido,
       ]),
     );
@@ -247,7 +264,8 @@ class _SummariesViewState extends State<SummariesView> {
                         onPressed: () => _asignarComprobante(f),
                         icon: const Icon(Icons.link, size: 16),
                         label: const Text('Asignar', style: TextStyle(fontSize: 11)),
-                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+                        style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8)),
                       ),
               ),
           ];
@@ -275,25 +293,30 @@ class _SummariesViewState extends State<SummariesView> {
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [
             utilidad >= 0 ? cs.primary : Colors.redAccent,
-            utilidad >= 0 ? cs.primary.withValues(alpha: 0.7) : Colors.redAccent.withValues(alpha: 0.7),
+            utilidad >= 0
+                ? cs.primary.withValues(alpha: 0.7)
+                : Colors.redAccent.withValues(alpha: 0.7),
           ]),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Utilidad', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
+          const Text('Utilidad',
+              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
           Text(money(utilidad),
-              style: const TextStyle(color: Colors.black, fontSize: 26, fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  color: Colors.black, fontSize: 26, fontWeight: FontWeight.bold)),
           Text(utilidad >= 0 ? 'Ingresos superan los gastos' : 'Los gastos superan los ingresos',
               style: const TextStyle(color: Colors.black87, fontSize: 12)),
         ]),
       ),
-      const SizedBox(height: gap),
+      SizedBox(height: gap),
       // Tarjetas resumen
       LayoutBuilder(builder: (ctx, c) {
         final cards = [
-          kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long, color: cs.primary),
-          kpiCard('Gastos ($nFacturas) · Deber', facturas, Icons.receipt, color: Colors.orange),
-          kpiCard('Comprobantes ($nComprobantes) · Haber', comprobantes, Icons.account_balance_wallet, color: Colors.blueGrey),
+          _kpiCard('Ventas ($nVentas)', ventas, Icons.receipt_long, color: cs.primary),
+          _kpiCard('Gastos ($nFacturas) · Deber', facturas, Icons.receipt, color: Colors.orange),
+          _kpiCard('Comprobantes ($nComprobantes) · Haber', comprobantes,
+              Icons.account_balance_wallet, color: Colors.blueGrey),
         ];
         if (c.maxWidth >= 720) {
           return Row(children: [
@@ -304,18 +327,22 @@ class _SummariesViewState extends State<SummariesView> {
           ]);
         }
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [Expanded(child: cards[0]), const SizedBox(width: 12), Expanded(child: cards[1])]),
+          Row(children: [
+            Expanded(child: cards[0]),
+            const SizedBox(width: 12),
+            Expanded(child: cards[1])
+          ]),
           const SizedBox(height: 12),
           Row(children: [Expanded(child: cards[2])]),
         ]);
       }),
-      const SizedBox(height: gap),
+      SizedBox(height: gap),
       Divider(color: cs.outlineVariant),
       const SizedBox(height: 4),
       _panel('Gastos (facturas de compra)',
           '${facturasDetalle.length} en el período · ${money(facturas)}',
           Icons.receipt_long, filasFacturas),
-      const SizedBox(height: gap),
+      SizedBox(height: gap),
       _panel('Movimientos de dinero (comprobantes)',
           '${comprobantesDetalle.length} en el período · ${money(comprobantes)}',
           Icons.account_balance_wallet, filasComprobantes),
