@@ -165,6 +165,21 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     return _periodo == p;
   }
 
+  /// Período efectivo actual (chip o coincidencia del rango del calendario).
+  /// Retorna 'día' | 'semana' | 'mes' | 'año' | 'rango'.
+  String _periodoEfectivo() {
+    if (_rango != null) {
+      for (final p in ['día', 'semana', 'mes', 'año']) {
+        if (_rangoCoincideCon(_rango!, p)) return p;
+      }
+      return 'rango';
+    }
+    return _periodo;
+  }
+
+  /// El período efectivo es un día (chip "día" o rango de un solo día).
+  bool _esDia() => _periodoEfectivo() == 'día';
+
   @override
   Widget build(BuildContext context) {
     final borde = 20.0;
@@ -311,17 +326,17 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     final porMonto = [...items]..sort((a, b) => (_num(b['subtotal']) - _num(a['subtotal'])).toInt());
     final topMonto = porMonto.take(3).toList();
 
-    // KPI extra según período
-    final kpisExtraTitulo = _periodo == 'mes'
+    // KPI extra según período efectivo (mes/año). NO se muestra para día/semana.
+    final pe = _periodoEfectivo();
+    final mostrarKpisExtra = pe == 'mes' || pe == 'año';
+    final kpisExtraTitulo = pe == 'mes'
         ? 'Semana de mayor venta'
-        : (_periodo == 'año' ? 'Mes de mayor venta' : 'Día de mayor venta');
-    final kpisExtraValor = _periodo == 'mes'
+        : 'Mes de mayor venta';
+    final kpisExtraValor = pe == 'mes'
         ? '${semM['semana']}'
-        : (_periodo == 'año' ? '${mesM['mes']}' : '${diaM['dia']}');
-    final kpisExtraMonto = _periodo == 'mes'
-        ? semM
-        : (_periodo == 'año' ? mesM : diaM);
-    final tieneKpisExtra = kpisExtrasValido(kpisExtraMonto);
+        : '${mesM['mes']}';
+    final kpisExtraMonto = pe == 'mes' ? semM : mesM;
+    final tieneKpisExtra = mostrarKpisExtra && kpisExtrasValido(kpisExtraMonto);
 
     final topPorCantidad = seccion('Top 3 por cantidad', [
       if (topCant.isEmpty)
@@ -456,10 +471,12 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
           ],
         ),
         const SizedBox(height: 8),
-        Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        SizedBox(height: gap),
-        // Gráfico de barras de ventas por día, al final.
-        _buildGraficoBarras(context, serieDia),
+        if (!_esDia()) ...[
+          Divider(color: Theme.of(context).colorScheme.outlineVariant),
+          SizedBox(height: gap),
+          // Gráfico de barras de ventas por día (NO se muestra en período día).
+          _buildGraficoBarras(context, serieDia),
+        ],
       ]);
     });
   }
