@@ -19,7 +19,8 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
   String _periodo = 'día';
   // Fecha de referencia local (YYYY-MM-DD del dispositivo, no UTC del servidor).
   String _referencia = _fechaLocalHoy();
-  DateTime _fecha = DateTime.now(); // fecha local elegida (para el picker)
+  // Rango libre elegido por calendario (desde→hasta). Null si no hay rango activo.
+  DateTimeRange? _rango;
   bool _loading = false;
   String? _error;
   Map<String, dynamic>? _data;
@@ -30,32 +31,57 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
     return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
+  static String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   @override
   void initState() {
     super.initState();
     _cargar();
   }
 
-  /// Abre el selector de fecha y recarga el resumen con la fecha elegida.
-  Future<void> _elegirFecha() async {
-    final picked = await showDatePicker(
+  /// Abre el selector de RANGO (desde→hasta) y recarga. Permite periodos libres
+  /// (5 días, 3 semanas, 3 meses, etc.). Si pick blank, se conserva el previo.
+  Future<void> _elegirRango() async {
+    final hoy = DateTime.now();
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: _fecha,
       firstDate: DateTime(2024, 1, 1),
-      lastDate: DateTime.now(),
+      lastDate: hoy,
+      initialDateRange: _rango ?? DateTimeRange(
+        start: DateTime(hoy.year, hoy.month, hoy.day - 6),
+        end: hoy,
+      ),
+      helpText: 'Elegir período',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+      saveText: 'Aplicar',
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _fecha = picked;
-      _referencia =
-          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      _rango = picked;
+      _referencia = _fmt(picked.start); // se pasa pero el endpoint usa desde/hasta
     });
     await _cargar();
   }
 
   Future<void> _cargar() async {
     setState(() { _loading = true; _error = null; });
+    // Si hay un rango activo, pedir desde→hasta (el endpoint lo maneja como 'rango').
+    if (_rango != null) {
+      final r = await ApiClient.obtenerResumen(
+        'rango', null,
+        desde: _fmt(_rango!.start),
+        hasta: _fmt(_rango!.end),
+      );
+      _aplicar(r);
+      return;
+    }
     final r = await ApiClient.obtenerResumen(_periodo, _referencia);
+    _aplicar(r);
+  }
+
+  void _aplicar((bool, Map<String, dynamic>?, String) r) {
     if (!mounted) return;
     final (ok, data, msg) = r;
     setState(() {
@@ -107,14 +133,27 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
             label: Text(p),
             selected: _periodo == p,
             shape: const StadiumBorder(),
-            onSelected: (_) => setState(() { _periodo = p; _cargar(); }),
+            onSelected: (_) => setState(() {
+              _periodo = p;
+              _rango = null; // salir de modo rango
+              _cargar();
+            }),
           ),
-        // Botón para elegir una fecha específica (buscar facturación por día).
+        // Ícono de calendario: abre el selector de RANGO (desde→hasta), que permite
+        // periodos libres (5 días, 3 semanas, 3 meses, cualquier periodo).
         IconButton(
           icon: const Icon(Icons.calendar_month),
-          tooltip: 'Elegir fecha',
-          onPressed: _elegirFecha,
+          tooltip: 'Elegir período (rango)',
+          onPressed: _elegirRango,
         ),
+        if (_rango != null)
+          ActionChip(
+            label: Text(
+              '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            onPressed: _elegirRango,
+          ),
       ],
     );
 
