@@ -217,17 +217,31 @@ class _SummariesViewState extends State<SummariesView> {
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(borde, 8, borde, 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Resumen contable',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        Text('Periodo: ${(_data?['etiqueta'] ?? '')}',
-            style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        SizedBox(height: gap),
-        chips,
-        SizedBox(height: gap),
-        contenido,
-      ]),
+      // En pantallas grandes (PC/tablet) limitamos el ancho del contenido para
+      // que la tarjeta de utilidad no se estire y se vea vacía; se centra.
+      child: LayoutBuilder(builder: (ctx, c) {
+        final maxContenido = c.maxWidth >= 720 ? 900.0 : double.infinity;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxContenido),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Resumen contable',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text('Periodo: ${(_data?['etiqueta'] ?? '')}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                SizedBox(height: gap),
+                chips,
+                SizedBox(height: gap),
+                contenido,
+              ],
+            ),
+          ),
+        );
+      }),
     );
   }
 
