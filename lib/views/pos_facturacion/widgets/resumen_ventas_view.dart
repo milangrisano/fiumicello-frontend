@@ -118,6 +118,38 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
   bool kpisExtrasValido(Map<String, dynamic> m) =>
       m.isNotEmpty && (_num(m['monto']) > 0 || (m['dia'] ?? m['semana'] ?? m['mes']) != null);
 
+  /// true si el rango libre del calendario coincide EXACTAMENTE con un
+  /// periodo estándar (día | semana | mes | año). Si coincide, el chip
+  /// correspondiente se marca en turquesa.
+  bool _rangoCoincideCon(DateTimeRange r, String periodo) {
+    final s = DateTime(r.start.year, r.start.month, r.start.day);
+    final e = DateTime(r.end.year, r.end.month, r.end.day);
+    switch (periodo) {
+      case 'día':
+        return s.isAtSameMomentAs(e);
+      case 'semana':
+        // Lunes→Domingo (ISO), exactamente 7 días.
+        return s.weekday == DateTime.monday &&
+            e.difference(s).inDays == 6 &&
+            e.weekday == DateTime.sunday;
+      case 'mes':
+        // Inicio del mes → último día del mes.
+        final ultimoDia = DateTime(s.year, s.month + 1, 0);
+        return s.day == 1 && e.isAtSameMomentAs(ultimoDia);
+      case 'año':
+        return s.month == 1 && s.day == 1 &&
+            e.month == 12 && e.day == 31;
+    }
+    return false;
+  }
+
+  /// Chip seleccionado?: true si (a) es el periodo estándar activo sin rango, o
+  /// (b) el rango del calendario coincide exactamente con ese periodo.
+  bool _chipSeleccionado(String p) {
+    if (_rango != null) return _rangoCoincideCon(_rango!, p);
+    return _periodo == p;
+  }
+
   @override
   Widget build(BuildContext context) {
     final borde = 20.0;
@@ -131,9 +163,14 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
         for (final p in ['día', 'semana', 'mes', 'año'])
           ChoiceChip(
             label: Text(p),
-            // Solo se marca en verde si el período seleccionado coincide
-            // EXACTAMENTE con ese chip. En modo rango libre, ninguno se marca.
-            selected: _rango == null && _periodo == p,
+            // Verde/turquesa si es el período activo, o si el rango del calendario
+            // coincide EXACTAMENTE con ese período (día/semana/mes/año).
+            selected: _chipSeleccionado(p),
+            selectedColor: const Color(0xFF2FB9A6), // turquesa del tema
+            labelStyle: TextStyle(
+              color: _chipSeleccionado(p) ? Colors.black : null,
+              fontWeight: _chipSeleccionado(p) ? FontWeight.w600 : null,
+            ),
             shape: const StadiumBorder(),
             onSelected: (_) => setState(() {
               _periodo = p;
