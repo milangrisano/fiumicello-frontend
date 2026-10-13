@@ -355,92 +355,127 @@ class _SummariesViewState extends State<SummariesView> {
     final comprobantesDetalle = _list(_data?['comprobantes_detalle']);
 
     final amarilloTxt = cs.onSurface; // amarillo pálido para celdas
+    const turquesa = Color(0xFF2FB9A6);
 
-    // Facturas — formato tabla compacto (no sale del ancho). Click en fila => detalle.
+    // Facturas — tabla con columnas completas (Proveedor, N°, Fecha, Monto,
+    // Estado). Scroll horizontal para no salir del ancho. Click en fila => detalle.
     final tablaFacturas = facturasDetalle.isEmpty
         ? const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Sin facturas en el período.',
                 style: TextStyle(color: Colors.grey)))
-        : DataTable(
-            columnSpacing: 14,
-            horizontalMargin: 10,
-            headingTextStyle:
-                TextStyle(color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
-            dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
-            columns: const [
-              DataColumn(label: Text('Proveedor')),
-              DataColumn(label: Text('Fecha')),
-              DataColumn(label: Text('Monto'), numeric: true),
-              DataColumn(label: Text('')),
-            ],
-            rows: [
-              for (final f in facturasDetalle)
-                DataRow(
-                  onSelectChanged: (_) => _verDetalle(f, 'Detalle factura'),
-                  cells: [
-                    DataCell(SizedBox(
-                      width: 130,
-                      child: Text('${f['proveedor'] ?? '—'}',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1),
-                    )),
-                    DataCell(Text('${f['fecha'] ?? ''}')),
-                    DataCell(Text(money(_num(f['monto'])))),
-                    DataCell((f['conciliada'] == true)
-                        ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
-                        : IconButton(
-                            onPressed: () => _asignarComprobante(f),
-                            tooltip: 'Asignar comprobante',
-                            icon: const Icon(Icons.link, size: 18),
-                            color: Colors.amber,
-                            padding: EdgeInsets.zero,
-                            constraints:
-                                const BoxConstraints(minWidth: 28, minHeight: 28),
-                          )),
-                  ],
-                ),
-            ],
+        : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columnSpacing: 16,
+              horizontalMargin: 10,
+              headingTextStyle: TextStyle(
+                  color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
+              dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
+              columns: const [
+                DataColumn(label: Text('Proveedor')),
+                DataColumn(label: Text('N° Factura')),
+                DataColumn(label: Text('Fecha')),
+                DataColumn(label: Text('Monto'), numeric: true),
+                DataColumn(label: Text('Estado')),
+              ],
+              rows: [
+                for (final f in facturasDetalle)
+                  DataRow(
+                    onSelectChanged: (_) => _verDetalle(f, 'Detalle factura'),
+                    cells: [
+                      DataCell(SizedBox(
+                        width: 130,
+                        child: Text('${f['proveedor'] ?? '—'}',
+                            overflow: TextOverflow.ellipsis, maxLines: 1),
+                      )),
+                      DataCell(Text('${f['numero_factura'] ?? ''}')),
+                      DataCell(Text('${f['fecha'] ?? ''}')),
+                      DataCell(Text(money(_num(f['monto'])))),
+                      DataCell((f['conciliada'] == true)
+                          ? const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.check_circle, color: Colors.green, size: 18),
+                              SizedBox(width: 4),
+                              Text('Conciliada',
+                                  style: TextStyle(color: Colors.green, fontSize: 11)),
+                            ])
+                          : TextButton.icon(
+                              onPressed: () => _asignarComprobante(f),
+                              icon: const Icon(Icons.link, size: 16),
+                              label: const Text('Asignar',
+                                  style: TextStyle(fontSize: 11)),
+                              style: TextButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 6)),
+                            )),
+                    ],
+                  ),
+              ],
+            ),
           );
 
-    // Comprobantes — formato tabla compacto (no sale del ancho). Click => detalle.
+    // Comprobantes — tabla con Tipo (Transferencia/Proveedor), Referencia,
+    // Fecha, Monto, Estado. Scroll horizontal. Click en fila => detalle.
     final tablaComprobantes = comprobantesDetalle.isEmpty
         ? const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Sin comprobantes en el período.',
                 style: TextStyle(color: Colors.grey)))
-        : DataTable(
-            columnSpacing: 14,
-            horizontalMargin: 10,
-            headingTextStyle:
-                TextStyle(color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
-            dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
-            columns: const [
-              DataColumn(label: Text('Referencia')),
-              DataColumn(label: Text('Fecha')),
-              DataColumn(label: Text('Monto'), numeric: true),
-              DataColumn(label: Text('')),
-            ],
-            rows: [
-              for (final c in comprobantesDetalle)
-                DataRow(
-                  onSelectChanged: (_) => _verDetalle(c, 'Detalle comprobante'),
-                  cells: [
-                    DataCell(SizedBox(
-                      width: 120,
-                      child: Text('${c['referencia'] ?? 'Comp. ${c['id']}'}',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1),
-                    )),
-                    DataCell(Text('${c['fecha'] ?? ''}')),
-                    DataCell(Text(money(_num(c['monto'])))),
-                    DataCell((c['conciliado'] == true)
-                        ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
-                        : const Icon(Icons.circle_outlined,
-                            color: Colors.grey, size: 18)),
-                  ],
-                ),
-            ],
+        : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columnSpacing: 16,
+              horizontalMargin: 10,
+              headingTextStyle: TextStyle(
+                  color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
+              dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
+              columns: const [
+                DataColumn(label: Text('Tipo')),
+                DataColumn(label: Text('Referencia')),
+                DataColumn(label: Text('Fecha')),
+                DataColumn(label: Text('Monto'), numeric: true),
+                DataColumn(label: Text('Estado')),
+              ],
+              rows: [
+                for (final c in comprobantesDetalle)
+                  DataRow(
+                    onSelectChanged: (_) => _verDetalle(c, 'Detalle comprobante'),
+                    cells: [
+                      DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(
+                          c['tipo'] == 'transferencia'
+                              ? Icons.swap_horiz
+                              : Icons.paid,
+                          size: 16,
+                          color: c['tipo'] == 'transferencia'
+                              ? turquesa
+                              : Colors.orangeAccent,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(c['tipo'] == 'transferencia'
+                            ? 'Transferencia'
+                            : 'Proveedor'),
+                      ])),
+                      DataCell(SizedBox(
+                        width: 120,
+                        child: Text('${c['referencia'] ?? 'Comp. ${c['id']}'}',
+                            overflow: TextOverflow.ellipsis, maxLines: 1),
+                      )),
+                      DataCell(Text('${c['fecha'] ?? ''}')),
+                      DataCell(Text(money(_num(c['monto'])))),
+                      DataCell((c['conciliado'] == true)
+                          ? const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.check_circle, color: Colors.green, size: 18),
+                              SizedBox(width: 4),
+                              Text('Conciliado',
+                                  style: TextStyle(color: Colors.green, fontSize: 11)),
+                            ])
+                          : const Text('Pendiente',
+                              style: TextStyle(color: Colors.grey, fontSize: 11))),
+                    ],
+                  ),
+              ],
+            ),
           );
 
     // 4 tarjetas: Utilidad, Ventas, Gastos, Comprobantes.
@@ -451,9 +486,9 @@ class _SummariesViewState extends State<SummariesView> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            utilidad >= 0 ? cs.primary : Colors.redAccent,
+            utilidad >= 0 ? turquesa : Colors.redAccent,
             utilidad >= 0
-                ? cs.primary.withValues(alpha: 0.75)
+                ? turquesa.withValues(alpha: 0.75)
                 : Colors.redAccent.withValues(alpha: 0.75),
           ],
           begin: Alignment.topLeft,
@@ -537,7 +572,11 @@ class _SummariesViewState extends State<SummariesView> {
           Icons.receipt_long, [tablaFacturas]),
       SizedBox(height: gap),
       _panel('Movimientos de dinero (comprobantes)',
-          '${comprobantesDetalle.length} en el período · ${money(comprobantes)}',
+          'Transferencias ${money(_num(_data?['comprobantes_transferencias']?['monto']))}'
+          ' (${_num(_data?['comprobantes_transferencias']?['count']).toInt()}) · '
+          'Proveedores ${money(_num(_data?['comprobantes_proveedores']?['monto']))}'
+          ' (${_num(_data?['comprobantes_proveedores']?['count']).toInt()}) · '
+          'Total ${money(comprobantes)}',
           Icons.account_balance_wallet, [tablaComprobantes]),
     ]);
   }
