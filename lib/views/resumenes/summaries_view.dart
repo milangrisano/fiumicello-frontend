@@ -120,6 +120,85 @@ class _SummariesViewState extends State<SummariesView> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// Muestra una ventana emergente con los datos completos de una fila
+  /// (factura o comprobante) cuando la tabla no alcanza a mostrarlos todos.
+  void _verDetalle(Map<String, dynamic> item, String titulo) {
+    final amarillo = Theme.of(context).colorScheme.onSurface;
+    final labels = <String, String>{
+      'fecha': 'Fecha',
+      'numero_factura': 'N° Factura',
+      'proveedor': 'Proveedor',
+      'beneficiario': 'Beneficiario',
+      'referencia': 'Referencia',
+      'concepto': 'Concepto',
+      'metodo_pago': 'Método de pago',
+      'moneda': 'Moneda',
+      'estado': 'Estado',
+    };
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _grisRoca, width: 1.5),
+        ),
+        title: Text(titulo,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final e in labels.entries)
+                if (item[e.key] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: RichText(
+                      text: TextSpan(children: [
+                        TextSpan(
+                          text: '${e.value}:  ',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        TextSpan(
+                          text: '${item[e.key]}' == 'null'
+                              ? '—'
+                              : '${item[e.key]}',
+                          style: TextStyle(color: amarillo, fontSize: 13),
+                        ),
+                      ]),
+                    ),
+                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: RichText(
+                  text: TextSpan(children: [
+                    const TextSpan(
+                      text: 'Monto:  ',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    TextSpan(
+                      text: money(_num(item['monto'])),
+                      style: TextStyle(color: amarillo, fontSize: 14),
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _toggle(String key) => setState(() {
         if (_abiertos.contains(key)) {
           _abiertos.remove(key);
@@ -277,103 +356,91 @@ class _SummariesViewState extends State<SummariesView> {
 
     final amarilloTxt = cs.onSurface; // amarillo pálido para celdas
 
-    // Facturas — formato tabla.
+    // Facturas — formato tabla compacto (no sale del ancho). Click en fila => detalle.
     final tablaFacturas = facturasDetalle.isEmpty
         ? const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Sin facturas en el período.',
                 style: TextStyle(color: Colors.grey)))
-        : SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 20,
-              headingTextStyle:
-                  TextStyle(color: amarilloTxt, fontWeight: FontWeight.bold),
-              dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 13),
-              columns: const [
-                DataColumn(label: Text('Proveedor')),
-                DataColumn(label: Text('Fecha')),
-                DataColumn(label: Text('N° Factura')),
-                DataColumn(label: Text('Monto'), numeric: true),
-                DataColumn(label: Text('Estado')),
-              ],
-              rows: [
-                for (final f in facturasDetalle)
-                  DataRow(cells: [
-                    DataCell(Text('${f['proveedor'] ?? '—'}')),
+        : DataTable(
+            columnSpacing: 14,
+            horizontalMargin: 10,
+            headingTextStyle:
+                TextStyle(color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
+            dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
+            columns: const [
+              DataColumn(label: Text('Proveedor')),
+              DataColumn(label: Text('Fecha')),
+              DataColumn(label: Text('Monto'), numeric: true),
+              DataColumn(label: Text('')),
+            ],
+            rows: [
+              for (final f in facturasDetalle)
+                DataRow(
+                  onSelectChanged: (_) => _verDetalle(f, 'Detalle factura'),
+                  cells: [
+                    DataCell(SizedBox(
+                      width: 130,
+                      child: Text('${f['proveedor'] ?? '—'}',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1),
+                    )),
                     DataCell(Text('${f['fecha'] ?? ''}')),
-                    DataCell(Text('${f['numero_factura'] ?? ''}')),
                     DataCell(Text(money(_num(f['monto'])))),
                     DataCell((f['conciliada'] == true)
-                        ? const Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.check_circle,
-                                color: Colors.green, size: 18),
-                            SizedBox(width: 4),
-                            Text('Conciliada',
-                                style: TextStyle(
-                                    color: Colors.green, fontSize: 12)),
-                          ])
-                        : TextButton.icon(
+                        ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
+                        : IconButton(
                             onPressed: () => _asignarComprobante(f),
-                            icon: const Icon(Icons.link, size: 16),
-                            label: const Text('Asignar',
-                                style: TextStyle(fontSize: 12)),
-                            style: TextButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8)),
+                            tooltip: 'Asignar comprobante',
+                            icon: const Icon(Icons.link, size: 18),
+                            color: Colors.amber,
+                            padding: EdgeInsets.zero,
+                            constraints:
+                                const BoxConstraints(minWidth: 28, minHeight: 28),
                           )),
-                  ]),
-              ],
-            ),
+                  ],
+                ),
+            ],
           );
 
-    // Comprobantes — formato tabla.
+    // Comprobantes — formato tabla compacto (no sale del ancho). Click => detalle.
     final tablaComprobantes = comprobantesDetalle.isEmpty
         ? const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Sin comprobantes en el período.',
                 style: TextStyle(color: Colors.grey)))
-        : SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 20,
-              headingTextStyle:
-                  TextStyle(color: amarilloTxt, fontWeight: FontWeight.bold),
-              dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 13),
-              columns: const [
-                DataColumn(label: Text('Referencia')),
-                DataColumn(label: Text('Beneficiario')),
-                DataColumn(label: Text('Fecha')),
-                DataColumn(label: Text('Monto'), numeric: true),
-                DataColumn(label: Text('Estado')),
-              ],
-              rows: [
-                for (final c in comprobantesDetalle)
-                  DataRow(cells: [
-                    DataCell(Text('${c['referencia'] ?? 'Comp. ${c['id']}'}')),
-                    DataCell(Text('${c['beneficiario'] ?? '—'}')),
+        : DataTable(
+            columnSpacing: 14,
+            horizontalMargin: 10,
+            headingTextStyle:
+                TextStyle(color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
+            dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
+            columns: const [
+              DataColumn(label: Text('Referencia')),
+              DataColumn(label: Text('Fecha')),
+              DataColumn(label: Text('Monto'), numeric: true),
+              DataColumn(label: Text('')),
+            ],
+            rows: [
+              for (final c in comprobantesDetalle)
+                DataRow(
+                  onSelectChanged: (_) => _verDetalle(c, 'Detalle comprobante'),
+                  cells: [
+                    DataCell(SizedBox(
+                      width: 120,
+                      child: Text('${c['referencia'] ?? 'Comp. ${c['id']}'}',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1),
+                    )),
                     DataCell(Text('${c['fecha'] ?? ''}')),
                     DataCell(Text(money(_num(c['monto'])))),
                     DataCell((c['conciliado'] == true)
-                        ? const Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.check_circle,
-                                color: Colors.green, size: 18),
-                            SizedBox(width: 4),
-                            Text('Conciliado',
-                                style: TextStyle(
-                                    color: Colors.green, fontSize: 12)),
-                          ])
-                        : const Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.circle_outlined,
-                                color: Colors.grey, size: 18),
-                            SizedBox(width: 4),
-                            Text('Pendiente',
-                                style:
-                                    TextStyle(color: Colors.grey, fontSize: 12)),
-                          ])),
-                  ]),
-              ],
-            ),
+                        ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
+                        : const Icon(Icons.circle_outlined,
+                            color: Colors.grey, size: 18)),
+                  ],
+                ),
+            ],
           );
 
     // 4 tarjetas: Utilidad, Ventas, Gastos, Comprobantes.
