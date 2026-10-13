@@ -23,6 +23,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
   List<Map<String, dynamic>> _ventas = [];
   double _totalMonto = 0.0;
   late int _idx;
+  // Selector de periodo: 'turno' (como antes), 'semana', 'mes' o 'rango' (calendario).
+  String _modo = 'turno';
+  DateTimeRange? _rango;
 
   @override
   void initState() {
@@ -37,16 +40,59 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
 
   Map<String, dynamic> get _turnoAct => widget.turnos[_idx];
 
+  static String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Rango (desde, hasta) según el modo seleccionado.
+  (String, String)? _rangoActual() {
+    if (_modo == 'rango' && _rango != null) {
+      return (_fmt(_rango!.start), _fmt(_rango!.end));
+    }
+    final hoy = DateTime.now();
+    if (_modo == 'semana') {
+      final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
+      final domingo = lunes.add(const Duration(days: 6));
+      return (_fmt(lunes), _fmt(domingo));
+    }
+    if (_modo == 'mes') {
+      final primero = DateTime(hoy.year, hoy.month, 1);
+      final ultimo = DateTime(hoy.year, hoy.month + 1, 0);
+      return (_fmt(primero), _fmt(ultimo));
+    }
+    return null;
+  }
+
   Future<void> _cargar() async {
     setState(() => _loading = true);
-    final idTurno = _turnoAct['id'] as int;
-    final r = await ApiClient.obtenerVentasTurno(idTurno);
+    if (_modo == 'turno') {
+      final idTurno = _turnoAct['id'] as int;
+      final r = await ApiClient.obtenerVentasTurno(idTurno);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        if (r.ok) {
+          final lista = r.list.cast<Map<String, dynamic>>().reversed.toList();
+          _ventas = lista;
+          _totalMonto = lista
+              .where((v) => v['anulada'] != true)
+              .fold(0.0, (s, v) => s + _num(v['total']));
+          _error = null;
+        } else {
+          _error = r.message;
+        }
+      });
+      return;
+    }
+    final rango = _rangoActual();
+    if (rango == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    final r = await ApiClient.obtenerVentasPeriodo(rango.$1, rango.$2);
     if (!mounted) return;
     setState(() {
       _loading = false;
       if (r.ok) {
-        // El backend las trae id DESC (última arriba); invertimos para que la
-        // última comanda quede ABAJO.
         final lista = r.list.cast<Map<String, dynamic>>().reversed.toList();
         _ventas = lista;
         _totalMonto = lista
@@ -57,6 +103,35 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
         _error = r.message;
       }
     });
+  }
+
+  Future<void> _elegirRango() async {
+    final hoy = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: hoy,
+      initialDateRange: _rango,
+      helpText: 'Elegir período',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+      saveText: 'Aplicar',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _rango = picked;
+      _modo = 'rango';
+    });
+    await _cargar();
+  }
+
+  void _cambiarModo(String m) {
+    setState(() => _modo = m);
+    if (m == 'rango') {
+      _elegirRango();
+    } else {
+      _cargar();
+    }
   }
 
   void _cambiarTurno(int delta) {
@@ -91,7 +166,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Comandas del turno'),
+        title: const Text('Por Comandas'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
         ],
@@ -103,53 +178,96 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selector de turno interno.
+                    // Selector de periodo: Turno / Semana / Mes / calendario.
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                      child: Row(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Expanded(
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_left),
-                                    tooltip: 'Turno anterior',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: _idx < widget.turnos.length - 1
-                                        ? () => _cambiarTurno(1)
-                                        : null,
-                                  ),
-                                  Chip(
-                                    avatar: Icon(
-                                      _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      'Turno #${_turnoAct['id']} · $turnoFecha'
-                                      '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_right),
-                                    tooltip: 'Turno más reciente',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
-                                  ),
-                                ],
-                              ),
+                          for (final m in ['turno', 'semana', 'mes'])
+                            ChoiceChip(
+                              label: Text(m == 'turno'
+                                  ? 'Turno'
+                                  : (m == 'semana' ? 'Semana' : 'Mes')),
+                              selected: _modo == m,
+                              shape: const StadiumBorder(),
+                              onSelected: (_) => _cambiarModo(m),
                             ),
+                          if (_modo == 'rango')
+                            ChoiceChip(
+                              label: Text(_rango == null
+                                  ? 'Rango'
+                                  : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
+                              selected: true,
+                              shape: const StadiumBorder(),
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.calendar_month),
+                            tooltip: 'Elegir período (rango)',
+                            onPressed: _elegirRango,
                           ),
-                          Text('${_ventas.length} comandas',
-                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
                         ],
                       ),
                     ),
+                    // Selector de turno interno (solo en modo Turno).
+                    if (_modo == 'turno')
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.chevron_left),
+                                      tooltip: 'Turno anterior',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: _idx < widget.turnos.length - 1
+                                          ? () => _cambiarTurno(1)
+                                          : null,
+                                    ),
+                                    Chip(
+                                      avatar: Icon(
+                                        _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        'Turno #${_turnoAct['id']} · $turnoFecha'
+                                        '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.chevron_right),
+                                      tooltip: 'Turno más reciente',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Text('${_ventas.length} comandas',
+                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                          ],
+                        ),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text('${_ventas.length} comandas',
+                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                        ),
+                      ),
                     Expanded(
                       child: _ventas.isEmpty
-                          ? const Center(child: Text('No hay comandas en este turno.', style: TextStyle(color: Colors.grey)))
+                          ? const Center(child: Text('No hay comandas en el período seleccionado.', style: TextStyle(color: Colors.grey)))
                           : LayoutBuilder(
                               builder: (context, c) {
                                 // Móvil / tablet angosta: tarjetas apiladas (legible).

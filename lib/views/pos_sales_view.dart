@@ -939,7 +939,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         );
       }),
       // Cards del turno en curso / turnos anteriores (siempre visibles).
-      _inicioCard('Comandas del turno', Icons.receipt_long, () {
+      _inicioCard('Por Comandas', Icons.receipt_long, () {
         if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => ComandasTurnoView(turnos: _turnos)),

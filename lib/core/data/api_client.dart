@@ -1036,6 +1036,23 @@ class ApiClient {
     }
   }
 
+  /// Ventas (comandas) de un rango de fechas (por semana/mes/período).
+  static Future<ListResult> obtenerVentasPeriodo(String desde, String hasta) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/ventas?desde=$desde&hasta=$hasta&limit=2000'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        return ListResult(true, (d is List ? d : []).cast<Map<String, dynamic>>(), '');
+      }
+      return ListResult(false, [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, [], '$e');
+    }
+  }
+
   /// Anula una venta (conserva el registro, lo excluye de totales). Requiere ventas:eliminar.
   static Future<PostResult> anularVenta(int id, {String? motivo}) async {
     try {
