@@ -146,6 +146,7 @@ class _SummariesViewState extends State<SummariesView> {
       'referencia': 'Referencia',
       'concepto': 'Concepto',
       'metodo_pago': 'Método de pago',
+      'metodo_pago_ultimos4': 'Últimos 4 dígitos del pago',
       'moneda': 'Moneda',
       'estado': 'Estado',
     };
@@ -416,6 +417,7 @@ class _SummariesViewState extends State<SummariesView> {
                 DataColumn(label: Text('N° Factura')),
                 DataColumn(label: Text('Fecha')),
                 DataColumn(label: Text('Monto'), numeric: true),
+                DataColumn(label: Text('Últ. 4')),
                 DataColumn(label: Text('Estado')),
               ],
               rows: [
@@ -431,6 +433,7 @@ class _SummariesViewState extends State<SummariesView> {
                       DataCell(Text('${f['numero_factura'] ?? ''}')),
                       DataCell(Text('${f['fecha'] ?? ''}')),
                       DataCell(Text(money(_num(f['monto'])))),
+                      DataCell(Text('${f['metodo_pago_ultimos4'] ?? '—'}')),
                       DataCell((f['conciliada'] == true)
                           ? const Row(mainAxisSize: MainAxisSize.min, children: [
                               Icon(Icons.check_circle, color: Colors.green, size: 18),
@@ -473,6 +476,7 @@ class _SummariesViewState extends State<SummariesView> {
                 DataColumn(label: Text('Referencia')),
                 DataColumn(label: Text('Fecha')),
                 DataColumn(label: Text('Monto'), numeric: true),
+                DataColumn(label: Text('Últ. 4')),
                 DataColumn(label: Text('Estado')),
               ],
               rows: [
@@ -503,6 +507,7 @@ class _SummariesViewState extends State<SummariesView> {
                       )),
                       DataCell(Text('${c['fecha'] ?? ''}')),
                       DataCell(Text(money(_num(c['monto'])))),
+                      DataCell(Text('${c['metodo_pago_ultimos4'] ?? '—'}')),
                       DataCell((c['conciliado'] == true)
                           ? const Row(mainAxisSize: MainAxisSize.min, children: [
                               Icon(Icons.check_circle, color: Colors.green, size: 18),
