@@ -1053,6 +1053,25 @@ class ApiClient {
     }
   }
 
+  /// Clasifica manualmente un comprobante (transferencia / proveedor / auto).
+  static Future<(bool, String)> clasificarComprobante(
+      int comprobanteId, String? tipo) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/resumenes/clasificar-comprobante'),
+        headers: {..._headers(), 'Content-Type': 'application/json'},
+        body: jsonEncode({'comprobanteId': comprobanteId, 'tipo': tipo}),
+      );
+      if (res.statusCode == 200) {
+        final d = Map<String, dynamic>.from(jsonDecode(res.body));
+        return (d['ok'] == true, (d['mensaje'] ?? '').toString());
+      }
+      return (false, _msg(res.body));
+    } catch (e) {
+      return (false, '$e');
+    }
+  }
+
   /// Anula una venta (conserva el registro, lo excluye de totales). Requiere ventas:eliminar.
   static Future<PostResult> anularVenta(int id, {String? motivo}) async {
     try {

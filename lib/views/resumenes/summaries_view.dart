@@ -120,9 +120,23 @@ class _SummariesViewState extends State<SummariesView> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// Guarda la clasificación manual de un comprobante y refresca.
+  Future<void> _clasificar(
+      Map<String, dynamic> item, String? tipo, BuildContext dlgCtx) async {
+    final (ok, msg) =
+        await ApiClient.clasificarComprobante(item['id'] as int, tipo);
+    if (!mounted) return;
+    _aviso(ok ? '✓ $msg' : 'Error: $msg');
+    if (ok) {
+      Navigator.of(dlgCtx).pop();
+      await _cargar();
+    }
+  }
+
   /// Muestra una ventana emergente con los datos completos de una fila
   /// (factura o comprobante) cuando la tabla no alcanza a mostrarlos todos.
-  void _verDetalle(Map<String, dynamic> item, String titulo) {
+  void _verDetalle(Map<String, dynamic> item, String titulo,
+      {bool esComprobante = false}) {
     final amarillo = Theme.of(context).colorScheme.onSurface;
     final labels = <String, String>{
       'fecha': 'Fecha',
@@ -186,6 +200,31 @@ class _SummariesViewState extends State<SummariesView> {
                   ]),
                 ),
               ),
+              if (esComprobante) ...[
+                const Divider(height: 20),
+                Text('Clasificación',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13, color: amarillo)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: [
+                  ChoiceChip(
+                    label: const Text('Transferencia'),
+                    selected: item['tipo'] == 'transferencia',
+                    onSelected: (_) =>
+                        _clasificar(item, 'transferencia', ctx),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Proveedor'),
+                    selected: item['tipo'] == 'proveedor',
+                    onSelected: (_) => _clasificar(item, 'proveedor', ctx),
+                  ),
+                  if (item['tipo_manual'] != null)
+                    ActionChip(
+                      label: const Text('Automático'),
+                      onPressed: () => _clasificar(item, null, ctx),
+                    ),
+                ]),
+              ],
             ],
           ),
         ),
@@ -439,7 +478,8 @@ class _SummariesViewState extends State<SummariesView> {
               rows: [
                 for (final c in comprobantesDetalle)
                   DataRow(
-                    onSelectChanged: (_) => _verDetalle(c, 'Detalle comprobante'),
+                    onSelectChanged: (_) =>
+                        _verDetalle(c, 'Detalle comprobante', esComprobante: true),
                     cells: [
                       DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(
