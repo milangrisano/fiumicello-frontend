@@ -35,11 +35,18 @@ ARG APP_VERSION=1.0.0
 COPY --from=build /build/build/web /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Remove the Flutter service worker so it never serves a stale cached bundle
-# (the browser cache for .js is handled by nginx 'Cache-Control: no-cache').
-RUN rm -f /usr/share/nginx/html/flutter_service_worker.js \
-        /usr/share/nginx/html/flutter_service_worker.js.map; \
-    sed -i '/flutter_service_worker\.js/d' /usr/share/nginx/html/index.html
+# PWA: se CONSERVA el service worker (flutter_service_worker.js) para permitir
+# la instalacion como app. La actualizacion segura se garantiza con:
+#  - nginx 'Cache-Control: no-cache' para index.html, version.json, flutter.js y
+#    el propio service worker (siempre se piden al server).
+#  - el auto-reload por version.json en index.html (recarga al detectar un build
+#    nuevo), evitando servir un bundle viejo.
+#
+# version.json se reescribe con el hash del bundle -> cambia en CADA deploy, y el
+# auto-reload de index.html detecta la nueva version y recarga una vez.
+RUN H=$(md5sum /usr/share/nginx/html/main.dart.js | cut -c1-10); \
+    printf '{"version":"%s"}' "$H" > /usr/share/nginx/html/version.json; \
+    cat /usr/share/nginx/html/version.json
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

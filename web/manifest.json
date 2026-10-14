@@ -1,12 +1,12 @@
 {
-    "name": "fiumicello_frontend",
-    "short_name": "fiumicello_frontend",
+    "name": "Fiumicello",
+    "short_name": "Fiumicello",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0E2A3A",
+    "theme_color": "#2FB9A6",
+    "description": "Sistema de gestion de Fiumicello — POS, contabilidad y reportes.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
