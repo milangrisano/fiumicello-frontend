@@ -263,7 +263,7 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Ítems'),
+        title: const Text('Por ítem'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
         ],

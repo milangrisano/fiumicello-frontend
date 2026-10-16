@@ -247,6 +247,32 @@ class _SummariesViewState extends State<SummariesView> {
         }
       });
 
+  // Cabecera de tabla (PC/tablet).
+  Widget _th(ColorScheme cs, String t, {bool alinear = false}) => Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          t,
+          textAlign: alinear ? TextAlign.right : TextAlign.left,
+          style: TextStyle(
+              fontWeight: FontWeight.w700, color: cs.onSurface, fontSize: 12),
+        ),
+      );
+
+  // Celda de tabla (PC/tablet).
+  Widget _td(ColorScheme cs, String t,
+          {bool negrita = false, bool alinear = false, Color? color}) =>
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          t,
+          textAlign: alinear ? TextAlign.right : TextAlign.left,
+          style: TextStyle(
+              fontSize: 12,
+              color: color ?? cs.onSurface,
+              fontWeight: negrita ? FontWeight.w600 : FontWeight.normal),
+        ),
+      );
+
   // Gris roca para bordes de las cards.
   static const Color _grisRoca = Color(0xFF7D7D7D);
 
@@ -397,131 +423,272 @@ class _SummariesViewState extends State<SummariesView> {
     final amarilloTxt = cs.onSurface; // amarillo pálido para celdas
     const turquesa = Color(0xFF2FB9A6);
 
-    // Facturas — tabla con columnas completas (Proveedor, N°, Fecha, Monto,
-    // Estado). Scroll horizontal para no salir del ancho. Click en fila => detalle.
+    // ── Tablas: miden el ancho disponible y deciden lista (móvil) vs tabla
+    //    (PC/tablet) que ocupa todo el ancho de pantalla.
+
+    // Lista (móvil): cards apiladas de facturas.
+    Widget _listaFacturas() => Column(
+          children: [
+            for (final f in facturasDetalle)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  border: Border.all(color: cs.outlineVariant),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: InkWell(
+                  onTap: () => _verDetalle(f, 'Detalle factura'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                          child: Text('${f['proveedor'] ?? '—'}',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: amarilloTxt)),
+                        ),
+                        Text(money(_num(f['monto'])),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: amarilloTxt)),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(
+                          'N° ${f['numero_factura'] ?? '—'} · ${f['fecha'] ?? ''}'
+                          ' · ${f['metodo_pago_ultimos4'] != null ? 'Últ.4 ${f['metodo_pago_ultimos4']}' : ''}',
+                          style: TextStyle(
+                              fontSize: 11, color: amarilloTxt.withValues(alpha: 0.85))),
+                      if (f['conciliada'] == true)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text('Conciliada',
+                              style:
+                                  TextStyle(color: Colors.green, fontSize: 11)),
+                        )
+                      else
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => _asignarComprobante(f),
+                            icon: const Icon(Icons.link, size: 14),
+                            label: const Text('Asignar',
+                                style: TextStyle(fontSize: 11)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+
+    // Tabla (PC/tablet): ocupa el ancho disponible, cabecera y filas completas.
+    Widget _tablaFacturas() => Table(
+          border: TableBorder.all(color: cs.outlineVariant, width: 1),
+          columnWidths: const {
+            0: FlexColumnWidth(2.8),
+            1: FlexColumnWidth(1.4),
+            2: FlexColumnWidth(1.4),
+            3: FlexColumnWidth(1.3),
+            4: FlexColumnWidth(1.0),
+            5: FlexColumnWidth(1.6),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+              children: [
+                _th(cs, 'Proveedor'),
+                _th(cs, 'N° Factura'),
+                _th(cs, 'Fecha'),
+                _th(cs, 'Monto', alinear: true),
+                _th(cs, 'Últ. 4'),
+                _th(cs, 'Estado'),
+              ],
+            ),
+            for (final f in facturasDetalle)
+              TableRow(
+                children: [
+                  _td(cs, '${f['proveedor'] ?? '—'}', negrita: true),
+                  _td(cs, '${f['numero_factura'] ?? ''}'),
+                  _td(cs, '${f['fecha'] ?? ''}'),
+                  _td(cs, money(_num(f['monto'])), alinear: true, negrita: true),
+                  _td(cs, '${f['metodo_pago_ultimos4'] ?? '—'}'),
+                  (f['conciliada'] == true)
+                      ? _td(cs, 'Conciliada', color: Colors.green)
+                      : Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: TextButton.icon(
+                            onPressed: () => _asignarComprobante(f),
+                            icon: const Icon(Icons.link, size: 14),
+                            label: const Text('Asignar',
+                                style: TextStyle(fontSize: 11)),
+                          ),
+                        ),
+                ],
+              ),
+          ],
+        );
+
+    // Facturas: miden el ancho; <640 => lista, sino tabla a todo el ancho.
     final tablaFacturas = facturasDetalle.isEmpty
         ? const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Sin facturas en el período.',
                 style: TextStyle(color: Colors.grey)))
-        : SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 16,
-              horizontalMargin: 10,
-              headingTextStyle: TextStyle(
-                  color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
-              dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
-              columns: const [
-                DataColumn(label: Text('Proveedor')),
-                DataColumn(label: Text('N° Factura')),
-                DataColumn(label: Text('Fecha')),
-                DataColumn(label: Text('Monto'), numeric: true),
-                DataColumn(label: Text('Últ. 4')),
-                DataColumn(label: Text('Estado')),
-              ],
-              rows: [
-                for (final f in facturasDetalle)
-                  DataRow(
-                    onSelectChanged: (_) => _verDetalle(f, 'Detalle factura'),
-                    cells: [
-                      DataCell(SizedBox(
-                        width: 130,
-                        child: Text('${f['proveedor'] ?? '—'}',
-                            overflow: TextOverflow.ellipsis, maxLines: 1),
-                      )),
-                      DataCell(Text('${f['numero_factura'] ?? ''}')),
-                      DataCell(Text('${f['fecha'] ?? ''}')),
-                      DataCell(Text(money(_num(f['monto'])))),
-                      DataCell(Text('${f['metodo_pago_ultimos4'] ?? '—'}')),
-                      DataCell((f['conciliada'] == true)
-                          ? const Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.check_circle, color: Colors.green, size: 18),
-                              SizedBox(width: 4),
-                              Text('Conciliada',
-                                  style: TextStyle(color: Colors.green, fontSize: 11)),
-                            ])
-                          : TextButton.icon(
-                              onPressed: () => _asignarComprobante(f),
-                              icon: const Icon(Icons.link, size: 16),
-                              label: const Text('Asignar',
-                                  style: TextStyle(fontSize: 11)),
-                              style: TextButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 6)),
-                            )),
+        : LayoutBuilder(builder: (ctx, c) {
+            return c.maxWidth < 640 ? _listaFacturas() : _tablaFacturas();
+          });
+
+    // ── Comprobantes: 2 bloques titulados (Pagos a proveedores primero,
+    //    Transferencias después). Cada bloque en lista (móvil) o tabla (PC/tablet).
+
+    final comprobantesProveedores = comprobantesDetalle
+        .where((c) => c['tipo'] != 'transferencia')
+        .toList();
+    final comprobantesTransferencias = comprobantesDetalle
+        .where((c) => c['tipo'] == 'transferencia')
+        .toList();
+
+    double suma(List<dynamic> l) =>
+        l.fold(0.0, (s, c) => s + _num((c as Map)['monto']));
+
+    // Lista (móvil): cards apiladas de un bloque de comprobantes.
+    Widget _listaComprobantes(List<dynamic> lista) => Column(
+          children: [
+            for (final c in lista)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  border: Border.all(color: cs.outlineVariant),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: InkWell(
+                  onTap: () =>
+                      _verDetalle(c, 'Detalle comprobante', esComprobante: true),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                          child: Text('${c['referencia'] ?? 'Comp. ${c['id']}'}',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: amarilloTxt)),
+                        ),
+                        Text(money(_num(c['monto'])),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: amarilloTxt)),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(
+                          '${c['fecha'] ?? ''}'
+                          '${c['metodo_pago_ultimos4'] != null ? ' · Últ.4 ${c['metodo_pago_ultimos4']}' : ''}'
+                          ' · ${c['conciliado'] == true ? 'Conciliado' : 'Pendiente'}',
+                          style: TextStyle(
+                              fontSize: 11, color: amarilloTxt.withValues(alpha: 0.85))),
                     ],
                   ),
+                ),
+              ),
+          ],
+        );
+
+    // Tabla (PC/tablet) de un bloque de comprobantes (se pasa el título del bloque).
+    Widget _tablaComprobantes(List<dynamic> lista) => Table(
+          border: TableBorder.all(color: cs.outlineVariant, width: 1),
+          columnWidths: const {
+            0: FlexColumnWidth(2.6),
+            1: FlexColumnWidth(1.4),
+            2: FlexColumnWidth(1.3),
+            3: FlexColumnWidth(1.0),
+            4: FlexColumnWidth(1.4),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+              children: [
+                _th(cs, 'Referencia'),
+                _th(cs, 'Fecha'),
+                _th(cs, 'Monto', alinear: true),
+                _th(cs, 'Últ. 4'),
+                _th(cs, 'Estado'),
               ],
             ),
-          );
+            for (final c in lista)
+              TableRow(
+                children: [
+                  _td(cs, '${c['referencia'] ?? 'Comp. ${c['id']}'}', negrita: true),
+                  _td(cs, '${c['fecha'] ?? ''}'),
+                  _td(cs, money(_num(c['monto'])), alinear: true, negrita: true),
+                  _td(cs, '${c['metodo_pago_ultimos4'] ?? '—'}'),
+                  (c['conciliado'] == true)
+                      ? _td(cs, 'Conciliado', color: Colors.green)
+                      : _td(cs, 'Pendiente', color: Colors.grey),
+                ],
+              ),
+          ],
+        );
 
-    // Comprobantes — tabla con Tipo (Transferencia/Proveedor), Referencia,
-    // Fecha, Monto, Estado. Scroll horizontal. Click en fila => detalle.
+    // Título de bloque (Pagos a proveedores / Transferencias) con subtotal.
+    Widget _bloqueTitulo(String titulo, String subtotal) => Padding(
+          padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+          child: Row(children: [
+            Expanded(
+              child: Text(titulo,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: amarilloTxt)),
+            ),
+            Text(subtotal,
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: amarilloTxt)),
+          ]),
+        );
+
+    // Comprobantes: miden el ancho; <640 => lista, sino tabla a todo el ancho.
+    // Ambos bloques se renderizan (móvil: lista apilada; PC/tablet: tablas).
     final tablaComprobantes = comprobantesDetalle.isEmpty
         ? const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Sin comprobantes en el período.',
                 style: TextStyle(color: Colors.grey)))
-        : SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 16,
-              horizontalMargin: 10,
-              headingTextStyle: TextStyle(
-                  color: amarilloTxt, fontWeight: FontWeight.bold, fontSize: 12),
-              dataTextStyle: TextStyle(color: amarilloTxt, fontSize: 12),
-              columns: const [
-                DataColumn(label: Text('Tipo')),
-                DataColumn(label: Text('Referencia')),
-                DataColumn(label: Text('Fecha')),
-                DataColumn(label: Text('Monto'), numeric: true),
-                DataColumn(label: Text('Últ. 4')),
-                DataColumn(label: Text('Estado')),
+        : LayoutBuilder(builder: (ctx, c) {
+            final esMovil = c.maxWidth < 640;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (comprobantesProveedores.isNotEmpty) ...[
+                  _bloqueTitulo('Pagos a proveedores',
+                      '${comprobantesProveedores.length} · ${money(suma(comprobantesProveedores))}'),
+                  esMovil
+                      ? _listaComprobantes(comprobantesProveedores)
+                      : _tablaComprobantes(comprobantesProveedores),
+                ],
+                if (comprobantesTransferencias.isNotEmpty) ...[
+                  _bloqueTitulo('Transferencias a otras cuentas',
+                      '${comprobantesTransferencias.length} · ${money(suma(comprobantesTransferencias))}'),
+                  esMovil
+                      ? _listaComprobantes(comprobantesTransferencias)
+                      : _tablaComprobantes(comprobantesTransferencias),
+                ],
               ],
-              rows: [
-                for (final c in comprobantesDetalle)
-                  DataRow(
-                    onSelectChanged: (_) =>
-                        _verDetalle(c, 'Detalle comprobante', esComprobante: true),
-                    cells: [
-                      DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(
-                          c['tipo'] == 'transferencia'
-                              ? Icons.swap_horiz
-                              : Icons.paid,
-                          size: 16,
-                          color: c['tipo'] == 'transferencia'
-                              ? turquesa
-                              : Colors.orangeAccent,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(c['tipo'] == 'transferencia'
-                            ? 'Transferencia'
-                            : 'Proveedor'),
-                      ])),
-                      DataCell(SizedBox(
-                        width: 120,
-                        child: Text('${c['referencia'] ?? 'Comp. ${c['id']}'}',
-                            overflow: TextOverflow.ellipsis, maxLines: 1),
-                      )),
-                      DataCell(Text('${c['fecha'] ?? ''}')),
-                      DataCell(Text(money(_num(c['monto'])))),
-                      DataCell(Text('${c['metodo_pago_ultimos4'] ?? '—'}')),
-                      DataCell((c['conciliado'] == true)
-                          ? const Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.check_circle, color: Colors.green, size: 18),
-                              SizedBox(width: 4),
-                              Text('Conciliado',
-                                  style: TextStyle(color: Colors.green, fontSize: 11)),
-                            ])
-                          : const Text('Pendiente',
-                              style: TextStyle(color: Colors.grey, fontSize: 11))),
-                    ],
-                  ),
-              ],
-            ),
-          );
+            );
+          });
 
     // 4 tarjetas: Utilidad, Ventas, Gastos, Comprobantes.
     // Grid: móvil (ancho < 700) => 2x2; PC/tablet => 4x1.

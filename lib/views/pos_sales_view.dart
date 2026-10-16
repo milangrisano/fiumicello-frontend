@@ -945,7 +945,7 @@ class _PosSalesViewState extends State<PosSalesView> {
           MaterialPageRoute(builder: (_) => ComandasTurnoView(turnos: _turnos)),
         );
       }),
-      _inicioCard('Ítems', Icons.list_alt, () {
+      _inicioCard('Por ítem', Icons.list_alt, () {
         if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => ItemsTurnoView(turnos: _turnos)),
