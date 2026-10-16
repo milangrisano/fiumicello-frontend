@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' show HTMLAnchorElement, document;
 import '../../../core/data/api_client.dart';
 import '../../../core/utils/formatters.dart';
 
-/// Ítems vendidos del turno, AGRUPADOS por producto + tamaño: cada producto
-/// aparece una sola vez con la cantidad total y el subtotal total facturados
-/// en el turno. Sin repetir líneas ni mostrar número de factura (eso está en la
-/// tabla de comandas). Ordenable por Cantidad y Subtotal (asc/desc). Incluye
-/// selector interno de turno (flechas ‹ ›).
+/// Ítems vendidos AGRUPADOS por producto + tamaño: cada producto aparece una
+/// sola vez con la cantidad total y el subtotal facturado en el periodo.
+/// Selector de periodo: Turno / Semana / Mes / Rango (calendario), con botón
+/// de exportar a Excel, contador junto al cajón de periodo y total fijo bajo
+/// el selector (misma estructura que "Por Comandas"). Ordenable por Cantidad
+/// y Subtotal.
 class ItemsTurnoView extends StatefulWidget {
   final List<Map<String, dynamic>> turnos;
   final int indiceInicial;
@@ -23,6 +25,10 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
   int _totalCantidad = 0;
   double _totalMonto = 0.0;
 
+  // Selector de periodo: 'turno' (como antes), 'semana', 'mes' o 'rango' (calendario).
+  String _modo = 'turno';
+  DateTimeRange? _rango;
+
   // Orden: campo ('cantidad' | 'subtotal') y dirección.
   String _ordenCampo = 'cantidad';
   bool _ordenAsc = false;
@@ -38,10 +44,41 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
 
   Map<String, dynamic> get _turnoAct => widget.turnos[_idx];
 
+  static String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Rango (desde, hasta) según el modo seleccionado (sin modo turno).
+  (String, String)? _rangoActual() {
+    if (_modo == 'rango' && _rango != null) {
+      return (_fmt(_rango!.start), _fmt(_rango!.end));
+    }
+    final hoy = DateTime.now();
+    if (_modo == 'semana') {
+      final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
+      final domingo = lunes.add(const Duration(days: 6));
+      return (_fmt(lunes), _fmt(domingo));
+    }
+    if (_modo == 'mes') {
+      final primero = DateTime(hoy.year, hoy.month, 1);
+      final ultimo = DateTime(hoy.year, hoy.month + 1, 0);
+      return (_fmt(primero), _fmt(ultimo));
+    }
+    return null;
+  }
+
   Future<void> _cargar() async {
     setState(() => _loading = true);
-    final idTurno = _turnoAct['id'] as int;
-    final r = await ApiClient.obtenerVentasTurno(idTurno);
+    final ListResult r;
+    if (_modo == 'turno') {
+      r = await ApiClient.obtenerVentasTurno(_turnoAct['id'] as int);
+    } else {
+      final rango = _rangoActual();
+      if (rango == null) {
+        setState(() => _loading = false);
+        return;
+      }
+      r = await ApiClient.obtenerVentasPeriodo(rango.$1, rango.$2);
+    }
     if (!mounted) return;
     final Map<String, Map<String, dynamic>> mapa = {};
     int cant = 0;
@@ -87,6 +124,35 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
     _cargar();
   }
 
+  Future<void> _elegirRango() async {
+    final hoy = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: hoy,
+      initialDateRange: _rango,
+      helpText: 'Elegir período',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+      saveText: 'Aplicar',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _rango = picked;
+      _modo = 'rango';
+    });
+    await _cargar();
+  }
+
+  void _cambiarModo(String m) {
+    setState(() => _modo = m);
+    if (m == 'rango') {
+      _elegirRango();
+    } else {
+      _cargar();
+    }
+  }
+
   void _ordenarPor(String campo) {
     setState(() {
       if (_ordenCampo == campo) {
@@ -104,6 +170,61 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
   }
 
   String _fechaTurno(dynamic fecha) => fechaCompletaBogota(fecha);
+
+  /// Etiqueta del período actual (para el nombre del archivo a exportar).
+  String _etiquetaPeriodo() {
+    if (_modo == 'turno') return 'turno-${_turnoAct['id']}';
+    if (_modo == 'rango' && _rango != null) {
+      return '${_fmt(_rango!.start)}_${_fmt(_rango!.end)}';
+    }
+    if (_modo == 'semana') {
+      final hoy = DateTime.now();
+      final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
+      return 'semana-${_fmt(lunes)}';
+    }
+    final hoy = DateTime.now();
+    return 'mes-${hoy.year}-${hoy.month.toString().padLeft(2, '0')}';
+  }
+
+  /// CSV de los ítems mostrados (Excel-friendly: BOM UTF-8, ';' como separador).
+  String _csv() {
+    final b = StringBuffer();
+    b.write('\uFEFF'); // BOM para que Excel lea bien las tildes.
+    b.write('Producto;Tamanio;Cantidad;Subtotal\n');
+    for (final f in _filas) {
+      final celda = (String s) => '${s.replaceAll(';', ' - ')}';
+      b.write(
+          '${celda('${f['nombre'] ?? ''}')};'
+          '${celda('${(f['tamanio'] ?? '').isEmpty ? '—' : f['tamanio']}')};'
+          '${f['cantidad']};'
+          '${_num(f['subtotal']).toStringAsFixed(2).replaceAll('.', ',')}\n');
+    }
+    b.write(
+        ';TOTAL;$_totalCantidad;'
+        '${_totalMonto.toStringAsFixed(2).replaceAll('.', ',')}\n');
+    return b.toString();
+  }
+
+  /// Descarga un archivo (CSV/Excel) vía un data-URI + anchor del navegador.
+  void _descargar(String contenido, String nombre) {
+    final dataUri = 'data:text/csv;charset=utf-8,${Uri.encodeComponent(contenido)}';
+    final a = document.createElement('a') as HTMLAnchorElement;
+    a.href = dataUri;
+    a.download = nombre;
+    document.body!.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  /// Exporta los ítems visibles a un archivo CSV (abre en Excel).
+  void _exportarCsv() {
+    if (_filas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('No hay ítems para exportar.')));
+      return;
+    }
+    _descargar(_csv(), 'items_${_etiquetaPeriodo()}.csv');
+  }
 
   Widget _thOrdenable(ColorScheme cs, String titulo, String campo) {
     final activo = _ordenCampo == campo;
@@ -142,7 +263,7 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Ítems vendidos del turno'),
+        title: const Text('Ítems'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
         ],
@@ -154,109 +275,138 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selector de turno interno.
+                    // Selector de periodo: chips Turno/Semana/Mes + calendario y, a la
+                    // derecha, el botón de exportar a Excel. El contador de ítems
+                    // vive junto al cajón de periodo (abajo), y el total queda fijo
+                    // bajo esa línea.
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                      child: Row(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Expanded(
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_left),
-                                    tooltip: 'Turno anterior',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: _idx < widget.turnos.length - 1
-                                        ? () => _cambiarTurno(1)
-                                        : null,
-                                  ),
-                                  Chip(
-                                    avatar: Icon(
-                                      _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      'Turno #${_turnoAct['id']} · $turnoFecha'
-                                      '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_right),
-                                    tooltip: 'Turno más reciente',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
-                                  ),
-                                ],
-                              ),
+                          for (final m in ['turno', 'semana', 'mes'])
+                            ChoiceChip(
+                              label: Text(m == 'turno'
+                                  ? 'Turno'
+                                  : (m == 'semana' ? 'Semana' : 'Mes')),
+                              selected: _modo == m,
+                              shape: const StadiumBorder(),
+                              onSelected: (_) => _cambiarModo(m),
                             ),
+                          if (_modo == 'rango')
+                            ChoiceChip(
+                              label: Text(_rango == null
+                                  ? 'Rango'
+                                  : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
+                              // Texto oscuro para que no se pierda sobre el turquesa.
+                              labelStyle:
+                                  const TextStyle(color: Colors.black, fontSize: 13),
+                              selected: true,
+                              shape: const StadiumBorder(),
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.calendar_month),
+                            tooltip: 'Elegir período (rango)',
+                            onPressed: _elegirRango,
+                          ),
+                          // Exportar a Excel (CSV) al lado derecho de los chips.
+                          IconButton(
+                            icon: const Icon(Icons.download),
+                            tooltip: 'Exportar a Excel',
+                            onPressed: _exportarCsv,
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      color: cs.surfaceContainerHighest,
-                      child: Row(
-                        children: [
-                          Text('Total ítems (únicos): ${_filas.length}',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                          const Spacer(),
-                          Text('Cantidad: $_totalCantidad', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                          const SizedBox(width: 16),
-                          Text('Suma: ${money(_totalMonto)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          // En móvil: UNA sola flecha de orden (alterna cantidad/subtotal).
-                          if (MediaQuery.of(context).size.width < 800) ...[
-                            const SizedBox(width: 12),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              tooltip: _ordenCampo == 'cantidad'
-                                  ? 'Ordenar por cantidad (${_ordenAsc ? '↓' : '↑'})'
-                                  : 'Ordenar por subtotal (${_ordenAsc ? '↓' : '↑'})',
-                              icon: Icon(
-                                _ordenCampo == 'cantidad'
-                                    ? (_ordenAsc ? Icons.arrow_upward : Icons.arrow_downward)
-                                    : Icons.unfold_more,
-                                size: 20,
+                    // Selector de turno interno (solo en modo Turno) con el
+                    // contador de ítems junto al cajón.
+                    if (_modo == 'turno')
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.chevron_left),
+                                      tooltip: 'Turno anterior',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: _idx < widget.turnos.length - 1
+                                          ? () => _cambiarTurno(1)
+                                          : null,
+                                    ),
+                                    Chip(
+                                      avatar: Icon(
+                                        _turnoAct['estado'] == 'abierto' ? Icons.lock_open : Icons.history,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        'Turno #${_turnoAct['id']} · $turnoFecha'
+                                        '${_turnoAct['estado'] == 'abierto' ? ' (abierto)' : ''}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.chevron_right),
+                                      tooltip: 'Turno más reciente',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: _idx > 0 ? () => _cambiarTurno(-1) : null,
+                                    ),
+                                  ],
+                                ),
                               ),
-                              onPressed: () => _ordenarPor(_ordenCampo == 'cantidad' ? 'subtotal' : 'cantidad'),
                             ),
+                            Text('${_filas.length} ítems',
+                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
                           ],
-                        ],
+                        ),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text('${_filas.length} ítems',
+                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                        ),
+                      ),
+                    // Total fijo bajo la línea del cuadro de periodo.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('TOTAL · $_totalCantidad uds',
+                                style: const TextStyle(fontWeight: FontWeight.w700)),
+                            Text(money(_totalMonto),
+                                style: const TextStyle(fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(
                       child: _filas.isEmpty
-                          ? const Center(child: Text('No hay ítems en este turno.', style: TextStyle(color: Colors.grey)))
+                          ? const Center(child: Text('No hay ítems en este periodo.', style: TextStyle(color: Colors.grey)))
                           : LayoutBuilder(
                               builder: (context, c) {
                                 if (c.maxWidth < 640) {
                                   // Móvil: lista de tarjetas por producto.
                                   return ListView.separated(
                                     padding: const EdgeInsets.all(12),
-                                    itemCount: _filas.length + 1,
+                                    itemCount: _filas.length,
                                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                                     itemBuilder: (context, i) {
-                                      if (i == _filas.length) {
-                                        return Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: cs.primaryContainer,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text('TOTAL · $_totalCantidad uds',
-                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
-                                              Text(money(_totalMonto),
-                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
-                                            ],
-                                          ),
-                                        );
-                                      }
                                       final f = _filas[i];
                                       return Container(
                                         decoration: BoxDecoration(
@@ -281,14 +431,8 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                                             Column(
                                               crossAxisAlignment: CrossAxisAlignment.end,
                                               children: [
-                                                // Cantidad: texto simple, sin control de orden (evita amontonar).
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text('×${f['cantidad']}',
-                                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                                  ],
-                                                ),
+                                                Text('×${f['cantidad']}',
+                                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                                                 Text(money(_num(f['subtotal'])),
                                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                                               ],
@@ -330,15 +474,7 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
                                         _celda(cs, money(_num(f['subtotal'])), alinear: true, negrita: true),
                                       ],
                                     ),
-                                  TableRow(
-                                    decoration: BoxDecoration(color: cs.primaryContainer),
-                                    children: [
-                                      _celda(cs, 'TOTAL', negrita: true),
-                                      _celda(cs, '', negrita: true),
-                                      _celda(cs, '$_totalCantidad', alinear: true, negrita: true),
-                                      _celda(cs, money(_totalMonto), alinear: true, negrita: true),
-                                    ],
-                                  ),
+                                  // El total va FIJO bajo el selector de periodo.
                                 ],
                                   ),
                                 );
