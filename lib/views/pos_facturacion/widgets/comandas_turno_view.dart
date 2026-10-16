@@ -246,87 +246,51 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selector de periodo: Turno / Semana / Mes / calendario
-                    // + contador de comandas + botón de exportar a Excel.
+                    // Selector de periodo: chips Turno/Semana/Mes + calendario y, a la
+                    // derecha, el botón de exportar a Excel. El contador de
+                    // comandas vive junto al cajón de periodo (abajo), y el
+                    // total queda fijo bajo esa línea.
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: LayoutBuilder(builder: (ctx, c) {
-                        final filaChips = Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            for (final m in ['turno', 'semana', 'mes'])
-                              ChoiceChip(
-                                label: Text(m == 'turno'
-                                    ? 'Turno'
-                                    : (m == 'semana' ? 'Semana' : 'Mes')),
-                                selected: _modo == m,
-                                shape: const StadiumBorder(),
-                                onSelected: (_) => _cambiarModo(m),
-                              ),
-                            if (_modo == 'rango')
-                              ChoiceChip(
-                                label: Text(_rango == null
-                                    ? 'Rango'
-                                    : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
-                                // Texto oscuro para que no se pierda sobre el
-                                // turquesa de seleccionado.
-                                labelStyle:
-                                    const TextStyle(color: Colors.black, fontSize: 13),
-                                selected: true,
-                                shape: const StadiumBorder(),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.calendar_month),
-                              tooltip: 'Elegir período (rango)',
-                              onPressed: _elegirRango,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (final m in ['turno', 'semana', 'mes'])
+                            ChoiceChip(
+                              label: Text(m == 'turno'
+                                  ? 'Turno'
+                                  : (m == 'semana' ? 'Semana' : 'Mes')),
+                              selected: _modo == m,
+                              shape: const StadiumBorder(),
+                              onSelected: (_) => _cambiarModo(m),
                             ),
-                            // Contador de comandas junto al calendario.
-                            Text('${_ventas.length} comandas',
-                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                            // Exportar a Excel (CSV).
-                            IconButton(
-                              icon: const Icon(Icons.download),
-                              tooltip: 'Exportar a Excel',
-                              onPressed: _exportarCsv,
+                          if (_modo == 'rango')
+                            ChoiceChip(
+                              label: Text(_rango == null
+                                  ? 'Rango'
+                                  : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
+                              // Texto oscuro para que no se pierda sobre el
+                              // turquesa de seleccionado.
+                              labelStyle:
+                                  const TextStyle(color: Colors.black, fontSize: 13),
+                              selected: true,
+                              shape: const StadiumBorder(),
                             ),
-                          ],
-                        );
-                        // En móvil (ancho reducido) la fila de chips y el resumen
-                        // (contador+total) van apilados para que no desborde; en
-                        // pantallas más anchas se mantienen juntos a la altura de
-                        // los chips.
-                        final resumen = Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${_ventas.length} comandas',
-                                style: TextStyle(
-                                    color: cs.onSurface,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15)),
-                            Text('Total · ${money(_totalMonto)}',
-                                style: TextStyle(
-                                    color: cs.primary,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13)),
-                          ],
-                        );
-                        if (c.maxWidth < 640) {
-                          // Móvil: chips arriba, contador+total debajo.
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [filaChips, SizedBox(height: 6), resumen],
-                          );
-                        }
-                        // PC/tablet: chips a la izquierda, contador+total a la derecha.
-                        return Row(children: [
-                          Expanded(child: filaChips),
-                          const SizedBox(width: 12),
-                          resumen,
-                        ]);
-                      }),
+                          IconButton(
+                            icon: const Icon(Icons.calendar_month),
+                            tooltip: 'Elegir período (rango)',
+                            onPressed: _elegirRango,
+                          ),
+                          // Exportar a Excel (CSV) al lado derecho de los chips.
+                          IconButton(
+                            icon: const Icon(Icons.download),
+                            tooltip: 'Exportar a Excel',
+                            onPressed: _exportarCsv,
+                          ),
+                        ],
+                      ),
                     ),
                     // Selector de turno interno (solo en modo Turno).
                     if (_modo == 'turno')
@@ -369,19 +333,39 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                               ),
                             ),
                             Text('${_ventas.length} comandas',
-                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                          ],
-                        ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text('${_ventas.length} comandas',
-                              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                        ),
-                      ),
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                  ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text('${_ventas.length} comandas',
+                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                  ),
+                ),
+              // Total fijo bajo la línea del cuadro de periodo (idéntico al
+              // de la lista, pero anclado aquí para que siempre se vea).
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('TOTAL', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(money(_totalMonto),
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ),
                     Expanded(
                       child: _ventas.isEmpty
                           ? const Center(child: Text('No hay comandas en el período seleccionado.', style: TextStyle(color: Colors.grey)))
@@ -392,27 +376,9 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                 if (c.maxWidth < 640) {
                                   return ListView.separated(
                                     padding: const EdgeInsets.all(12),
-                                    itemCount: _ventas.length + 1, // + fila total
+                                    itemCount: _ventas.length,
                                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                                     itemBuilder: (context, i) {
-                                      if (i == _ventas.length) {
-                                        return Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: cs.primaryContainer,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text('TOTAL · ${_ventas.length} comandas',
-                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
-                                              Text(money(_totalMonto),
-                                                  style: const TextStyle(fontWeight: FontWeight.w700)),
-                                            ],
-                                          ),
-                                        );
-                                      }
                                       return _cardComanda(cs, _ventas[i], tieneAcciones);
                                     },
                                   );
@@ -472,20 +438,7 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
                                           if (tieneAcciones) _celdaAcciones(cs, v),
                                         ],
                                       ),
-                                    // Fila de total acumulado
-                                    TableRow(
-                                      decoration: BoxDecoration(color: cs.primaryContainer),
-                                      children: [
-                                        _celda(cs, 'TOTAL', negrita: true),
-                                        _celda(cs, '', negrita: true),
-                                        _celda(cs, '', negrita: true),
-                                        _celda(cs, '', negrita: true),
-                                        _celda(cs, '', negrita: true),
-                                        _celda(cs, '${_ventas.length} comandas', negrita: true),
-                                        _celda(cs, money(_totalMonto), alinear: true, negrita: true),
-                                        if (tieneAcciones) _celda(cs, '', negrita: true),
-                                      ],
-                                    ),
+                                    // El total va FIJO bajo el selector de periodo.
                                   ],
                                   ),
                                 );
