@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' show HTMLAnchorElement, document;
 import '../../../core/data/api_client.dart';
 import '../../../core/services/realtime_service.dart';
 import '../../../core/utils/formatters.dart';
@@ -141,6 +143,72 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     _cargar();
   }
 
+  /// Etiqueta del período actual (para el nombre del archivo a exportar).
+  String _etiquetaPeriodo() {
+    if (_modo == 'turno') return 'turno-${_turnoAct['id']}';
+    if (_modo == 'rango' && _rango != null) {
+      return '${_fmt(_rango!.start)}_${_fmt(_rango!.end)}';
+    }
+    if (_modo == 'semana') {
+      final hoy = DateTime.now();
+      final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
+      final domingo = lunes.add(const Duration(days: 6));
+      return 'semana-${_fmt(lunes)}';
+    }
+    final hoy = DateTime.now();
+    return 'mes-${hoy.year}-${hoy.month.toString().padLeft(2, '0')}';
+  }
+
+  /// CSV de las comandas mostradas (Excel-friendly: BOM UTF-8, ';' como separador).
+  String _csv() {
+    final b = StringBuffer();
+    b.write('\uFEFF'); // BOM para que Excel lea bien las tildes.
+    b.write('Factura;Fecha;Hora;Mesa;Pago;Items;Total;Estado\n');
+    for (final v in _ventas) {
+      final mesa = [
+        if (v['numero_mesa'] != null) 'Mesa ${v['numero_mesa']}',
+        if (v['escenario'] != null && v['escenario'] != 'mesa') '${v['escenario']}',
+      ].where((e) => e.isNotEmpty).join(' ');
+      final items = _resumenItems((v['items'] as List? ?? []).cast<Map<String, dynamic>>());
+      final estado = v['anulada'] == true ? 'ANULADA' : '';
+      final celda = (String s) => '${s.replaceAll(';', ' - ')}';
+      b.write(
+          '${celda('${v['numero_factura'] ?? v['id']}')};'
+          '${celda(_fecha(v['fecha']))};'
+          '${celda(_hora(v['fecha']))};'
+          '${celda(mesa)};'
+          '${celda('${v['forma_pago_nombre'] ?? ''}')};'
+          '${celda(items)};'
+          '${_num(v['total']).toStringAsFixed(2).replaceAll('.', ',')};'
+          '${celda(estado)}\n');
+    }
+    b.write(
+        ';${_ventas.length} comandas;Total;;;;;'
+        '${_totalMonto.toStringAsFixed(2).replaceAll('.', ',')}\n');
+    return b.toString();
+  }
+
+  /// Descarga un archivo (CSV/Excel) vía un data-URI + anchor del navegador.
+  void _descargar(String contenido, String nombre) {
+    final dataUri = 'data:text/csv;charset=utf-8,${Uri.encodeComponent(contenido)}';
+    final a = document.createElement('a') as HTMLAnchorElement;
+    a.href = dataUri;
+    a.download = nombre;
+    document.body!.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  /// Exporta las comandas visibles a un archivo CSV (abre en Excel).
+  void _exportarCsv() {
+    if (_ventas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('No hay comandas para exportar.')));
+      return;
+    }
+    _descargar(_csv(), 'comandas_${_etiquetaPeriodo()}.csv');
+  }
+
   String _fecha(dynamic fecha) => fechaCortaBogota(fecha);
   String _hora(dynamic fecha) => horaBogota(fecha);
   String _fechaTurno(dynamic fecha) => fechaCompletaBogota(fecha);
@@ -178,38 +246,87 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selector de periodo: Turno / Semana / Mes / calendario.
+                    // Selector de periodo: Turno / Semana / Mes / calendario
+                    // + contador de comandas + botón de exportar a Excel.
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          for (final m in ['turno', 'semana', 'mes'])
-                            ChoiceChip(
-                              label: Text(m == 'turno'
-                                  ? 'Turno'
-                                  : (m == 'semana' ? 'Semana' : 'Mes')),
-                              selected: _modo == m,
-                              shape: const StadiumBorder(),
-                              onSelected: (_) => _cambiarModo(m),
+                      child: LayoutBuilder(builder: (ctx, c) {
+                        final filaChips = Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            for (final m in ['turno', 'semana', 'mes'])
+                              ChoiceChip(
+                                label: Text(m == 'turno'
+                                    ? 'Turno'
+                                    : (m == 'semana' ? 'Semana' : 'Mes')),
+                                selected: _modo == m,
+                                shape: const StadiumBorder(),
+                                onSelected: (_) => _cambiarModo(m),
+                              ),
+                            if (_modo == 'rango')
+                              ChoiceChip(
+                                label: Text(_rango == null
+                                    ? 'Rango'
+                                    : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
+                                // Texto oscuro para que no se pierda sobre el
+                                // turquesa de seleccionado.
+                                labelStyle:
+                                    const TextStyle(color: Colors.black, fontSize: 13),
+                                selected: true,
+                                shape: const StadiumBorder(),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.calendar_month),
+                              tooltip: 'Elegir período (rango)',
+                              onPressed: _elegirRango,
                             ),
-                          if (_modo == 'rango')
-                            ChoiceChip(
-                              label: Text(_rango == null
-                                  ? 'Rango'
-                                  : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
-                              selected: true,
-                              shape: const StadiumBorder(),
+                            // Contador de comandas junto al calendario.
+                            Text('${_ventas.length} comandas',
+                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                            // Exportar a Excel (CSV).
+                            IconButton(
+                              icon: const Icon(Icons.download),
+                              tooltip: 'Exportar a Excel',
+                              onPressed: _exportarCsv,
                             ),
-                          IconButton(
-                            icon: const Icon(Icons.calendar_month),
-                            tooltip: 'Elegir período (rango)',
-                            onPressed: _elegirRango,
-                          ),
-                        ],
-                      ),
+                          ],
+                        );
+                        // En móvil (ancho reducido) la fila de chips y el resumen
+                        // (contador+total) van apilados para que no desborde; en
+                        // pantallas más anchas se mantienen juntos a la altura de
+                        // los chips.
+                        final resumen = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${_ventas.length} comandas',
+                                style: TextStyle(
+                                    color: cs.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15)),
+                            Text('Total · ${money(_totalMonto)}',
+                                style: TextStyle(
+                                    color: cs.primary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13)),
+                          ],
+                        );
+                        if (c.maxWidth < 640) {
+                          // Móvil: chips arriba, contador+total debajo.
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [filaChips, SizedBox(height: 6), resumen],
+                          );
+                        }
+                        // PC/tablet: chips a la izquierda, contador+total a la derecha.
+                        return Row(children: [
+                          Expanded(child: filaChips),
+                          const SizedBox(width: 12),
+                          resumen,
+                        ]);
+                      }),
                     ),
                     // Selector de turno interno (solo en modo Turno).
                     if (_modo == 'turno')
