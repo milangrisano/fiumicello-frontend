@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/widgets.dart' show GlobalKey, NavigatorState, WidgetsBinding;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -60,7 +61,29 @@ class ApiClient {
   // abierta mucho tiempo, se refresca la sesión con la cookie HttpOnly en dos
   // vías: (1) al restaurar la sesión, y (2) con un Timer periódico (~10 min)
   // mientras hay sesión. El refresh rota el token en el servidor.
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   static Timer? _refreshTimer;
+  static Timer? _inactividadTimer;
+  static Duration _inactividadMax = const Duration(minutes: 30);
+
+  /// Tiempo de inactividad en minutos antes de desloguear (desde backend).
+  static int get inactividadMinutos => _inactividadMax.inMinutes;
+
+  /// Consulta la config pública del backend (inactividad, ...) y la guarda.
+  static Future<void> cargarConfig() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/config'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body) as Map?;
+        final m = (d?['inactividadMin'] as num?)?.toInt();
+        if (m != null && m > 0) _inactividadMax = Duration(minutes: m);
+      }
+    } catch (_) {}
+  }
   static DateTime? _tokenExpira; // momento en que vence el access (si se conoce)
 
   /// Si el access token vence pronto (< 2 min) o ya venció, renueva la sesión.
@@ -116,6 +139,35 @@ class ApiClient {
   static void detenerAutoRefresh() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+  }
+
+  /// Arranca el conteo de inactividad: si pasan `inactividadMax` minutos sin que
+  /// se registre actividad del usuario, hace logout automático. Se reinicia con
+  /// cada [registrarActividad].
+  static void iniciarTimerInactividad() {
+    detenerTimerInactividad();
+    _inactividadTimer = Timer(_inactividadMax, () {
+      if (_token != null && _token!.isNotEmpty) {
+        logout(); // cierra sesión por inactividad
+        // Redirige al login (si hay Navigator montado).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          navigatorKey.currentState
+              ?.pushNamedAndRemoveUntil('/login', (route) => false);
+        });
+      }
+    });
+  }
+
+  /// Reinicia el contador de inactividad (se llama desde la UI en cada
+  /// interacción del usuario: pointer, teclado, scroll, etc.).
+  static void registrarActividad() {
+    if (_inactividadTimer == null) return;
+    iniciarTimerInactividad(); // reinicia el conteo
+  }
+
+  static void detenerTimerInactividad() {
+    _inactividadTimer?.cancel();
+    _inactividadTimer = null;
   }
 
   /// Lee el `exp` (epoch) del JWT para saber cuándo vence; null si no se puede.
@@ -190,6 +242,9 @@ class ApiClient {
     await refreshIfNeeded();
     iniciarAutoRefresh();
     await cargarPermisos();
+    // Carga la config (inactividad) y arranca el conteo de inactividad.
+    await cargarConfig();
+    iniciarTimerInactividad();
   }
 
   static Future<bool> login(String email, String password) async {
@@ -210,6 +265,8 @@ class ApiClient {
     await prefs.setString(_userKey, jsonEncode(_user!));
     iniciarAutoRefresh(); // refresh automático mientras haya sesión
     await cargarPermisos(); // load role permissions for the dynamic menu
+    await cargarConfig(); // inactividad desde backend
+    iniciarTimerInactividad();
     return true;
   }
 
@@ -223,6 +280,7 @@ class ApiClient {
       );
     } catch (_) {}
     detenerAutoRefresh();
+    detenerTimerInactividad();
     _token = null;
     _tokenExpira = null;
     _user = null;

@@ -25,23 +25,34 @@ class FiumicelloApp extends StatelessWidget {
       animation: ThemeController.instance,
       builder: (context, _) {
         final ctrl = ThemeController.instance;
-        return MaterialApp(
-          title: 'Fiumicello',
-          debugShowCheckedModeBanner: false,
-          theme: buildLightTheme(),
-          darkTheme: buildDarkTheme(),
-          themeMode: ctrl.mode,
-          initialRoute: '/',
-          routes: {
-            '/': (_) => const HomeView(),
-            '/login': (_) => const LoginView(),
-            '/register': (_) => const RegisterView(),
-            '/app': (_) => const AppShell(),
-          },
-          onGenerateRoute: (settings) {
-            // Unknown route -> home (public carte).
-            return MaterialPageRoute(builder: (_) => const HomeView());
-          },
+        // Listener global: cada interacción del usuario (toque/ratón/teclado/
+        // scroll) reinicia el contador de inactividad. Solo actúa si hay sesión
+        // (el timer de inactividad está corriendo); en la vista pública es no-op.
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => ApiClient.registrarActividad(),
+          onPointerMove: (_) => ApiClient.registrarActividad(),
+          onPointerSignal: (_) => ApiClient.registrarActividad(),
+          onPointerUp: (_) => ApiClient.registrarActividad(),
+          child: MaterialApp(
+            title: 'Fiumicello',
+            debugShowCheckedModeBanner: false,
+            navigatorKey: ApiClient.navigatorKey,
+            theme: buildLightTheme(),
+            darkTheme: buildDarkTheme(),
+            themeMode: ctrl.mode,
+            initialRoute: '/',
+            routes: {
+              '/': (_) => const HomeView(),
+              '/login': (_) => const LoginView(),
+              '/register': (_) => const RegisterView(),
+              '/app': (_) => const AppShell(),
+            },
+            onGenerateRoute: (settings) {
+              // Unknown route -> home (public carte).
+              return MaterialPageRoute(builder: (_) => const HomeView());
+            },
+          ),
         );
       },
     );
