@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
 
@@ -247,6 +248,84 @@ class _SummariesViewState extends State<SummariesView> {
         }
       });
 
+  /// Carga una imagen de factura/comprobante desde el dispositivo, la sube al
+  /// backend (que corre OCR) y muestra el texto extraído para que la persona
+  /// lo revise/corrija. herb puede seguir haciendo esto por su cuenta; este
+  /// botón permite hacerlo desde la interfaz sin depender de herb.
+  Future<void> _cargarImagenOcr() async {
+    const tipo = XTypeGroup(
+      label: 'Imágenes',
+      extensions: ['png', 'jpg', 'jpeg', 'webp'],
+    );
+    final XFile? archivo = await openFile(acceptedTypeGroups: [tipo]);
+    if (archivo == null) return;
+    final bytes = await archivo.readAsBytes();
+    _aviso('Procesando imagen (OCR)…');
+    final (ok, msg, data) =
+        await ApiClient.subirImagenOcr(bytes, archivo.name);
+    if (!mounted) return;
+    if (!ok) {
+      _aviso('Error OCR: $msg');
+      return;
+    }
+    if (!mounted) return;
+    final texto = (data?['texto'] as String?) ?? '';
+    final archivoOk = (data?['archivo'] as String?) ?? '';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _grisRoca, width: 1.5),
+        ),
+        title: const Text('Texto OCR (imagen cargada)'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Archivo: $archivoOk',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Text('La imagen quedó guardada y este es el texto leído. '
+                  'Úsalo para crear/corregir la factura o comprobante.',
+                  style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  texto.isEmpty ? '(sin texto detectado)' : texto,
+                  style: const TextStyle(fontSize: 12, height: 1.3),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+          if (texto.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                _aviso('Aún en construcción: crear factura/comprobante '
+                    'desde OCR (siguiente paso).');
+              },
+              child: const Text('Usar texto'),
+            ),
+        ],
+      ),
+    );
+  }
+
   // Cabecera de tabla (PC/tablet).
   Widget _th(ColorScheme cs, String t, {bool alinear = false}) => Padding(
         padding: const EdgeInsets.all(8),
@@ -359,6 +438,18 @@ class _SummariesViewState extends State<SummariesView> {
           icon: const Icon(Icons.calendar_month),
           tooltip: 'Elegir período (rango)',
           onPressed: _elegirRango,
+        ),
+        // Cargar imagen de factura/comprobante con OCR (sin depender de herb).
+        TextButton.icon(
+          onPressed: _cargarImagenOcr,
+          icon: const Icon(Icons.add_a_photo, size: 18),
+          label: const Text('Cargar imagen (OCR)'),
+          style: TextButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: _grisRoca, width: 1),
+            ),
+          ),
         ),
       ],
     );

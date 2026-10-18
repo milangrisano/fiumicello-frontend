@@ -687,6 +687,23 @@ class ApiClient {
   }
 
   /// Asigna manualmente un comprobante de pago a una factura (trasabilidad).
+  static Future<(bool, String, Map<String, dynamic>?)> subirImagenOcr(
+      List<int> bytes, String nombre) async {
+    try {
+      final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/ocr/subir'))
+        ..headers.addAll(_authHeaders())
+        ..files.add(http.MultipartFile.fromBytes('archivo', bytes, filename: nombre));
+      final streamed = await req.send().timeout(const Duration(seconds: 120));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final d = Map<String, dynamic>.from(jsonDecode(res.body));
+        return (true, '', d);
+      }
+      return (false, _msg(res.body), null);
+    } catch (e) {
+      return (false, '$e', null);
+    }
+  }
   static Future<(bool, String)> asignarComprobante(
       int facturaId, int comprobanteId) async {
     try {
@@ -848,6 +865,15 @@ class ApiClient {
 
   static Map<String, String> _headers() {
     final h = <String, String>{'Content-Type': 'application/json'};
+    if (_token != null && _token!.isNotEmpty) {
+      h['Authorization'] = 'Bearer $_token';
+    }
+    return h;
+  }
+
+  /// Headers solo de autenticación (sin Content-Type), para multipart/archivos.
+  static Map<String, String> _authHeaders() {
+    final h = <String, String>{};
     if (_token != null && _token!.isNotEmpty) {
       h['Authorization'] = 'Bearer $_token';
     }

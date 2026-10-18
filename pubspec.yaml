@@ -13,6 +13,7 @@ dependencies:
   socket_io_client: ^3.0.0
   shared_preferences: ^2.3.0
   web: ^1.1.1
+  file_selector: ^1.0.0
 
 dev_dependencies:
   flutter_test:
