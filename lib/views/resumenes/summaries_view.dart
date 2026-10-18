@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:file_selector/file_selector.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
 
@@ -321,11 +321,37 @@ class _SummariesViewState extends State<SummariesView> {
         );
         if (tipo == null || !mounted) return;
 
-        const xTipo = XTypeGroup(
-          label: 'Imágenes',
-          extensions: ['png', 'jpg', 'jpeg', 'webp'],
+        // Elegir origen: cámara (tomar foto) o galería.
+        final origen = await showDialog<ImageSource>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: _grisRoca, width: 1.5),
+            ),
+            title: const Text('¿De dónde tomas la imagen?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_camera),
+                  title: const Text('Cámara (tomar foto)'),
+                  onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Galería'),
+                  onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
         );
-        final XFile? archivo = await openFile(acceptedTypeGroups: [xTipo]);
+        if (origen == null || !mounted) return;
+
+        final XFile? archivo =
+            await ImagePicker().pickImage(source: origen, maxWidth: 2200, imageQuality: 85);
         if (archivo == null) return;
         final bytes = await archivo.readAsBytes();
         _aviso('Procesando imagen (OCR)…');
