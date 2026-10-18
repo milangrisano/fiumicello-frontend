@@ -49,14 +49,17 @@ class _LoginViewState extends State<LoginView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.restaurant_menu, size: 64, color: Color(0xFF0969DA)),
-                const SizedBox(height: 12),
-                const Text(
-                  'Fiumicello',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                // Logo de Fiumicello (imagen con gorro + nombre), según tema.
+                // Reemplaza el icono genérico + texto de antes conservando el
+                // ancho/centrado del bloque (maxWidth 380).
+                Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/logo_fiumicello_blanco.png'
+                      : 'assets/logo_fiumicello.png',
+                  width: 200,
+                  fit: BoxFit.fitWidth,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 const Text(
                   'Inicia sesión para continuar',
                   textAlign: TextAlign.center,
