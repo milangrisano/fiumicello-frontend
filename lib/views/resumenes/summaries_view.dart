@@ -166,6 +166,40 @@ class _SummariesViewState extends State<SummariesView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Imagen del comprobante/factura si está guardada.
+              if (item['archivo_url'] != null) ...[
+                InkWell(
+                  onTap: () => showDialog<void>(
+                    context: ctx,
+                    builder: (_) => Dialog(
+                      backgroundColor: Colors.black,
+                      child: InteractiveViewer(
+                        child: Image.network(
+                          '${item['archivo_url']}',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text('No se pudo cargar la imagen.',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220, maxWidth: 320),
+                      child: Image.network(
+                        '${item['archivo_url']}',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               for (final e in labels.entries)
                 if (item[e.key] != null)
                   Padding(
@@ -305,60 +339,164 @@ class _SummariesViewState extends State<SummariesView> {
         if (!mounted) return;
         final texto = (data?['texto'] as String?) ?? '';
         final archivoOk = (data?['archivo'] as String?) ?? '';
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: _grisRoca, width: 1.5),
-            ),
-            title: const Text('Texto OCR (imagen cargada)'),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Archivo: $archivoOk',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  Text('La imagen quedó guardada y este es el texto leído. '
-                      'Úsalo para crear/corregir la factura o comprobante.',
-                      style: const TextStyle(fontSize: 12)),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      texto.isEmpty ? '(sin texto detectado)' : texto,
-                      style: const TextStyle(fontSize: 12, height: 1.3),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cerrar'),
-              ),
-              if (texto.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    _aviso('Aún en construcción: crear factura/comprobante '
-                        'desde OCR (siguiente paso).');
-                  },
-                  child: const Text('Usar texto'),
+        // Abrir el formulario de alta con el texto OCR cargado.
+        await _crearDesdeOcr(tipo, texto, archivoOk);
+      }
+
+  /// Abre un formulario para crear la factura/comprobante desde el texto OCR.
+  /// Pre-rellena los campos detectados (proveedor/beneficiario, fecha, total,
+  /// referencia/numero) y crea el registro vía la API vinculando el archivo.
+  Future<void> _crearDesdeOcr(
+      String tipo, String texto, String archivo) async {
+    // Detección básica de campos desde el texto OCR (mejorable, editable).
+    final esFactura = tipo == 'factura';
+    final proveedor = _detectarProveedor(texto);
+    final fecha = _detectarFecha(texto);
+    final total = _detectarTotal(texto);
+    final referencia =
+        esFactura ? _detectarNumero(texto) : _detectarReferencia(texto);
+
+    final controlProveedor = TextEditingController(text: proveedor);
+    final controlFecha = TextEditingController(text: fecha);
+    final controlTotal = TextEditingController(text: total);
+    final controlReferencia = TextEditingController(text: referencia);
+
+    final guardador = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _grisRoca, width: 1.5),
+        ),
+        title: Text(esFactura ? 'Crear factura' : 'Crear comprobante'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: Text(
+                  texto.isEmpty ? '(sin texto detectado)' : texto,
+                  style: const TextStyle(fontSize: 11, height: 1.3),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controlProveedor,
+                decoration: InputDecoration(
+                  labelText: esFactura ? 'Proveedor' : 'Beneficiario / emisor',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controlFecha,
+                decoration: const InputDecoration(
+                  labelText: 'Fecha (YYYY-MM-DD)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controlTotal,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Total',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controlReferencia,
+                decoration: InputDecoration(
+                  labelText: esFactura ? 'N° factura' : 'Referencia',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
             ],
           ),
-        );
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (guardador != true || !mounted) return;
+
+    final payload = <String, dynamic>{
+      if (esFactura) 'proveedor': controlProveedor.text.trim() else 'beneficiario_emisor': controlProveedor.text.trim(),
+      'fecha': controlFecha.text.trim(),
+      'total_con_impuestos': double.tryParse(controlTotal.text.trim().replaceAll(',', '.')) ?? 0,
+      if (esFactura) 'numero_factura': controlReferencia.text.trim() else 'referencia': controlReferencia.text.trim(),
+      'archivo': archivo,
+    };
+    _aviso('Guardando…');
+    final res = esFactura
+        ? await ApiClient.crearFactura(payload)
+        : await ApiClient.crearComprobante(payload);
+    if (!mounted) return;
+    _aviso(res.ok ? '✓ ${esFactura ? 'Factura' : 'Comprobante'} guardado' : 'Error: ${res.message}');
+    if (res.ok) await _cargar();
+  }
+
+  // ---- Detección simple de campos desde el texto OCR ----
+
+  String _detectarProveedor(String t) {
+    // Antes de un total/fecha suele ir el emisor; tomamos una línea con
+    // mayúsculas larga. Fallback vacío.
+    final lineas =
+        t.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    for (final l in lineas) {
+      if (RegExp(r'[A-ZÁÉÍÓÚÑ]{4,}').hasMatch(l) &&
+          !l.contains('BANCOLOMBIA') &&
+          !l.contains('Nequi')) {
+        return l;
       }
+    }
+    return '';
+  }
+
+  String _detectarFecha(String t) {
+    final m = RegExp(r'(\d{2}[/-]\d{2}[/-]\d{2,4})').firstMatch(t);
+    return m?.group(1)?.replaceAll('/', '-') ?? '';
+  }
+
+  String _detectarTotal(String t) {
+    final m = RegExp(r'VALOR\s*(?:CONSIGNACION|CONSIGNADO|TOTAL)?[\s:]*\$?\s?([\d.,]+)')
+        .firstMatch(t);
+    if (m != null) return m.group(1) ?? '';
+    final m2 = RegExp(r'\$[\s]?([\d.,]+)').firstMatch(t);
+    return m2?.group(1) ?? '';
+  }
+
+  String _detectarNumero(String t) {
+    final m = RegExp(r'(\w{1,3}[- ]?\d{3,})').firstMatch(t);
+    return m?.group(1) ?? '';
+  }
+
+  String _detectarReferencia(String t) {
+    final m = RegExp(r'(?:TRANS[.]?|CONSIGNACION|REF|REFERENCIA)[\s:]*([A-Z0-9_-]+)')
+        .firstMatch(t);
+    return m?.group(1) ?? '';
+  }
 
   // Cabecera de tabla (PC/tablet).
   Widget _th(ColorScheme cs, String t, {bool alinear = false}) => Padding(

@@ -368,6 +368,36 @@ class ApiClient {
     }
   }
 
+  /// Crea una factura de compra (POST /facturas). Puede incluir el nombre del
+  /// archivo de imagen (archivo) para vincular la foto del recibo.
+  static Future<PostResult> crearFactura(Map<String, dynamic> payload) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/facturas'),
+        headers: _headers(),
+        body: jsonEncode(payload),
+      );
+      return PostResult(res.statusCode == 201 || res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
+  /// Crea un comprobante de pago (POST /comprobantes). Puede incluir el nombre
+  /// del archivo de imagen (archivo) para vincular la foto del recibo.
+  static Future<PostResult> crearComprobante(Map<String, dynamic> payload) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/comprobantes'),
+        headers: _headers(),
+        body: jsonEncode(payload),
+      );
+      return PostResult(res.statusCode == 201 || res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
   static Future<ListResult> listPendientes() async {
     try {
       final res = await http.get(
