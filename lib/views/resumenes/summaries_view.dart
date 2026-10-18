@@ -282,105 +282,43 @@ class _SummariesViewState extends State<SummariesView> {
         }
       });
 
-  /// Carga una imagen de factura/comprobante desde el dispositivo, la sube al
-      /// backend (que corre OCR) y muestra el texto extraído para que la persona
-      /// lo revise/corrija. herb puede seguir haciendo esto por su cuenta; este
-      /// botón permite hacerlo desde la interfaz sin depender de herb.
+  /// Toma una foto de factura/comprobante y la procesa con visión IA. La
+      /// detección de tipo (factura/comprobante) y los campos los hace el
+      /// modelo automáticamente; aquí no preguntamos nada: solo se toma la foto.
       Future<void> _cargarImagenOcr() async {
-        // Elegir a qué carpeta va (replica la estructura de Lenovo).
-        final tipo = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: _grisRoca, width: 1.5),
-            ),
-            title: const Text('¿Qué vas a cargar?'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.receipt_long),
-                  title: const Text('Factura'),
-                  onTap: () => Navigator.of(ctx).pop('factura'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.payments),
-                  title: const Text('Comprobante de pago'),
-                  onTap: () => Navigator.of(ctx).pop('comprobante_pago'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.swap_horiz),
-                  title: const Text('Comprobante de transferencia'),
-                  onTap: () => Navigator.of(ctx).pop('comprobante_transferencia'),
-                ),
-              ],
-            ),
-          ),
-        );
-        if (tipo == null || !mounted) return;
-
-        // Elegir origen: cámara (tomar foto) o galería.
-        final origen = await showDialog<ImageSource>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: _grisRoca, width: 1.5),
-            ),
-            title: const Text('¿De dónde tomas la imagen?'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.photo_camera),
-                  title: const Text('Cámara (tomar foto)'),
-                  onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.photo_library),
-                  title: const Text('Galería'),
-                  onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
-                ),
-              ],
-            ),
-          ),
-        );
-        if (origen == null || !mounted) return;
-
+        _aviso('Abre la cámara para tomar la foto…');
         final XFile? archivo =
-            await ImagePicker().pickImage(source: origen, maxWidth: 2200, imageQuality: 85);
-        if (archivo == null) return;
+            await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2200, imageQuality: 85);
+        if (archivo == null || !mounted) return;
         final bytes = await archivo.readAsBytes();
         _aviso('Procesando imagen (OCR)…');
-        final (ok, msg, data) =
-            await ApiClient.subirImagenOcr(bytes, archivo.name, tipo: tipo);
+        final (ok, msg, data) = await ApiClient.subirImagenOcr(bytes, archivo.name);
         if (!mounted) return;
         if (!ok) {
           _aviso('Error OCR: $msg');
           return;
         }
         if (!mounted) return;
-        final texto = (data?['texto'] as String?) ?? '';
-        final archivoOk = (data?['archivo'] as String?) ?? '';
-        // Abrir el formulario de alta con el texto OCR cargado.
-        await _crearDesdeOcr(tipo, texto, archivoOk);
+        if (data == null) {
+          _aviso('No se pudo leer la imagen.');
+          return;
+        }
+        // El modelo ya devolvió el tipo y los campos → abrir el formulario.
+        await _crearDesdeOcr(data);
       }
 
-  /// Abre un formulario para crear la factura/comprobante desde el texto OCR.
-  /// Pre-rellena los campos detectados (proveedor/beneficiario, fecha, total,
-  /// referencia/numero) y crea el registro vía la API vinculando el archivo.
-  Future<void> _crearDesdeOcr(
-      String tipo, String texto, String archivo) async {
-    // Detección básica de campos desde el texto OCR (mejorable, editable).
+  /// Abre un formulario para crear la factura/comprobante desde los datos que
+  /// devolvió el OCR (visión IA). Pre-rellena los campos y crea el registro
+  /// vía la API vinculando el archivo.
+  Future<void> _crearDesdeOcr(Map<String, dynamic> data) async {
+    final tipo = (data['tipo'] as String?) ?? '';
     final esFactura = tipo == 'factura';
-    final proveedor = _detectarProveedor(texto);
-    final fecha = _detectarFecha(texto);
-    final total = _detectarTotal(texto);
-    final referencia =
-        esFactura ? _detectarNumero(texto) : _detectarReferencia(texto);
+    final proveedor = (data['beneficiario'] as String?) ?? '';
+    final fecha = (data['fecha'] as String?) ?? '';
+    final total = (data['total'] as String?) ?? '';
+    final referencia = (data['referencia'] as String?) ?? '';
+    final texto = (data['texto'] as String?) ?? '';
+    final archivo = (data['archivo'] as String?) ?? '';
 
     final controlProveedor = TextEditingController(text: proveedor);
     final controlFecha = TextEditingController(text: fecha);
