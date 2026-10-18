@@ -688,9 +688,11 @@ class ApiClient {
 
   /// Asigna manualmente un comprobante de pago a una factura (trasabilidad).
   static Future<(bool, String, Map<String, dynamic>?)> subirImagenOcr(
-      List<int> bytes, String nombre) async {
+      List<int> bytes, String nombre,
+      {String? tipo}) async {
     try {
-      final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/ocr/subir'))
+      final uri = '$baseUrl/ocr/subir${tipo != null ? '?tipo=$tipo' : ''}';
+      final req = http.MultipartRequest('POST', Uri.parse(uri))
         ..headers.addAll(_authHeaders())
         ..files.add(http.MultipartFile.fromBytes('archivo', bytes, filename: nombre));
       final streamed = await req.send().timeout(const Duration(seconds: 120));
