@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
 
@@ -140,6 +141,13 @@ class _FacturasListState extends State<FacturasList> {
   /// Muestra la imagen/escaneo del documento a pantalla completa (con zoom).
   void _verImagen(BuildContext context, String archivo) {
     final url = Uri.base.resolve('/archivos/$archivo').toString();
+    final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
+        .hasMatch(archivo);
+    if (!esImagen) {
+      // PDF u otro documento: abrir en pestaña nueva para ver/descargar.
+      web.window.open(url, '_blank');
+      return;
+    }
     showDialog<void>(
       context: context,
       builder: (_) => Dialog(
@@ -384,6 +392,13 @@ class _ComprobantesListState extends State<ComprobantesList> {
   /// Muestra la imagen/escaneo del documento a pantalla completa (con zoom).
   void _verImagen(BuildContext context, String archivo) {
     final url = Uri.base.resolve('/archivos/$archivo').toString();
+    final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
+        .hasMatch(archivo);
+    if (!esImagen) {
+      // PDF u otro documento: abrir en pestaña nueva para ver/descargar.
+      web.window.open(url, '_blank');
+      return;
+    }
     showDialog<void>(
       context: context,
       builder: (_) => Dialog(
@@ -402,8 +417,9 @@ class _ComprobantesListState extends State<ComprobantesList> {
 }
 
 /// Widget reutilizable para mostrar la foto/escaneo del documento. Al tocarla
-/// se abre ampliada (con zoom). La URL es relativa (/archivos/...) y el nginx
-/// del frontend la sirve desde el volumen compartido con el backend.
+/// se abre ampliada (con zoom) si es imagen; si es PDF/otro, abre en pestaña
+/// nueva. La URL es relativa (/archivos/...) y el nginx del frontend la sirve
+/// desde el volumen compartido con el backend.
 class _ImagenDoc extends StatelessWidget {
   final String archivo;
   const _ImagenDoc({required this.archivo});
@@ -413,6 +429,16 @@ class _ImagenDoc extends StatelessWidget {
     // Ruta relativa al host actual (nginx sirve /archivos/). Se resuelve contra
     // el origen de la página, correcto también accediendo por tailscale.
     final url = Uri.base.resolve('/archivos/$archivo').toString();
+    final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
+        .hasMatch(archivo);
+    // Documento que no es imagen (PDF u otro): botón para abrir en pestaña nueva.
+    if (!esImagen) {
+      return OutlinedButton.icon(
+        onPressed: () => web.window.open(url, '_blank'),
+        icon: const Icon(Icons.picture_as_pdf),
+        label: const Text('Abrir documento (PDF)'),
+      );
+    }
     return InkWell(
       onTap: () => showDialog<void>(
         context: context,
