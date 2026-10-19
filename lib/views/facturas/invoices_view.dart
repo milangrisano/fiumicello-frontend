@@ -98,12 +98,10 @@ class _FacturasListState extends State<FacturasList> {
                       Text(money(f['total_con_impuestos']),
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
-                        if (f['archivo'] != null &&
-                            RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
-                                .hasMatch(f['archivo'] as String))
+                        if (f['archivo'] != null)
                           IconButton(
                             icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
-                            tooltip: 'Ver imagen de la factura',
+                            tooltip: 'Ver documento',
                             visualDensity: VisualDensity.compact,
                             onPressed: () => _verImagen(context, f['archivo'] as String),
                           ),
@@ -143,14 +141,26 @@ class _FacturasListState extends State<FacturasList> {
     );
   }
 
-  /// Muestra la imagen/escaneo del documento a pantalla completa (con zoom).
+  /// Muestra el documento: imagen a pantalla completa (con zoom), o vista
+  /// previa en ventana si es PDF.
   void _verImagen(BuildContext context, String archivo) {
     final url = Uri.base.resolve('/archivos/$archivo').toString();
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     if (!esImagen) {
-      // PDF u otro documento: abrir en pestaña nueva para ver/descargar.
-      web.window.open(url, '_blank');
+      // PDF u otro documento: vista previa en una ventana (iframe).
+      showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          child: SizedBox(
+            width: 700,
+            height: 600,
+            child: PdfViewer(url: url),
+          ),
+        ),
+      );
       return;
     }
     showDialog<void>(
@@ -328,12 +338,10 @@ class _ComprobantesListState extends State<ComprobantesList> {
                 Text(money(c['total_con_impuestos']),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
-                  if (c['archivo'] != null &&
-                      RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
-                          .hasMatch(c['archivo'] as String))
+                  if (c['archivo'] != null)
                     IconButton(
                       icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
-                      tooltip: 'Ver imagen del comprobante',
+                      tooltip: 'Ver documento',
                       visualDensity: VisualDensity.compact,
                       onPressed: () => _verImagen(context, c['archivo'] as String),
                     ),
@@ -395,14 +403,26 @@ class _ComprobantesListState extends State<ComprobantesList> {
     );
   }
 
-  /// Muestra la imagen/escaneo del documento a pantalla completa (con zoom).
+  /// Muestra el documento: imagen a pantalla completa (con zoom), o vista
+  /// previa en ventana si es PDF.
   void _verImagen(BuildContext context, String archivo) {
     final url = Uri.base.resolve('/archivos/$archivo').toString();
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     if (!esImagen) {
-      // PDF u otro documento: abrir en pestaña nueva para ver/descargar.
-      web.window.open(url, '_blank');
+      // PDF u otro documento: vista previa en una ventana (iframe).
+      showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          child: SizedBox(
+            width: 700,
+            height: 600,
+            child: PdfViewer(url: url),
+          ),
+        ),
+      );
       return;
     }
     showDialog<void>(
@@ -437,12 +457,20 @@ class _ImagenDoc extends StatelessWidget {
     final url = Uri.base.resolve('/archivos/$archivo').toString();
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
-    // Documento que no es imagen (PDF u otro): botón para abrir en pestaña nueva.
+    // Documento que no es imagen (PDF u otro): botón que abre la vista previa
+    // en una ventana (iframe).
     if (!esImagen) {
       return OutlinedButton.icon(
-        onPressed: () => web.window.open(url, '_blank'),
+        onPressed: () => showDialog<void>(
+          context: context,
+          builder: (_) => Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            child: SizedBox(width: 700, height: 600, child: PdfViewer(url: url)),
+          ),
+        ),
         icon: const Icon(Icons.picture_as_pdf),
-        label: const Text('Abrir documento (PDF)'),
+        label: const Text('Ver documento (PDF)'),
       );
     }
     return InkWell(
@@ -521,6 +549,28 @@ class _CompDetalle extends StatelessWidget {
           ]),
         ],
       ),
+    );
+  }
+}
+
+/// Vista previa de un PDF en un iframe embebido (Opción A: visor nativo del
+/// navegador). La URL es relativa al host actual (mismo origen), así que nginx
+/// la sirve y el navegador renderiza el PDF dentro del iframe.
+class PdfViewer extends StatelessWidget {
+  final String url;
+  const PdfViewer({super.key, required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return HtmlElementView.fromTagName(
+      tagName: 'iframe',
+      onElementCreated: (Object element) {
+        final iframe = element as web.HTMLIFrameElement;
+        iframe.src = url;
+        iframe.style.border = 'none';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+      },
     );
   }
 }
