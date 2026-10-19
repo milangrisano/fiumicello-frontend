@@ -96,13 +96,27 @@ class _FacturasListState extends State<FacturasList> {
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       Text(money(f['total_con_impuestos']),
                           style: const TextStyle(fontWeight: FontWeight.bold)),
-                      if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+                      if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
+                        if (f['archivo'] != null)
+                          IconButton(
+                            icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
+                            tooltip: 'Ver imagen de la factura',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _verImagen(context, f['archivo'] as String),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.visibility_outlined, color: Color(0xFF2FB9A6)),
+                          tooltip: 'Ver detalle extraído',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _openDetail(context, id),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
                           tooltip: 'Borrar factura',
                           visualDensity: VisualDensity.compact,
                           onPressed: () => _borrar(context, f['id'], f['proveedor']),
                         ),
+                      ],
                     ]),
                     onTap: () => _openDetail(context, id),
                   );
@@ -120,6 +134,25 @@ class _FacturasListState extends State<FacturasList> {
       context: context,
       isScrollControlled: true,
       builder: (_) => FacturaDetail(id: id),
+    );
+  }
+
+  /// Muestra la imagen/escaneo del documento a pantalla completa (con zoom).
+  void _verImagen(BuildContext context, String archivo) {
+    final url = Uri.base.resolve('/archivos/$archivo').toString();
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        child: InteractiveViewer(
+          child: Image.network(url, fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('No se pudo cargar la imagen.',
+                    style: TextStyle(color: Colors.white)),
+              )),
+        ),
+      ),
     );
   }
 
@@ -285,13 +318,27 @@ class _ComprobantesListState extends State<ComprobantesList> {
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                 Text(money(c['total_con_impuestos']),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+                if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
+                  if (c['archivo'] != null)
+                    IconButton(
+                      icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
+                      tooltip: 'Ver imagen del comprobante',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _verImagen(context, c['archivo'] as String),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.visibility_outlined, color: Color(0xFF2FB9A6)),
+                    tooltip: 'Ver detalle extraído',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _openCompDetail(context, c),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                     tooltip: 'Borrar comprobante',
                     visualDensity: VisualDensity.compact,
                     onPressed: () => _borrar(context, c['id'], c['beneficiario_emisor'] ?? c['concepto']),
                   ),
+                ],
               ]),
               onTap: () => _openCompDetail(context, c),
             );
@@ -331,6 +378,25 @@ class _ComprobantesListState extends State<ComprobantesList> {
       context: context,
       isScrollControlled: true,
       builder: (_) => _CompDetalle(c: c),
+    );
+  }
+
+  /// Muestra la imagen/escaneo del documento a pantalla completa (con zoom).
+  void _verImagen(BuildContext context, String archivo) {
+    final url = Uri.base.resolve('/archivos/$archivo').toString();
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        child: InteractiveViewer(
+          child: Image.network(url, fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('No se pudo cargar la imagen.',
+                    style: TextStyle(color: Colors.white)),
+              )),
+        ),
+      ),
     );
   }
 }
