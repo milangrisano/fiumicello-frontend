@@ -344,7 +344,9 @@ class _ImagenDoc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = '${ApiClient.baseUrl}/archivos/$archivo';
+    // Ruta relativa al host actual (nginx sirve /archivos/). Se resuelve contra
+    // el origen de la página, correcto también accediendo por tailscale.
+    final url = Uri.base.resolve('/archivos/$archivo').toString();
     return InkWell(
       onTap: () => showDialog<void>(
         context: context,

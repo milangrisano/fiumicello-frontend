@@ -175,7 +175,7 @@ class _SummariesViewState extends State<SummariesView> {
                       backgroundColor: Colors.black,
                       child: InteractiveViewer(
                         child: Image.network(
-                          '${item['archivo_url']}',
+                          Uri.base.resolve(item['archivo_url'] as String).toString(),
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Padding(
                             padding: EdgeInsets.all(20),
@@ -191,7 +191,7 @@ class _SummariesViewState extends State<SummariesView> {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 220, maxWidth: 320),
                       child: Image.network(
-                        '${item['archivo_url']}',
+                        Uri.base.resolve(item['archivo_url'] as String).toString(),
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                       ),
