@@ -98,7 +98,9 @@ class _FacturasListState extends State<FacturasList> {
                       Text(money(f['total_con_impuestos']),
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
-                        if (f['archivo'] != null)
+                        if (f['archivo'] != null &&
+                            RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
+                                .hasMatch(f['archivo'] as String))
                           IconButton(
                             icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
                             tooltip: 'Ver imagen de la factura',
@@ -131,10 +133,13 @@ class _FacturasListState extends State<FacturasList> {
   }
 
   void _openDetail(BuildContext context, dynamic id) {
-    showModalBottomSheet(
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (_) => FacturaDetail(id: id),
+      builder: (_) => Dialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: FacturaDetail(id: id),
+      ),
     );
   }
 
@@ -209,68 +214,64 @@ class _FacturaDetailState extends State<FacturaDetail> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.75,
-      builder: (context, scrollController) {
-        return FutureBuilder<Map<String, dynamic>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final data = snapshot.data ?? {};
-            final factura = Map<String, dynamic>.from(data['factura'] ?? {});
-            final items2 = data['items'] as List? ?? [];
-            final items = items2.map((e) => Map<String, dynamic>.from(e)).toList();
-            return ListView(
-              controller: scrollController,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Factura #${factura['numero_factura']}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 6),
-                      // Foto / escaneo del documento si está guardado.
-                      if (factura['archivo'] != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _ImagenDoc(
-                            archivo: factura['archivo'] as String,
-                          ),
-                        ),
-                      Text('Proveedor: ${factura['proveedor'] ?? '-'}'),
-                      Text('Fecha: ${factura['fecha'] ?? '-'}'),
-                      Text('Estado: ${factura['estado'] ?? '-'}'),
-                      const Divider(height: 24),
-                      Text('Ítems (${items.length})',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520, maxHeight: 640),
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const SizedBox(
+                height: 200, child: Center(child: CircularProgressIndicator()));
+          }
+          final data = snapshot.data ?? {};
+          final factura = Map<String, dynamic>.from(data['factura'] ?? {});
+          final items2 = data['items'] as List? ?? [];
+          final items = items2.map((e) => Map<String, dynamic>.from(e)).toList();
+          return ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(16),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Factura #${factura['numero_factura']}',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    if (factura['archivo'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 8),
+                        child: _ImagenDoc(archivo: factura['archivo'] as String),
+                      ),
+                    Text('Proveedor: ${factura['proveedor'] ?? '-'}'),
+                    Text('Fecha: ${factura['fecha'] ?? '-'}'),
+                    Text('Estado: ${factura['estado'] ?? '-'}'),
+                    const Divider(height: 24),
+                    Text('Ítems (${items.length})',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
                 ),
-                ...items.map((it) => ListTile(
-                      dense: true,
-                      title: Text(it['descripcion'] ?? '-'),
-                      subtitle: Text('Cant: ${it['cantidad'] ?? '-'} · Cat: ${it['categoria'] ?? '-'}'),
-                      trailing: Text(money(it['total'])),
-                    )),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(children: [
-                    const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    Text(money(factura['total_con_impuestos']),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  ]),
-                ),
-              ],
-            );
-          },
-        );
-      },
+              ),
+              ...items.map((it) => ListTile(
+                    dense: true,
+                    title: Text(it['descripcion'] ?? '-'),
+                    subtitle: Text('Cant: ${it['cantidad'] ?? '-'} · Cat: ${it['categoria'] ?? '-'}'),
+                    trailing: Text(money(it['total'])),
+                  )),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(children: [
+                  const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Text(money(factura['total_con_impuestos']),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -327,7 +328,9 @@ class _ComprobantesListState extends State<ComprobantesList> {
                 Text(money(c['total_con_impuestos']),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
-                  if (c['archivo'] != null)
+                  if (c['archivo'] != null &&
+                      RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
+                          .hasMatch(c['archivo'] as String))
                     IconButton(
                       icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
                       tooltip: 'Ver imagen del comprobante',
@@ -382,10 +385,13 @@ class _ComprobantesListState extends State<ComprobantesList> {
   }
 
   void _openCompDetail(BuildContext context, Map<String, dynamic> c) {
-    showModalBottomSheet(
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (_) => _CompDetalle(c: c),
+      builder: (_) => Dialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: _CompDetalle(c: c),
+      ),
     );
   }
 
@@ -481,11 +487,10 @@ class _CompDetalle extends StatelessWidget {
       'Método de pago': (c['metodo_pago'] ?? '-') as String,
       'Estado': (c['estado'] ?? '-') as String,
     };
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.6,
-      builder: (context, scrollController) => ListView(
-        controller: scrollController,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520, maxHeight: 620),
+      child: ListView(
+        shrinkWrap: true,
         padding: const EdgeInsets.all(16),
         children: [
           Text('Comprobante #${c['id']}',
