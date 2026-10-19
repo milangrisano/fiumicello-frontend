@@ -193,6 +193,14 @@ class _FacturaDetailState extends State<FacturaDetail> {
                       Text('Factura #${factura['numero_factura']}',
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
+                      // Foto / escaneo del documento si está guardado.
+                      if (factura['archivo'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ImagenDoc(
+                            archivo: factura['archivo'] as String,
+                          ),
+                        ),
                       Text('Proveedor: ${factura['proveedor'] ?? '-'}'),
                       Text('Fecha: ${factura['fecha'] ?? '-'}'),
                       Text('Estado: ${factura['estado'] ?? '-'}'),
@@ -285,6 +293,7 @@ class _ComprobantesListState extends State<ComprobantesList> {
                     onPressed: () => _borrar(context, c['id'], c['beneficiario_emisor'] ?? c['concepto']),
                   ),
               ]),
+              onTap: () => _openCompDetail(context, c),
             );
           },
         );
@@ -315,5 +324,104 @@ class _ComprobantesListState extends State<ComprobantesList> {
       SnackBar(content: Text(r.ok ? 'Comprobante borrado.' : 'Error: ${r.message}')),
     );
     if (r.ok) setState(() => _future = ApiClient.getList('/comprobantes?limit=100'));
+  }
+
+  void _openCompDetail(BuildContext context, Map<String, dynamic> c) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _CompDetalle(c: c),
+    );
+  }
+}
+
+/// Widget reutilizable para mostrar la foto/escaneo del documento. Al tocarla
+/// se abre ampliada (con zoom). La URL es relativa (/archivos/...) y el nginx
+/// del frontend la sirve desde el volumen compartido con el backend.
+class _ImagenDoc extends StatelessWidget {
+  final String archivo;
+  const _ImagenDoc({required this.archivo});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = '${ApiClient.baseUrl}/archivos/$archivo';
+    return InkWell(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.black,
+          child: InteractiveViewer(
+            child: Image.network(url, fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No se pudo cargar la imagen.',
+                      style: TextStyle(color: Colors.white)),
+                )),
+          ),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240, maxWidth: 400),
+          child: Image.network(url, fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+        ),
+      ),
+    );
+  }
+}
+
+/// Detalle de comprobante con su foto y datos.
+class _CompDetalle extends StatelessWidget {
+  final Map<String, dynamic> c;
+  const _CompDetalle({required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <String, String>{
+      'Fecha': (c['fecha'] ?? '-') as String,
+      'Beneficiario': (c['beneficiario_emisor'] ?? '-') as String,
+      'Referencia': (c['referencia'] ?? '-') as String,
+      'Concepto': (c['concepto'] ?? '-') as String,
+      'Método de pago': (c['metodo_pago'] ?? '-') as String,
+      'Estado': (c['estado'] ?? '-') as String,
+    };
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      builder: (context, scrollController) => ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Comprobante #${c['id']}',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (c['archivo'] != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _ImagenDoc(archivo: c['archivo'] as String),
+            ),
+          for (final e in rows.entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: RichText(
+                text: TextSpan(children: [
+                  TextSpan(text: '${e.key}:  ',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  TextSpan(text: e.value),
+                ]),
+              ),
+            ),
+          const Divider(height: 24),
+          Row(children: [
+            const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text(money(c['total_con_impuestos']),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ]),
+        ],
+      ),
+    );
   }
 }
