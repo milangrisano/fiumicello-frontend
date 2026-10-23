@@ -736,6 +736,57 @@ class ApiClient {
       return (false, '$e', null);
     }
   }
+
+  /// Escáner — Fase 1: sube la foto y devuelve el resultado procesado
+  /// (previsualización) con su id. No guarda nada en destino.
+  static Future<(bool, String, Map<String, dynamic>?)> escanearPrevisualizar(
+      List<int> bytes, String nombre) async {
+    try {
+      final uri = '$baseUrl/escaneo/previsualizar';
+      final req = http.MultipartRequest('POST', Uri.parse(uri))
+        ..headers.addAll(_authHeaders())
+        ..files.add(http.MultipartFile.fromBytes('archivo', bytes, filename: nombre));
+      final streamed = await req.send().timeout(const Duration(seconds: 60));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final d = Map<String, dynamic>.from(jsonDecode(res.body));
+        return (true, '', d);
+      }
+      return (false, _msg(res.body), null);
+    } catch (e) {
+      return (false, '$e', null);
+    }
+  }
+
+  /// Escáner — Fase 2: confirma la previsualización (id) y guarda el archivo
+  /// estructurado + registro en BD. Si no se pasa `tipo`, el backend lo
+  /// detecta con la IA.
+  static Future<(bool, String, Map<String, dynamic>?)> escanearConfirmar(
+      String id,
+      {String? tipo, String? fecha, String? referencia, String? proveedor, num? total}) async {
+    try {
+      final uri = '$baseUrl/escaneo/confirmar';
+      final res = await http.post(
+        Uri.parse(uri),
+        headers: {..._headers(), 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id': id,
+          if (tipo != null) 'tipo': tipo,
+          if (fecha != null) 'fecha': fecha,
+          if (referencia != null) 'referencia': referencia,
+          if (proveedor != null) 'proveedor': proveedor,
+          if (total != null) 'total': total,
+        }),
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final d = Map<String, dynamic>.from(jsonDecode(res.body));
+        return (true, '', d);
+      }
+      return (false, _msg(res.body), null);
+    } catch (e) {
+      return (false, '$e', null);
+    }
+  }
   static Future<(bool, String)> asignarComprobante(
       int facturaId, int comprobanteId) async {
     try {

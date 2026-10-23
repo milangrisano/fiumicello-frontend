@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/data/api_client.dart';
@@ -282,33 +283,110 @@ class _SummariesViewState extends State<SummariesView> {
         }
       });
 
-  /// Toma una foto de factura/comprobante y la procesa con visión IA. La
-      /// detección de tipo (factura/comprobante) y los campos los hace el
-      /// modelo automáticamente; aquí no preguntamos nada: solo se toma la foto.
-      Future<void> _cargarImagenOcr() async {
-        _aviso('Abre la cámara para tomar la foto…');
-        final XFile? archivo =
-            await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2200, imageQuality: 85);
-        if (archivo == null || !mounted) return;
-        final bytes = await archivo.readAsBytes();
-        _aviso('Procesando imagen (OCR)…');
-        final (ok, msg, data) = await ApiClient.subirImagenOcr(bytes, archivo.name);
-        if (!mounted) return;
-        if (!ok) {
-          _aviso('Error OCR: $msg');
-          return;
-        }
-        if (!mounted) return;
-        if (data == null) {
-          _aviso('No se pudo leer la imagen.');
-          return;
-        }
-        // El backend ya creó el registro (factura/comprobante) automáticamente.
-        final resMsg = (data?['mensaje'] as String?) ?? 'Documento procesado';
-        final yaEx = (data?['ya_existia'] as bool?) ?? false;
-        _aviso(yaEx ? 'Ya estaba registrado: $resMsg' : '✓ $resMsg');
-        await _cargar();
+  /// Escáner de documentos: toma la foto, la procesa en el backend (recorte +
+  /// realce) y muestra la PREVISUALIZACIÓN con "Confirmar" / "Rehacer".
+  /// Al confirmar, el backend detecta el tipo con IA y crea el registro.
+  Future<void> _cargarImagenOcr() async {
+    _aviso('Abre la cámara para tomar la foto…');
+    final XFile? archivo =
+        await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2200, imageQuality: 85);
+    if (archivo == null || !mounted) return;
+    final bytes = await archivo.readAsBytes();
+    _aviso('Escaneando documento…');
+    final (ok, msg, data) = await ApiClient.escanearPrevisualizar(bytes, archivo.name);
+    if (!mounted) return;
+    if (!ok) {
+      _aviso('Error al escanear: $msg');
+      return;
+    }
+    final d = data;
+    if (d == null || d['id'] == null) {
+      _aviso('No se pudo escanear la imagen.');
+      return;
+    }
+    final id = d['id'].toString();
+    final previewB64 = (d['preview_b64'] ?? '').toString();
+    final bytesB64 = previewB64.startsWith('data:') ? previewB64.split(',').last : previewB64;
+    if (!mounted) return;
+    // Diálogo de previsualización: mostrar el escaneo y decidir.
+    final accion = await showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 680),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Escaneo de documento',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                if (bytesB64.isNotEmpty)
+                  Flexible(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(base64Decode(bytesB64), fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Text('No se pudo cargar la previsualización.'))),
+                    ),
+                  )
+                else
+                  const Padding(padding: EdgeInsets.all(16), child: Text('Sin vista previa.')),
+                const SizedBox(height: 12),
+                Text('El documento se escaneó (recortado y realzado).'
+                    ' Al confirmar se detecta automáticamente si es factura o comprobante con IA.',
+                    style: Theme.of(ctx).textTheme.bodySmall),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(ctx).pop('rehacer'),
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Rehacer'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(ctx).pop('confirmar'),
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Confirmar y guardar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (accion == 'confirmar') {
+      _aviso('Guardando…');
+      final (ok2, msg2, data2) = await ApiClient.escanearConfirmar(id);
+      if (!mounted) return;
+      if (!ok2) {
+        _aviso('Error al guardar: $msg2');
+        return;
       }
+      final tipo = (data2?['tipo'] ?? '').toString();
+      final yaEx = (data2?['detalle'] == false && data2?['id'] == null);
+      _aviso(yaEx ? 'Parece que ya estaba registrado ($tipo).' : '✓ Documento guardado ($tipo)');
+      await _cargar();
+    } else {
+      // "Rehacer": volver a tomar la foto (nivel 1 otra vez; el ajuste de
+      // esquinas/enderezado se conectará en el siguiente paso).
+      if (!mounted) return;
+      await _cargarImagenOcr();
+    }
+  }
 
 
   // Cabecera de tabla (PC/tablet).
