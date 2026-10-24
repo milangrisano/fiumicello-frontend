@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/data/api_client.dart';
@@ -168,39 +169,46 @@ class _SummariesViewState extends State<SummariesView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Imagen del comprobante/factura si está guardada.
+              // Botón "Ver documento" (igual que facturas/comprobantes):
+              // si es imagen se abre con zoom; si es PDF/otro se abre directo
+              // en el visor del navegador (sin pantalla intermedia).
               if (item['archivo_url'] != null) ...[
-                InkWell(
-                  onTap: () => showDialog<void>(
-                    context: ctx,
-                    builder: (_) => Dialog(
-                      backgroundColor: Colors.black,
-                      child: InteractiveViewer(
-                        child: Image.network(
-                          Uri.base.resolve(item['archivo_url'] as String).toString(),
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Text('No se pudo cargar la imagen.',
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                        ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.picture_as_pdf, size: 18),
+                        label: const Text('Ver documento'),
+                        onPressed: () {
+                          final u = Uri.base.resolve(item['archivo_url'] as String).toString();
+                          final esImg = RegExp(r'\.(jpe?g|png|webp|gif)$',
+                              caseSensitive: false)
+                              .hasMatch(item['archivo_url'] as String);
+                          if (!esImg) {
+                            web.window.open(u, '_blank');
+                            return;
+                          }
+                          showDialog<void>(
+                            context: ctx,
+                            builder: (_) => Dialog(
+                              backgroundColor: Colors.black,
+                              child: InteractiveViewer(
+                                child: Image.network(u, fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: Text('No se pudo cargar la imagen.',
+                                          style: TextStyle(color: Colors.white)),
+                                    )),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 220, maxWidth: 320),
-                      child: Image.network(
-                        Uri.base.resolve(item['archivo_url'] as String).toString(),
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
+                  ]),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
               ],
               for (final e in labels.entries)
                 if (item[e.key] != null)
