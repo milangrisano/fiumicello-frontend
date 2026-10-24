@@ -148,19 +148,10 @@ class _FacturasListState extends State<FacturasList> {
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     if (!esImagen) {
-      // PDF u otro documento: vista previa en una ventana (iframe).
-      showDialog<void>(
-        context: context,
-        builder: (_) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-          child: SizedBox(
-            width: 700,
-            height: 600,
-            child: PdfViewer(url: url),
-          ),
-        ),
-      );
+      // PDF u otro documento: abrir DIRECTO en el visor del navegador (igual que
+      // el botón "Abrir" nativo, sin pantalla intermedia ni iframe). Con
+      // Content-Disposition: inline el navegador renderiza el PDF en su visor.
+      web.window.open(url, '_blank');
       return;
     }
     showDialog<void>(
@@ -410,19 +401,10 @@ class _ComprobantesListState extends State<ComprobantesList> {
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     if (!esImagen) {
-      // PDF u otro documento: vista previa en una ventana (iframe).
-      showDialog<void>(
-        context: context,
-        builder: (_) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-          child: SizedBox(
-            width: 700,
-            height: 600,
-            child: PdfViewer(url: url),
-          ),
-        ),
-      );
+      // PDF u otro documento: abrir DIRECTO en el visor del navegador (igual que
+      // el botón "Abrir" nativo, sin pantalla intermedia ni iframe). Con
+      // Content-Disposition: inline el navegador renderiza el PDF en su visor.
+      web.window.open(url, '_blank');
       return;
     }
     showDialog<void>(
@@ -457,18 +439,11 @@ class _ImagenDoc extends StatelessWidget {
     final url = Uri.base.resolve('/archivos/$archivo').toString();
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
-    // Documento que no es imagen (PDF u otro): botón que abre la vista previa
-    // en una ventana (iframe).
+    // Documento que no es imagen (PDF u otro): abrir DIRECTO en el visor del
+    // navegador (como el botón "Abrir" nativo, sin pantalla intermedia ni iframe).
     if (!esImagen) {
       return OutlinedButton.icon(
-        onPressed: () => showDialog<void>(
-          context: context,
-          builder: (_) => Dialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-            child: SizedBox(width: 700, height: 600, child: PdfViewer(url: url)),
-          ),
-        ),
+        onPressed: () => web.window.open(url, '_blank'),
         icon: const Icon(Icons.picture_as_pdf),
         label: const Text('Ver documento (PDF)'),
       );
