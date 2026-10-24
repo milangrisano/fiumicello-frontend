@@ -742,26 +742,20 @@ class _SummariesViewState extends State<SummariesView> {
                           style: TextStyle(
                               fontSize: 11, color: amarilloTxt.withValues(alpha: 0.85))),
                       if (f['conciliada'] == true)
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          _iconoDocumento(context, f),
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4),
-                            child: Text('Conciliada',
-                                style: TextStyle(color: Colors.green, fontSize: 11)),
-                          ),
-                        ])
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text('Conciliada',
+                              style: TextStyle(color: Colors.green, fontSize: 11)),
+                        )
                       else
                         Align(
                           alignment: Alignment.centerRight,
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            _iconoDocumento(context, f),
-                            TextButton.icon(
-                              onPressed: () => _asignarComprobante(f),
-                              icon: const Icon(Icons.link, size: 14),
-                              label: const Text('Asignar',
-                                  style: TextStyle(fontSize: 11)),
-                            ),
-                          ]),
+                          child: TextButton.icon(
+                            onPressed: () => _asignarComprobante(f),
+                            icon: const Icon(Icons.link, size: 14),
+                            label: const Text('Asignar',
+                                style: TextStyle(fontSize: 11)),
+                          ),
                         ),
                     ],
                   ),
@@ -803,21 +797,15 @@ class _SummariesViewState extends State<SummariesView> {
                   _td(cs, money(_num(f['monto'])), alinear: true, negrita: true),
                   _td(cs, '${f['metodo_pago_ultimos4'] ?? '—'}'),
                   (f['conciliada'] == true)
-                      ? Row(mainAxisSize: MainAxisSize.min, children: [
-                          _iconoDocumento(context, f),
-                          _td(cs, 'Conciliada', color: Colors.green),
-                        ])
+                      ? _td(cs, 'Conciliada', color: Colors.green)
                       : Padding(
                           padding: const EdgeInsets.all(4),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            _iconoDocumento(context, f),
-                            TextButton.icon(
-                              onPressed: () => _asignarComprobante(f),
-                              icon: const Icon(Icons.link, size: 14),
-                              label: const Text('Asignar',
-                                  style: TextStyle(fontSize: 11)),
-                            ),
-                          ]),
+                          child: TextButton.icon(
+                            onPressed: () => _asignarComprobante(f),
+                            icon: const Icon(Icons.link, size: 14),
+                            label: const Text('Asignar',
+                                style: TextStyle(fontSize: 11)),
+                          ),
                         ),
                 ],
               ),
