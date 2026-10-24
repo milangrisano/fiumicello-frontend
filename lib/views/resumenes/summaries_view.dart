@@ -316,6 +316,15 @@ class _SummariesViewState extends State<SummariesView> {
           ),
         ),
         actions: [
+          if (!esComprobante && item['conciliada'] != true)
+            FilledButton.icon(
+              icon: const Icon(Icons.link, size: 18),
+              label: const Text('Asignar comprobante'),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _asignarComprobante(item);
+              },
+            ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cerrar'),
@@ -746,16 +755,6 @@ class _SummariesViewState extends State<SummariesView> {
                           padding: EdgeInsets.only(top: 4),
                           child: Text('Conciliada',
                               style: TextStyle(color: Colors.green, fontSize: 11)),
-                        )
-                      else
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: () => _asignarComprobante(f),
-                            icon: const Icon(Icons.link, size: 14),
-                            label: const Text('Asignar',
-                                style: TextStyle(fontSize: 11)),
-                          ),
                         ),
                     ],
                   ),
@@ -798,15 +797,7 @@ class _SummariesViewState extends State<SummariesView> {
                   _td(cs, '${f['metodo_pago_ultimos4'] ?? '—'}'),
                   (f['conciliada'] == true)
                       ? _td(cs, 'Conciliada', color: Colors.green)
-                      : Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: TextButton.icon(
-                            onPressed: () => _asignarComprobante(f),
-                            icon: const Icon(Icons.link, size: 14),
-                            label: const Text('Asignar',
-                                style: TextStyle(fontSize: 11)),
-                          ),
-                        ),
+                      : _td(cs, ''),
                 ],
               ),
           ],
