@@ -139,6 +139,47 @@ class _SummariesViewState extends State<SummariesView> {
 
   /// Muestra una ventana emergente con los datos completos de una fila
   /// (factura o comprobante) cuando la tabla no alcanza a mostrarlos todos.
+  /// Abre el documento de un item (factura/comprobante): imagen → zoom en
+  /// ventana; PDF/otro → abrir directo en el visor del navegador. Reutilizable
+  /// desde el detalle y desde las listas/tablas de asignación.
+  void _verDocumento(BuildContext ctx, Map<String, dynamic> item) {
+    final av = item['archivo_url'];
+    if (av == null) return;
+    final u = Uri.base.resolve(av as String).toString();
+    final esImg = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
+        .hasMatch(av as String);
+    if (!esImg) {
+      web.window.open(u, '_blank');
+      return;
+    }
+    showDialog<void>(
+      context: ctx,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        child: InteractiveViewer(
+          child: Image.network(u, fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('No se pudo cargar la imagen.',
+                    style: TextStyle(color: Colors.white)),
+              )),
+        ),
+      ),
+    );
+  }
+
+  /// Icono 🖼️ de documento (aparece solo si el item tiene archivo_url):
+  /// al tocarlo abre el documento. Usado en listas/tablas de asignación.
+  Widget _iconoDocumento(BuildContext ctx, Map<String, dynamic> item) {
+    if (item['archivo_url'] == null) return SizedBox.shrink();
+    return IconButton(
+      icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
+      tooltip: 'Ver documento',
+      visualDensity: VisualDensity.compact,
+      onPressed: () => _verDocumento(ctx, item),
+    );
+  }
+
   void _verDetalle(Map<String, dynamic> item, String titulo,
       {bool esComprobante = false}) {
     final amarillo = Theme.of(context).colorScheme.onSurface;
@@ -701,21 +742,26 @@ class _SummariesViewState extends State<SummariesView> {
                           style: TextStyle(
                               fontSize: 11, color: amarilloTxt.withValues(alpha: 0.85))),
                       if (f['conciliada'] == true)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4),
-                          child: Text('Conciliada',
-                              style:
-                                  TextStyle(color: Colors.green, fontSize: 11)),
-                        )
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          _iconoDocumento(context, f),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text('Conciliada',
+                                style: TextStyle(color: Colors.green, fontSize: 11)),
+                          ),
+                        ])
                       else
                         Align(
                           alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: () => _asignarComprobante(f),
-                            icon: const Icon(Icons.link, size: 14),
-                            label: const Text('Asignar',
-                                style: TextStyle(fontSize: 11)),
-                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            _iconoDocumento(context, f),
+                            TextButton.icon(
+                              onPressed: () => _asignarComprobante(f),
+                              icon: const Icon(Icons.link, size: 14),
+                              label: const Text('Asignar',
+                                  style: TextStyle(fontSize: 11)),
+                            ),
+                          ]),
                         ),
                     ],
                   ),
@@ -757,15 +803,21 @@ class _SummariesViewState extends State<SummariesView> {
                   _td(cs, money(_num(f['monto'])), alinear: true, negrita: true),
                   _td(cs, '${f['metodo_pago_ultimos4'] ?? '—'}'),
                   (f['conciliada'] == true)
-                      ? _td(cs, 'Conciliada', color: Colors.green)
+                      ? Row(mainAxisSize: MainAxisSize.min, children: [
+                          _iconoDocumento(context, f),
+                          _td(cs, 'Conciliada', color: Colors.green),
+                        ])
                       : Padding(
                           padding: const EdgeInsets.all(4),
-                          child: TextButton.icon(
-                            onPressed: () => _asignarComprobante(f),
-                            icon: const Icon(Icons.link, size: 14),
-                            label: const Text('Asignar',
-                                style: TextStyle(fontSize: 11)),
-                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            _iconoDocumento(context, f),
+                            TextButton.icon(
+                              onPressed: () => _asignarComprobante(f),
+                              icon: const Icon(Icons.link, size: 14),
+                              label: const Text('Asignar',
+                                  style: TextStyle(fontSize: 11)),
+                            ),
+                          ]),
                         ),
                 ],
               ),
