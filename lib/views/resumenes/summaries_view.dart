@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/data/api_client.dart';
@@ -284,108 +285,182 @@ class _SummariesViewState extends State<SummariesView> {
       });
 
   /// Escáner de documentos: toma la foto, la procesa en el backend (recorte +
-  /// realce) y muestra la PREVISUALIZACIÓN con "Confirmar" / "Rehacer".
-  /// Al confirmar, el backend detecta el tipo con IA y crea el registro.
+  /// realce) y muestra la PREVISUALIZACIÓN con 3 opciones:
+  ///   - Guardar  → confirma y crea el registro (backend detecta tipo con IA)
+  ///   - Retomar  → vuelve a tomar la foto
+  ///   - Mejorar  → ajuste manual de las 4 esquinas (endereza + recorta)
   Future<void> _cargarImagenOcr() async {
     _aviso('Abre la cámara para tomar la foto…');
     final XFile? archivo =
         await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2200, imageQuality: 85);
     if (archivo == null || !mounted) return;
-    final bytes = await archivo.readAsBytes();
-    _aviso('Escaneando documento…');
-    final (ok, msg, data) = await ApiClient.escanearPrevisualizar(bytes, archivo.name);
-    if (!mounted) return;
-    if (!ok) {
-      _aviso('Error al escanear: $msg');
-      return;
-    }
-    final d = data;
-    if (d == null || d['id'] == null) {
-      _aviso('No se pudo escanear la imagen.');
-      return;
-    }
-    final id = d['id'].toString();
-    final previewB64 = (d['preview_b64'] ?? '').toString();
-    final bytesB64 = previewB64.startsWith('data:') ? previewB64.split(',').last : previewB64;
-    if (!mounted) return;
-    // Diálogo de previsualización: mostrar el escaneo y decidir.
-    final accion = await showDialog<String>(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 680),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Escaneo de documento',
-                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                if (bytesB64.isNotEmpty)
-                  Flexible(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.memory(base64Decode(bytesB64), fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: Text('No se pudo cargar la previsualización.'))),
-                    ),
-                  )
-                else
-                  const Padding(padding: EdgeInsets.all(16), child: Text('Sin vista previa.')),
-                const SizedBox(height: 12),
-                Text('El documento se escaneó (recortado y realzado).'
-                    ' Al confirmar se detecta automáticamente si es factura o comprobante con IA.',
-                    style: Theme.of(ctx).textTheme.bodySmall),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(ctx).pop('rehacer'),
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Rehacer'),
+    var bytes = await archivo.readAsBytes();
+    var nombre = archivo.name;
+
+    // Bucle: permite "Mejorar" (re-enviar con esquinas) sin volver a la cámara.
+    List<num>? esquinas = null;
+    while (mounted) {
+      _aviso(esquinas == null ? 'Escaneando documento…' : 'Enderezando…');
+      final (ok, msg, data) = await ApiClient.escanearPrevisualizar(bytes, nombre, esquinas: esquinas);
+      if (!mounted) return;
+      if (!ok) {
+        _aviso('Error al escanear: $msg');
+        return;
+      }
+      final d = data;
+      if (d == null || d['id'] == null) {
+        _aviso('No se pudo escanear la imagen.');
+        return;
+      }
+      final id = d['id'].toString();
+      final previewB64 = (d['preview_b64'] ?? '').toString();
+      final bytesB64 = previewB64.startsWith('data:') ? previewB64.split(',').last : previewB64;
+      final origW = (d['img_orig_w'] as num?) ?? 0;
+      final origH = (d['img_orig_h'] as num?) ?? 0;
+
+      final accion = await showDialog<String>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 700),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Escaneo de documento',
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  if (bytesB64.isNotEmpty)
+                    Flexible(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(base64Decode(bytesB64), fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Padding(
+                                padding: EdgeInsets.all(20),
+                                child: Text('No se pudo cargar la previsualización.'))),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.of(ctx).pop('confirmar'),
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Confirmar y guardar'),
+                    )
+                  else
+                    const Padding(padding: EdgeInsets.all(16), child: Text('Sin vista previa.')),
+                  const SizedBox(height: 12),
+                  Text('El documento se escaneó. Al guardar se detecta automáticamente'
+                      ' si es factura o comprobante. Si el ángulo no quedó bien, usa'
+                      ' "Mejorar" para ajustar las esquinas manualmente.',
+                      style: Theme.of(ctx).textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.of(ctx).pop('retomar'),
+                          icon: const Icon(Icons.replay, size: 18),
+                          label: const Text('Retomar'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.of(ctx).pop('mejorar'),
+                          icon: const Icon(Icons.crop_free, size: 18),
+                          label: const Text('Mejorar'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => Navigator.of(ctx).pop('guardar'),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('Guardar'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-    if (!mounted) return;
-    if (accion == 'confirmar') {
-      _aviso('Guardando…');
-      final (ok2, msg2, data2) = await ApiClient.escanearConfirmar(id);
+      );
       if (!mounted) return;
-      if (!ok2) {
-        _aviso('Error al guardar: $msg2');
+
+      if (accion == 'retomar') {
+        // Volver a tomar la foto desde cero.
+        _aviso('Abre la cámara para tomar la foto…');
+        final XFile? nuevo = await ImagePicker()
+            .pickImage(source: ImageSource.camera, maxWidth: 2200, imageQuality: 85);
+        if (nuevo == null || !mounted) return;
+        bytes = await nuevo.readAsBytes();
+        nombre = nuevo.name;
+        esquinas = null;
+      } else if (accion == 'mejorar') {
+        // Ajuste manual de las 4 esquinas sobre la foto original.
+        if (origW == 0 || origH == 0) {
+          _aviso('No se pudo enderezar: faltan dimensiones.');
+          continue;
+        }
+        final ajustadas = await _ajustarEsquinas(bytes, esquinas: esquinas, origW: origW, origH: origH);
+        if (ajustadas == null || !mounted) {
+          // El usuario canceló el ajuste.
+          continue;
+        }
+        // Guardar la foto ORIGINAL en memoria con las esquinas nuevas.
+        esquinas = ajustadas;
+        // Reinicia el bucle → re-envía con esquinas → muestra el resultado.
+      } else {
+        // "guardar" (o cerró) → confirmar.
+        if (accion != 'guardar') { if (!mounted) return; continue; }
+        _aviso('Guardando…');
+        final (ok2, msg2, data2) = await ApiClient.escanearConfirmar(id);
+        if (!mounted) return;
+        if (!ok2) {
+          _aviso('Error al guardar: $msg2');
+          return;
+        }
+        final tipo = (data2?['tipo'] ?? '').toString();
+        final seGuardo = (data2?['detalle'] == true);
+        _aviso(seGuardo ? '✓ Documento guardado ($tipo)' : 'El documento ya estaba registrado ($tipo).');
+        await _cargar();
         return;
       }
-      final tipo = (data2?['tipo'] ?? '').toString();
-      final yaEx = (data2?['detalle'] == false && data2?['id'] == null);
-      _aviso(yaEx ? 'Parece que ya estaba registrado ($tipo).' : '✓ Documento guardado ($tipo)');
-      await _cargar();
-    } else {
-      // "Rehacer": volver a tomar la foto (nivel 1 otra vez; el ajuste de
-      // esquinas/enderezado se conectará en el siguiente paso).
-      if (!mounted) return;
-      await _cargarImagenOcr();
     }
+  }
+
+  /// Diálogo de ajuste manual de las 4 esquinas sobre la foto original.
+  /// Devuelve las 8 esquinas (x1,y1,...) en píxeles de la imagen ORIGINAL, o
+  /// null si el usuario cancela.
+  Future<List<num>?> _ajustarEsquinas(
+      List<int> bytes,
+      {List<num>? esquinas, required num origW, required num origH}) async {
+    // Puntos normalizados 0-1 (TL,TR,BR,BL). Si hay esquinas previas, las
+    // convertimos a normalizadas; si no, un rectángulo interior (10% margen).
+    var x1 = 0.10, y1 = 0.10, x2 = 0.90, y2 = 0.10, x3 = 0.90, y3 = 0.90, x4 = 0.10, y4 = 0.90;
+    if (esquinas != null && esquinas!.length == 8) {
+      final e = esquinas!;
+      x1 = (e[0] / origW).toDouble(); y1 = (e[1] / origH).toDouble();
+      x2 = (e[2] / origW).toDouble(); y2 = (e[3] / origH).toDouble();
+      x3 = (e[4] / origW).toDouble(); y3 = (e[5] / origH).toDouble();
+      x4 = (e[6] / origW).toDouble(); y4 = (e[7] / origH).toDouble();
+    }
+    final result = await showDialog<List<num>?>(
+      context: context,
+      builder: (ctx) => _AjustarEsquinasView(
+        imgBytes: Uint8List.fromList(bytes),
+        initial: [x1, y1, x2, y2, x3, y3, x4, y4],
+        onDone: (finalPts) => Navigator.of(ctx).pop(finalPts),
+        onCancel: () => Navigator.of(ctx).pop(null),
+      ),
+    );
+    if (result == null) return null;
+    // Convertir de normalizadas (0-1) a píxeles de la imagen original.
+    final px = <num>[...result];
+    for (var i = 0; i < px.length; i++) {
+      px[i] = (i % 2 == 0) ? (px[i] * origW).round() : (px[i] * origH).round();
+    }
+    return px;
   }
 
 
@@ -946,4 +1021,144 @@ class _SummariesViewState extends State<SummariesView> {
           Icons.account_balance_wallet, [tablaComprobantes]),
     ]);
   }
+}
+
+/// Widget de ajuste manual de las 4 esquinas del documento sobre la foto.
+/// Arrastra los 4 puntos turquesa hacia los límites del papel; al terminar
+/// "Enderezar" devuelve las coordenadas normalizadas (0-1, TL,TR,BR,BL).
+class _AjustarEsquinasView extends StatefulWidget {
+  final Uint8List imgBytes;
+  final List<double> initial;
+  final void Function(List<double>) onDone;
+  final void Function() onCancel;
+
+  const _AjustarEsquinasView({
+    super.key,
+    required this.imgBytes,
+    required this.initial,
+    required this.onDone,
+    required this.onCancel,
+  });
+
+  @override
+  State<_AjustarEsquinasView> createState() => _AjustarEsquinasViewState();
+}
+
+class _AjustarEsquinasViewState extends State<_AjustarEsquinasView> {
+  // Coordenadas normalizadas 0-1: [x1,y1, x2,y2, x3,y3, x4,y4] → TL,TR,BR,BL
+  late final List<double> pts;
+
+  @override
+  void initState() {
+    super.initState();
+    pts = List<double>.of(widget.initial);
+  }
+
+  double _clamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    const tamHandle = 36.0;
+
+    Widget handle(int i, double x, double y) => Positioned(
+      left: x * 100,
+      top: y * 100,
+      width: 0,
+      height: 0,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) {
+          // details.delta = desplazamiento del puntero (px). Convertimos a
+          // fracción del área (LayoutBuilder nos dio el tamaño en el build).
+          final dims = _dimsW / _dimsH;
+          if (i == 0) { pts[0] = _clamp01(pts[0] + (details.delta.dx / 400)); pts[1] = _clamp01(pts[1] + (details.delta.dy / 400)); }
+          else if (i == 1) { pts[2] = _clamp01(pts[2] + (details.delta.dx / 400)); pts[3] = _clamp01(pts[3] + (details.delta.dy / 400)); }
+          else if (i == 2) { pts[4] = _clamp01(pts[4] + (details.delta.dx / 400)); pts[5] = _clamp01(pts[5] + (details.delta.dy / 400)); }
+          else { pts[6] = _clamp01(pts[6] + (details.delta.dx / 400)); pts[7] = _clamp01(pts[7] + (details.delta.dy / 400)); }
+          if (mounted) setState(() {});
+        },
+        child: Center(
+          child: Container(
+            width: tamHandle,
+            height: tamHandle,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2FB9A6),
+              border: Border.all(color: Colors.white, width: 2),
+              borderRadius: BorderRadius.circular(tamHandle / 2),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 720),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Ajustar esquinas',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Arrastra los 4 puntos hacia los límites del documento para'
+                  ' enderezarlo y recortarlo. Al "Enderezar" se procesa la imagen.',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      _dimsW = constraints.maxWidth;
+                      _dimsH = constraints.maxHeight;
+                      return Stack(
+                        textDirection: TextDirection.ltr,
+                        fit: StackFit.expand,
+                        children: [
+                          Image.memory(widget.imgBytes, fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) =>
+                                  const Center(child: Text('No se pudo cargar la imagen.'))),
+                          handle(0, pts[0], pts[1]),
+                          handle(1, pts[2], pts[3]),
+                          handle(2, pts[4], pts[5]),
+                          handle(3, pts[6], pts[7]),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onCancel,
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('Cancelar'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => widget.onDone(List<double>.of(pts)),
+                      icon: const Icon(Icons.crop_free, size: 18),
+                      label: const Text('Enderezar'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  double _dimsW = 400, _dimsH = 400;
 }

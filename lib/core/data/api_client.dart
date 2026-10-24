@@ -739,13 +739,19 @@ class ApiClient {
 
   /// Escáner — Fase 1: sube la foto y devuelve el resultado procesado
   /// (previsualización) con su id. No guarda nada en destino.
+  /// Opcional: [esquinas] = 8 números (x1,y1, x2,y2, x3,y3, x4,y4) en píxeles
+  /// de la imagen original (TL,TR,BR,BL) para enderezar manualmente (Nivel 2).
   static Future<(bool, String, Map<String, dynamic>?)> escanearPrevisualizar(
-      List<int> bytes, String nombre) async {
+      List<int> bytes, String nombre,
+      {List<num>? esquinas}) async {
     try {
       final uri = '$baseUrl/escaneo/previsualizar';
       final req = http.MultipartRequest('POST', Uri.parse(uri))
         ..headers.addAll(_authHeaders())
         ..files.add(http.MultipartFile.fromBytes('archivo', bytes, filename: nombre));
+      if (esquinas != null && esquinas.length == 8) {
+        req.fields['esquinas'] = esquinas.join(',');
+      }
       final streamed = await req.send().timeout(const Duration(seconds: 60));
       final res = await http.Response.fromStream(streamed);
       if (res.statusCode >= 200 && res.statusCode < 300) {
