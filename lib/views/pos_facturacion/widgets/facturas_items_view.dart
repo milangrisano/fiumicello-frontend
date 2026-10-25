@@ -123,38 +123,87 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                       ),
                     ),
                     Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: Table(
-                          border: TableBorder.all(color: cs.outlineVariant, width: 1),
-                          columnWidths: const {
-                            0: FlexColumnWidth(3.2),
-                            1: FlexColumnWidth(2.0),
-                            2: FlexColumnWidth(1.0),
-                            3: FlexColumnWidth(1.3),
-                          },
-                          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                          children: [
-                            TableRow(
-                              decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          if (c.maxWidth < 640) {
+                            // Móvil: tarjetas (ListTile) — cómodo de tocar.
+                            return ListView.separated(
+                              padding: const EdgeInsets.all(12),
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 10),
+                              itemBuilder: (context, i) {
+                                final f = items[i];
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceContainerHighest,
+                                    border: Border.all(color: cs.outlineVariant),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    title: Text('${f['producto'] ?? f['descripcion'] ?? '—'}',
+                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if ((f['proveedor'] ?? '') != '')
+                                          Text('${f['proveedor']}',
+                                              style: const TextStyle(fontSize: 12)),
+                                        if ((f['numero_factura'] ?? '') != '')
+                                          Text('Factura ${f['numero_factura']} · ${f['fecha'] ?? ''}',
+                                              style: const TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
+                                    trailing: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text('×${_num(f['cantidad'])}',
+                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        Text(money(_num(f['total'])),
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: turquesa)),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          // PC: tabla.
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.all(12),
+                            child: Table(
+                              border: TableBorder.all(color: cs.outlineVariant, width: 1),
+                              columnWidths: const {
+                                0: FlexColumnWidth(3.2),
+                                1: FlexColumnWidth(2.0),
+                                2: FlexColumnWidth(1.0),
+                                3: FlexColumnWidth(1.3),
+                              },
+                              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                               children: [
-                                _th(cs, 'Producto'),
-                                _th(cs, 'Proveedor'),
-                                _th(cs, 'Cant.', alinear: true),
-                                _th(cs, 'Total', alinear: true),
+                                TableRow(
+                                  decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+                                  children: [
+                                    _th(cs, 'Producto'),
+                                    _th(cs, 'Proveedor'),
+                                    _th(cs, 'Cant.', alinear: true),
+                                    _th(cs, 'Total', alinear: true),
+                                  ],
+                                ),
+                                for (final f in items)
+                                  TableRow(
+                                    children: [
+                                      _celda(cs, '${f['producto'] ?? f['descripcion'] ?? '—'}', negrita: true),
+                                      _celda(cs, '${f['proveedor'] ?? '—'}'),
+                                      _celda(cs, '${_num(f['cantidad'])}', alinear: true),
+                                      _celda(cs, money(_num(f['total'])), alinear: true, negrita: true),
+                                    ],
+                                  ),
                               ],
                             ),
-                            for (final f in items)
-                              TableRow(
-                                children: [
-                                  _celda(cs, '${f['producto'] ?? f['descripcion'] ?? '—'}', negrita: true),
-                                  _celda(cs, '${f['proveedor'] ?? '—'}'),
-                                  _celda(cs, '${_num(f['cantidad'])}', alinear: true),
-                                  _celda(cs, money(_num(f['total'])), alinear: true, negrita: true),
-                                ],
-                              ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ],
