@@ -113,6 +113,8 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, i) {
                         final f = items[i];
+                        final prod = '${f['producto'] ?? f['descripcion'] ?? ''}';
+                        final unidad = _unidadDe(prod);
                         return Container(
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerHighest,
@@ -121,7 +123,7 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                           ),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            title: Text('${f['producto'] ?? f['descripcion'] ?? '—'}',
+                            title: Text(prod,
                                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,7 +139,7 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('×${_num(f['cantidad'])}',
+                                Text(unidad.isEmpty ? '×${_num(f['cantidad'])}' : '×${_num(f['cantidad'])} $unidad',
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                                 Text(money(_num(f['total'])),
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: turquesa)),
@@ -175,7 +177,7 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                             children: [
                               _celda(cs, '${f['producto'] ?? f['descripcion'] ?? '—'}', negrita: true),
                               _celda(cs, '${f['proveedor'] ?? '—'}'),
-                              _celda(cs, '${_num(f['cantidad'])}', alinear: true),
+                              _celda(cs, _cantidadConUnidad(f), alinear: true),
                               _celda(cs, money(_num(f['total'])), alinear: true, negrita: true),
                             ],
                           ),
@@ -271,12 +273,42 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     }
   }
 
+  /// Detecta la unidad de medida dentro de la descripción del producto
+  /// (p. ej. "... 4.52 kg" → 'kg', "HARINA ... X 5 KILOS" → 'kg', "(12 und)" → 'und').
+  /// Devuelve la unidad normalizada, o '' si no hay ninguna.
+  String _unidadDe(String desc) {
+    final texto = desc.toLowerCase();
+    final reglas = <RegExp, String>{
+      RegExp(r'kwh'): 'kWh',
+      RegExp(r'\bkilogramos?\b|\bkg\b|\bkilos?\b'): 'kg',
+      RegExp(r'\bgramos?\b|\bgr\b|\bkilo\b'): 'g',
+      RegExp(r'\blitros?\b|\blts?\b|\bl\b'): 'L',
+      RegExp(r'\bmililitros?\b|\bml\b'): 'ml',
+      RegExp(r'\bunidades?\b|\bunds?\b|\bun\b|\buds?\b'): 'und',
+      RegExp(r'\bdocenas?\b|\bdoc\b'): 'doc',
+      RegExp(r'\bcajas?\b|\bcja\b'): 'caja',
+      RegExp(r'\bbotellas?\b|\bbot\b'): 'bot',
+      RegExp(r'\bpaquetes?\b|\bpqt?\b|\bpaq\b'): 'paq',
+      RegExp(r'\bbolsas?\b'): 'bolsa',
+    };
+    for (final re in reglas.keys) {
+      if (re.hasMatch(texto)) return reglas[re]!;
+    }
+    return '';
+  }
+
   /// Intenta convertir el valor a número (acepta int/double/String).
   double _num(dynamic v) {
     if (v == null) return 0;
     if (v is num) return (v as num).toDouble();
     final n = double.tryParse('$v'.replaceAll(',', '').replaceAll(r'\s', ''));
     return n ?? 0;
+  }
+
+  /// Cantidad formateada con su unidad (si la hay), p. ej. "4.52 kg".
+  String _cantidadConUnidad(Map<String, dynamic> f) {
+    final u = _unidadDe('${f['producto'] ?? f['descripcion'] ?? ''}');
+    return u.isEmpty ? '${_num(f['cantidad'])}' : '${_num(f['cantidad'])} $u';
   }
 
   Widget _th(ColorScheme cs, String t, {bool alinear = false}) => Padding(
