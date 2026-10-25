@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/data/api_client.dart';
+import '../core/app_version.dart';
 import 'register_view.dart';
 import 'forgot_password_view.dart';
 
@@ -40,6 +41,14 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Text(
+          'Versión $APP_VERSION',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
