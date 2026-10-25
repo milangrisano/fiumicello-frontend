@@ -91,34 +91,10 @@ class _FacturasListState extends State<FacturasList> {
                   final f = items[i];
                   final id = f['id'];
                   return ListTile(
-                    leading: const Icon(Icons.description_outlined),
                     title: Text(f['proveedor'] ?? 'Sin proveedor'),
                     subtitle: Text('${f['fecha'] ?? '-'} · ${f['numero_factura'] ?? '-'}'),
-                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(money(f['total_con_impuestos']),
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
-                        if (f['archivo'] != null)
-                          IconButton(
-                            icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
-                            tooltip: 'Ver documento',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _verImagen(context, f['archivo'] as String),
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.visibility_outlined, color: Color(0xFF2FB9A6)),
-                          tooltip: 'Ver detalle extraído',
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => _openDetail(context, id),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          tooltip: 'Borrar factura',
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => _borrar(context, f['id'], f['proveedor']),
-                        ),
-                      ],
-                    ]),
+                    trailing: Text(money(f['total_con_impuestos']),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     onTap: () => _openDetail(context, id),
                   );
                 },
@@ -133,10 +109,25 @@ class _FacturasListState extends State<FacturasList> {
   void _openDetail(BuildContext context, dynamic id) {
     showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: FacturaDetail(id: id),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SingleChildScrollView(child: FacturaDetail(id: id)),
+        actions: [
+          if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _borrar(context, id, null);
+              },
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              label: const Text('Borrar factura'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
       ),
     );
   }
@@ -322,34 +313,10 @@ class _ComprobantesListState extends State<ComprobantesList> {
           itemBuilder: (context, i) {
             final c = items[i];
             return ListTile(
-              leading: const Icon(Icons.payment),
               title: Text(c['beneficiario_emisor'] ?? c['concepto'] ?? '-'),
               subtitle: Text('${c['fecha'] ?? '-'} · ${c['metodo_pago'] ?? '-'}'),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(money(c['total_con_impuestos']),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                if (ApiClient.isSuperadmin || ApiClient.isAdmin) ...[
-                  if (c['archivo'] != null)
-                    IconButton(
-                      icon: const Icon(Icons.photo, color: Color(0xFF2FB9A6)),
-                      tooltip: 'Ver documento',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => _verImagen(context, c['archivo'] as String),
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.visibility_outlined, color: Color(0xFF2FB9A6)),
-                    tooltip: 'Ver detalle extraído',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _openCompDetail(context, c),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    tooltip: 'Borrar comprobante',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _borrar(context, c['id'], c['beneficiario_emisor'] ?? c['concepto']),
-                  ),
-                ],
-              ]),
+              trailing: Text(money(c['total_con_impuestos']),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               onTap: () => _openCompDetail(context, c),
             );
           },
@@ -386,10 +353,25 @@ class _ComprobantesListState extends State<ComprobantesList> {
   void _openCompDetail(BuildContext context, Map<String, dynamic> c) {
     showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: _CompDetalle(c: c),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SingleChildScrollView(child: _CompDetalle(c: c)),
+        actions: [
+          if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _borrar(context, c['id'], c['beneficiario_emisor'] ?? c['concepto']);
+              },
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              label: const Text('Borrar comprobante'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
       ),
     );
   }
