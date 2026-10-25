@@ -10,6 +10,7 @@ import 'pos_facturacion/pos_models.dart';
 import 'pos_facturacion/pos_utils.dart'
     show numVal, precioDe;
 import 'pos_facturacion/widgets/comanda_view.dart';
+import 'pos_facturacion/widgets/facturas_items_view.dart';
 import 'pos_facturacion/widgets/resumen_ventas_view.dart';
 import 'pos_facturacion/widgets/cierre_caja_view.dart';
 import 'pos_facturacion/widgets/movimientos_caja_view.dart';
@@ -949,6 +950,11 @@ class _PosSalesViewState extends State<PosSalesView> {
         if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => ItemsTurnoView(turnos: _turnos)),
+        );
+      }),
+      _inicioCard('Ítems de facturas', Icons.shopping_cart, () async {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => FacturasItemsView()),
         );
       }),
     ];
