@@ -273,26 +273,31 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     }
   }
 
-  /// Detecta la unidad de medida dentro de la descripción del producto
-  /// (p. ej. "... 4.52 kg" → 'kg', "HARINA ... X 5 KILOS" → 'kg', "(12 und)" → 'und').
-  /// Devuelve la unidad normalizada, o '' si no hay ninguna.
+  /// Detecta la unidad de medida dentro de la descripción del producto.
+  /// Soporta unidades pegadas a un número (p. ej. "400ml", "2.5kg", "500gr")
+  /// y separadas ("4.52 kg", "X 5 KILOS", "(1 caja)"). Devuelve la unidad
+  /// normalizada, o '' si no hay ninguna.
   String _unidadDe(String desc) {
     final texto = desc.toLowerCase();
-    final reglas = <RegExp, String>{
-      RegExp(r'kwh'): 'kWh',
-      RegExp(r'\bkilogramos?\b|\bkg\b|\bkilos?\b'): 'kg',
-      RegExp(r'\bgramos?\b|\bgr\b|\bkilo\b'): 'g',
-      RegExp(r'\blitros?\b|\blts?\b|\bl\b'): 'L',
-      RegExp(r'\bmililitros?\b|\bml\b'): 'ml',
-      RegExp(r'\bunidades?\b|\bunds?\b|\bun\b|\buds?\b'): 'und',
-      RegExp(r'\bdocenas?\b|\bdoc\b'): 'doc',
-      RegExp(r'\bcajas?\b|\bcja\b'): 'caja',
-      RegExp(r'\bbotellas?\b|\bbot\b'): 'bot',
-      RegExp(r'\bpaquetes?\b|\bpqt?\b|\bpaq\b'): 'paq',
-      RegExp(r'\bbolsas?\b'): 'bolsa',
-    };
-    for (final re in reglas.keys) {
-      if (re.hasMatch(texto)) return reglas[re]!;
+    // Busca la primera unidad conocida como palabra completa o pegada a un
+    // número. Se recorren en orden de especificidad para evitar colisiones
+    // (p. ej. "mill" no debe leerse como "ml").
+    final pares = <(String, String)>[
+      (r'(?:^|[^a-z])kwh(?:[^a-z]|$)', 'kWh'),
+      (r'kilogramos|kilos', 'kg'),
+      (r'(?:^|\D)kg(?:$|[^a-z])', 'kg'),
+      (r'(?:^|\D)gr(?:$|[^a-z])|gramos', 'g'),
+      (r'(?:^|\D)litros|(?:^|\D)lts?[.,\s]', 'L'),
+      (r'(?:^|\D)ml(?:$|[^a-z])|mililitros', 'ml'),
+      (r'(?:^|\D)und(?:$|[^a-z])|unidades?', 'und'),
+      (r'(?:^|\D)doc(?:$|[^a-z])|docenas?', 'doc'),
+      (r'(?:^|\D)caja(?:$|[^a-z])|cajas?', 'caja'),
+      (r'(?:^|\D)bot(?:$|[^a-z])|botellas?', 'bot'),
+      (r'(?:^|\D)paq(?:$|[^a-z])|paquetes?', 'paq'),
+      (r'bolsas?', 'bolsa'),
+    ];
+    for (final (pat, uni) in pares) {
+      if (RegExp(pat).hasMatch(texto)) return uni;
     }
     return '';
   }
