@@ -496,15 +496,22 @@ class ComandaView extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.zero,
       title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
-      subtitle: Text(money(l.precio)),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        // Editar precio
-        IconButton(
-          icon: const Icon(Icons.edit_outlined, size: 18),
-          tooltip: 'Editar precio',
-          visualDensity: VisualDensity.compact,
-          onPressed: () => onEditarPrecio(l),
+      // Click sobre el precio = abrir edición de precio/costo.
+      subtitle: InkWell(
+        onTap: () => onEditarPrecio(l),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(money(l.precio),
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Icon(Icons.edit_outlined, size: 13,
+                color: Theme.of(context).colorScheme.primary),
+          ]),
         ),
+      ),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         // Disminuir
         IconButton(
           icon: const Icon(Icons.remove_circle_outline, size: 18),
