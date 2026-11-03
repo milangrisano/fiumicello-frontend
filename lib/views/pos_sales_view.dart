@@ -1045,7 +1045,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       onElegirEscenario: _elegirEscenario,
       onQuitar: _quitarLinea,
       onRestar: _restarLinea,
-      onEditarPrecio: _editarPrecioLinea,
+      onCambiarPrecio: (l, nuevo) => setState(() => l.precio = nuevo),
       onSumar: _sumarLinea,
       onContinuar: _siguienteEtapa,
       onBorrar: _borrarComanda,
@@ -1078,42 +1078,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       else _comanda.remove(l);
     });
     _guardarComanda();
-  }
-
-  /// Edita el precio (y el costo) de una línea desde el resumen.
-  Future<void> _editarPrecioLinea(Linea l) async {
-    final ctrlPrecio = TextEditingController(text: l.precio.toString());
-    final ctrlCosto = TextEditingController(text: l.costoUnitario > 0 ? l.costoUnitario.toString() : '');
-    final r = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Editar ${l.nombre}'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: ctrlPrecio,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Precio (COP)', prefixText: '\$'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: ctrlCosto,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Costo unitario (COP, opcional)', prefixText: '\$'),
-          ),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
-        ],
-      ),
-    );
-    if (r == true && mounted) {
-      setState(() {
-        l.precio = double.tryParse(ctrlPrecio.text.trim().replaceAll(',', '.')) ?? l.precio;
-        final c = double.tryParse(ctrlCosto.text.trim().replaceAll(',', '.')) ?? 0.0;
-        l.costoUnitario = c;
-      });
-    }
   }
 
   void _sumarLinea(Linea l) {

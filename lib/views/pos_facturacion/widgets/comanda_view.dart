@@ -8,6 +8,7 @@ typedef void CbAgregar(Map<String, dynamic> item, String? tamanio);
 typedef void CbBuscar(String v);
 typedef void CbCategoria(int? id);
 typedef void CbLinea(Linea l);
+typedef void CbPrecio(Linea l, double nuevoPrecio);
 typedef void CbEscenario(String escenario);
 typedef void CbAgregarMesa(Map<String, dynamic> mesa);
 
@@ -32,7 +33,7 @@ class ComandaView extends StatelessWidget {
     required this.onElegirEscenario,
     required this.onQuitar,
     required this.onRestar,
-    required this.onEditarPrecio,
+    required this.onCambiarPrecio,
     required this.onSumar,
     required this.onContinuar,
     required this.onBorrar,
@@ -57,7 +58,7 @@ class ComandaView extends StatelessWidget {
   final CbEscenario onElegirEscenario;
   final CbLinea onQuitar;
   final CbLinea onRestar;
-  final CbLinea onEditarPrecio;
+  final CbPrecio onCambiarPrecio;
   final CbLinea onSumar;
   final VoidCallback onContinuar;
   final VoidCallback onBorrar;
@@ -496,21 +497,8 @@ class ComandaView extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.zero,
       title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
-      // Click sobre el precio = abrir edición de precio/costo.
-      subtitle: InkWell(
-        onTap: () => onEditarPrecio(l),
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(money(l.precio),
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            Icon(Icons.edit_outlined, size: 13,
-                color: Theme.of(context).colorScheme.primary),
-          ]),
-        ),
-      ),
+      // Click sobre el precio = edición INLINE en el mismo sitio (sin diálogo).
+      subtitle: _PrecioInline(linea: l, onCambiar: (v) => onCambiarPrecio(l, v)),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         // Disminuir
         IconButton(
@@ -589,6 +577,84 @@ class ComandaView extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Precio editable INLINE en la fila de la comanda: texto por defecto; al tocar
+/// se convierte en un TextField en el mismo sitio (sin diálogo flotante). Al
+/// confirmar (Enter) o perder el foco, aplica el nuevo precio y vuelve al texto.
+class _PrecioInline extends StatefulWidget {
+  const _PrecioInline({required this.linea, required this.onCambiar});
+
+  final Linea linea;
+  final ValueChanged<double> onCambiar;
+
+  @override
+  State<_PrecioInline> createState() => _PrecioInlineState();
+}
+
+class _PrecioInlineState extends State<_PrecioInline> {
+  bool _editando = false;
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: _fmt(widget.linea.precio));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _fmt(double v) {
+    // sin separadores para poder editarlo como número puro.
+    return v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+  }
+
+  void _aplicar() {
+    final v = double.tryParse(_ctrl.text.trim().replaceAll(',', '.'));
+    if (v != null && v >= 0) widget.onCambiar(v);
+    setState(() => _editando = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_editando) {
+      return SizedBox(
+        width: 110,
+        height: 30,
+        child: TextField(
+          controller: _ctrl,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            border: OutlineInputBorder(),
+            prefixText: '\$',
+          ),
+          onSubmitted: (_) => _aplicar(),
+          onTapOutside: (_) => _aplicar(),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => setState(() => _editando = true),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(
+          money(widget.linea.precio),
+          style: TextStyle(
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.underline,
+              decorationStyle: TextDecorationStyle.dotted,
+              color: Theme.of(context).colorScheme.primary),
         ),
       ),
     );
