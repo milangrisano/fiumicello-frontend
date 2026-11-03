@@ -986,14 +986,32 @@ class ApiClient {
   }
 
   static String _msg(String body) {
-    if (body.isEmpty) return 'Error.';
+    // Devuelve SIEMPRE un texto presentable: el `message` del JSON si existe,
+    // o un mensaje genérico. NUNCA el body crudo (JSON completo / HTML de nginx)
+    // que ensucia los snackbars y no significa nada para el usuario.
+    if (body == null || body.isEmpty) return 'Error.';
     try {
       final d = jsonDecode(body);
-      if (d is Map && d['message'] != null) return d['message'].toString();
-      return body;
+      if (d is Map<String, dynamic>) {
+        // message directo
+        final m = d['message'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+        // message anidado ({error: {message}, ...}) o {statusCode: 4xx}
+        if (m is Map && m['message'] is String) {
+          final s = (m['message'] as String).trim();
+          if (s.isNotEmpty) return s;
+        }
+        // error como string
+        final e = d['error'];
+        if (e is String && e.trim().isNotEmpty) return e.trim();
+      }
+      // si es un Map pero sin mensaje util, no volcar el body
+      if (d is Map) return 'No se pudo completar la operación.';
     } catch (_) {
-      return body;
+      // body no es JSON (HTML/404/etc.): mensaje genérico, nunca el crudo.
+      return 'No se pudo completar la operación.';
     }
+    return 'No se pudo completar la operación.';
   }
 
   // ===================== CAJA / TURNOS =====================
