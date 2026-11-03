@@ -103,7 +103,7 @@ class ComandaView extends StatelessWidget {
               if (items.isEmpty)
                 const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
               else
-                for (final l in items) _filaComanda(l),
+                for (final l in items) _filaComanda(context, l),
             ],
           ),
         );
@@ -279,7 +279,7 @@ class ComandaView extends StatelessWidget {
                     if (items.isEmpty)
                       const Text('Sin productos aún.', style: TextStyle(color: Colors.grey))
                     else
-                      for (final l in items) _filaComanda(l),
+                      for (final l in items) _filaComanda(context, l),
                     const Divider(),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -491,7 +491,7 @@ class ComandaView extends StatelessWidget {
     );
   }
 
-  Widget _filaComanda(Linea l) {
+  Widget _filaComanda(BuildContext context, Linea l) {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
