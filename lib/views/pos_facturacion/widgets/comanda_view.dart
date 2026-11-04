@@ -653,16 +653,28 @@ class _PrecioInlineState extends State<_PrecioInline> {
 /// las categorías (independiente de la categoría seleccionada). Al pulsar un
 /// resultado lo agrega a la comanda (onAgregar) y cierra el diálogo.
 class _BusquedaDialog extends StatefulWidget {
-  const _BusquedaDialog({super.key, required this.categorias, required this.onAgregar});
+  const _BusquedaDialog({required this.categorias, required this.onAgregar});
+
   final List<Map<String, dynamic>> categorias;
   final CbAgregar onAgregar;
 
-  late final TextEditingController _ctrl = TextEditingController();
+  @override
+  State<_BusquedaDialog> createState() => _BusquedaDialogState();
+}
+
+class _BusquedaDialogState extends State<_BusquedaDialog> {
+  late final TextEditingController _ctrl;
   String _filtro = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController();
+  }
 
   List<Map<String, dynamic>> _resultados() {
     final b = _filtro.toLowerCase();
-    return categorias
+    return widget.categorias
         .expand((c) => (c['items'] as List? ?? []).cast<Map<String, dynamic>>())
         .cast<Map<String, dynamic>>()
         .where((i) => b.isEmpty || (i['nombre'] ?? '').toString().toLowerCase().contains(b))
@@ -699,7 +711,7 @@ class _BusquedaDialog extends StatefulWidget {
                       title: Text(it['nombre'] ?? ''),
                       subtitle: Text(money(numVal(it['precio']))),
                       onTap: () {
-                        onAgregar(it, null);
+                        widget.onAgregar(it, null);
                         Navigator.pop(context, it);
                       },
                     ),
