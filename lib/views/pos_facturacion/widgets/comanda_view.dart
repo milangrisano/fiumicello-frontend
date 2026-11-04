@@ -78,12 +78,15 @@ class ComandaView extends StatelessWidget {
   /// abiertas, Domicilios, Para llevar, Cocina. Cada pestaña navega a la vista
   /// que hoy abre la card correspondiente del POS de facturación.
   Widget _barraPestanas(BuildContext context) {
-    final tabs = [
-      ('Nueva comanda', Icons.menu_book),
-      ('Mesas abiertas', Icons.restaurant),
-      ('Domicilios', Icons.local_shipping),
-      ('Para llevar', Icons.takeout_dining),
-      ('Cocina', Icons.kitchen),
+    // Lista plana [etiqueta, icono] por pestaña. SIN records ni for-index:
+    // el SDK de Flutter de este proyecto es viejo y no los compila.
+    final labels = <String>['Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina'];
+    final icons = <IconData>[
+      Icons.menu_book,
+      Icons.restaurant,
+      Icons.local_shipping,
+      Icons.takeout_dining,
+      Icons.kitchen,
     ];
     return Container(
       height: 44,
@@ -92,8 +95,8 @@ class ComandaView extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
-          for (final (i, t) in tabs.indexed)
-            _tabPestana(context, i, t.$1, t.$2),
+          for (var i = 0; i < labels.length; i++)
+            _tabPestana(context, i, labels[i], icons[i]),
         ],
       ),
     );
