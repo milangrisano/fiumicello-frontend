@@ -44,4 +44,5 @@ class Pantalla {
   static const int comandasTurno = 6;
   static const int itemsTurno = 7;
   static const int cocina = 8;
+  static const int paraLlevar = 9;
 }

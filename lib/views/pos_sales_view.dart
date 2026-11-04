@@ -51,6 +51,10 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   List<Map<String, dynamic>> _mesasAbiertas = [];
   List<Map<String, dynamic>> _pendientes = [];
+  // Pedidos de para llevar (abiertos + pagados pendientes de entrega).
+  List<Map<String, dynamic>> _paraLlevar = [];
+  // Pedidos de domicilio (abiertos + pagados pendientes de entrega).
+  List<Map<String, dynamic>> _domicilios = [];
 
   bool _loading = true;
   bool _cobrando = false;
@@ -106,10 +110,24 @@ class _PosSalesViewState extends State<PosSalesView> {
   Future<void> _refreshVivos() async {
     final m = await ApiClient.listarPedidos(estado: 'abierta', escenario: 'mesa');
     final p = await ApiClient.listarPedidos(estado: 'pagada_pendiente');
+    // Para llevar: abiertas + pagadas pendientes de entrega.
+    final plA = await ApiClient.listarPedidos(estado: 'abierta', escenario: 'para_llevar');
+    final plP = await ApiClient.listarPedidos(estado: 'pagada_pendiente', escenario: 'para_llevar');
+    // Domicilios: abiertas + pagadas pendientes de entrega.
+    final doA = await ApiClient.listarPedidos(estado: 'abierta', escenario: 'domicilio');
+    final doP = await ApiClient.listarPedidos(estado: 'pagada_pendiente', escenario: 'domicilio');
     if (!mounted) return;
     setState(() {
       _mesasAbiertas = m.ok ? m.list.cast<Map<String, dynamic>>() : [];
       _pendientes = p.ok ? p.list.cast<Map<String, dynamic>>() : [];
+      _paraLlevar = [
+        ...(plA.ok ? plA.list.cast<Map<String, dynamic>>() : []),
+        ...(plP.ok ? plP.list.cast<Map<String, dynamic>>() : []),
+      ];
+      _domicilios = [
+        ...(doA.ok ? doA.list.cast<Map<String, dynamic>>() : []),
+        ...(doP.ok ? doP.list.cast<Map<String, dynamic>>() : []),
+      ];
     });
   }
 
@@ -679,6 +697,49 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
+  /// Pestaña activa según la pantalla actual (índices de la barra de pestañas
+  /// de la vista comanda: 0 Nueva comanda, 1 Mesas, 2 Domicilios, 3 Para llevar, 4 Cocina).
+  int _pestanaActiva() {
+    switch (_pantalla) {
+      case Pantalla.mesas:
+        return 1;
+      case Pantalla.entregas:
+        return 2;
+      case Pantalla.paraLlevar:
+        return 3;
+      case Pantalla.cocina:
+        return 4;
+      default:
+        return 0; // comanda / inicio -> Nueva comanda
+    }
+  }
+
+  /// Navega a la vista correspondiente al pulsar una pestaña de la barra de la
+  /// vista comanda. Refresca los datos antes de mostrar la pantalla.
+  void _navegarPestana(int i) {
+    if (!mounted) return;
+    switch (i) {
+      case 0:
+        setState(() { _pantalla = Pantalla.comanda; _modoAgregarMesaId = null; });
+        return;
+      case 1:
+        setState(() => _pantalla = Pantalla.mesas);
+        _refreshVivos();
+        return;
+      case 2:
+        setState(() => _pantalla = Pantalla.entregas);
+        _refreshVivos();
+        return;
+      case 3:
+        setState(() => _pantalla = Pantalla.paraLlevar);
+        _refreshVivos();
+        return;
+      case 4:
+        setState(() => _pantalla = Pantalla.cocina);
+        return;
+    }
+  }
+
   /// Actualiza el título del AppBar según la pantalla del POS actual.
   void _pintarTitulo() {
     switch (_pantalla) {
@@ -689,7 +750,10 @@ class _PosSalesViewState extends State<PosSalesView> {
         AppTitulo.titulo.value = 'Mesas abiertas';
         return;
       case Pantalla.entregas:
-        AppTitulo.titulo.value = 'Pedidos por entregar';
+        AppTitulo.titulo.value = 'Domicilios';
+        return;
+      case Pantalla.paraLlevar:
+        AppTitulo.titulo.value = 'Para llevar';
         return;
       case Pantalla.cocina:
         AppTitulo.titulo.value = 'Cocina';
@@ -899,6 +963,8 @@ class _PosSalesViewState extends State<PosSalesView> {
         return _vistaMesas();
       case Pantalla.entregas:
         return _vistaEntregas();
+      case Pantalla.paraLlevar:
+        return _vistaParaLlevar();
       default:
         return _vistaInicio();
     }
@@ -922,11 +988,16 @@ class _PosSalesViewState extends State<PosSalesView> {
         if (_mesasAbiertas.isEmpty) { _snack('No hay mesas abiertas en este momento.'); return; }
         setState(() => _pantalla = Pantalla.mesas);
       }),
-      _inicioCard('Pedidos por entregar (${_pendientes.length})', Icons.motorcycle, () async {
+      _inicioCard('Domicilios (${_domicilios.length})', Icons.local_shipping, () async {
         await _refreshVivos();
         if (!mounted) return;
-        if (_pendientes.isEmpty) { _snack('No hay pedidos pendientes de entrega.'); return; }
+        if (_domicilios.isEmpty) { _snack('No hay domicilios pendientes.'); return; }
         setState(() => _pantalla = Pantalla.entregas);
+      }),
+      _inicioCard('Para llevar (${_paraLlevar.length})', Icons.takeout_dining, () async {
+        await _refreshVivos();
+        if (!mounted) return;
+        setState(() => _pantalla = Pantalla.paraLlevar);
       }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
       _inicioCard('Cocina', Icons.kitchen, () => setState(() => _pantalla = Pantalla.cocina)),
@@ -1052,6 +1123,8 @@ class _PosSalesViewState extends State<PosSalesView> {
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
       turnoAbierto: _turno != null,
       onCerrarTurno: () => _cerrarTurno(),
+      pestanaActiva: _pestanaActiva(),
+      onPestana: (i) => _navegarPestana(i),
       onAgregarMesa: (m) async {
         // Opción C: volver a tocar el tab de la mesa activa = comanda nueva vacía;
         // tocar otra mesa = cargar sus productos en modo "agregar".
@@ -1249,7 +1322,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
-  // ---------- Pedidos por entregar ----------
+  // ---------- Domicilios (antes "Pedidos por entregar") ----------
   Widget _vistaEntregas() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1257,60 +1330,115 @@ class _PosSalesViewState extends State<PosSalesView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
-          Text('Pedidos por entregar (${_pendientes.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
-          IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
-        ]),
+            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
+            Text('Domicilios (${_domicilios.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+            IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
+          ]),
         const SizedBox(height: 8),
-        if (_pendientes.isEmpty)
-          const Padding(padding: EdgeInsets.all(16), child: Text('No hay pedidos pendientes de entrega.', style: TextStyle(color: Colors.grey))),
-        for (final p in _pendientes) _pendienteCard(p),
+        if (_domicilios.isEmpty)
+          const Padding(padding: EdgeInsets.all(16), child: Text('No hay domicilios.', style: TextStyle(color: Colors.grey))),
+        for (final p in _domicilios) _pendienteCard(p),
       ]),
     );
   }
 
-  Widget _pendienteCard(Map<String, dynamic> p) {
+  // ---------- Para llevar (pestaña de la comanda) ----------
+  // Fondo completo por estado de pago: TURQUESA = pagada (pagada_pendiente),
+  // TERRACOTA = por pagar (abierta). Así se distingue de un vistazo.
+  Widget _vistaParaLlevar() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Para llevar (${_paraLlevar.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+          IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
+        ]),
+        const SizedBox(height: 4),
+        Row(children: const [
+          _LeyendaColor(color: Color(0xFF26A69A), label: 'Pagada'),
+          SizedBox(width: 16),
+          _LeyendaColor(color: Color(0xFFD2691E), label: 'Por pagar'),
+        ]),
+        const SizedBox(height: 10),
+        if (_paraLlevar.isEmpty)
+          const Padding(padding: EdgeInsets.all(16), child: Text('No hay pedidos para llevar.', style: TextStyle(color: Colors.grey))),
+        for (final p in _paraLlevar) _pendienteCard(p, paraLlevar: true),
+      ]),
+    );
+  }
+
+  /// Tarjeta de pedido (domicilio o para llevar). En para llevar el FONDO
+  /// completo marca el estado: turquesa pagada / terracota por pagar. Botones
+  /// contextuales: cobrar (si abierta) o marcar entregado (si pagada).
+  Widget _pendienteCard(Map<String, dynamic> p, {bool paraLlevar = false}) {
     final esDomicilio = p['escenario'] == 'domicilio';
+    final estado = (p['estado'] ?? '').toString();
+    final pagada = estado == 'pagada_pendiente';
     final nombre = (p['cliente_nombre'] ?? p['numero_mesa'] ?? '').toString();
     final transcurrido = _tiempoTranscurrido((p['hora_pedido'] ?? '').toString());
-    final tint = esDomicilio ? Colors.orange : Colors.green;
+    Color fondo; Color borde; Color texto;
+    if (paraLlevar) {
+      // Fondo completo por estado de pago.
+      fondo = pagada ? const Color(0xFFD6F2EE) /* turquesa claro */ : const Color(0xFFF6E0CD) /* terracota claro */;
+      borde = pagada ? const Color(0xFF26A69A) : const Color(0xFFD2691E);
+      texto = Colors.black87;
+    } else {
+      fondo = esDomicilio ? Colors.orange.shade100 : Colors.green.shade100;
+      borde = esDomicilio ? Colors.orange.shade400 : Colors.green.shade400;
+      texto = Colors.black87;
+    }
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: tint.shade100,
-        border: Border.all(color: tint.shade400),
+        color: fondo,
+        border: Border.all(color: borde),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            appIcon(esDomicilio ? Icons.motorcycle : Icons.takeout_dining, size: 22),
+            appIcon(esDomicilio ? Icons.local_shipping : Icons.takeout_dining, size: 22),
             const SizedBox(width: 8),
-            Flexible(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: const TextStyle(fontWeight: FontWeight.bold))),
+            Flexible(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: const TextStyle(fontWeight: FontWeight.bold, color: texto))),
             const SizedBox(width: 8),
-            Text(transcurrido, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            Text(transcurrido, style: const TextStyle(fontWeight: FontWeight.bold, color: texto)),
+            const SizedBox(width: 8),
+            // Badge de estado
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: borde, borderRadius: BorderRadius.circular(10)),
+              child: Text(pagada ? 'PAGADA' : 'POR PAGAR', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+            ),
           ],
         ),
         const SizedBox(height: 2),
-        Text('Cliente: $nombre', style: const TextStyle(fontWeight: FontWeight.w600)),
-        if (p['direccion'] != null) Text('Dirección: ${p['direccion']}', style: const TextStyle(fontSize: 13)),
-        Text('Total: ${money(numVal(p['total']))}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text('Cliente: $nombre', style: const TextStyle(fontWeight: FontWeight.w600, color: texto)),
+        if (p['direccion'] != null) Text('Dirección: ${p['direccion']}', style: const TextStyle(fontSize: 13, color: texto)),
+        Text('Total: ${money(numVal(p['total']))}', style: const TextStyle(fontWeight: FontWeight.w600, color: texto)),
         if (p['numero_factura'] != null) Text('Factura: ${p['numero_factura']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 6),
-        FilledButton.icon(
-          onPressed: () async {
-            final ok = await _dialogConfirm('¿Marcar como entregado?');
-            if (ok == true) {
-              final r = await ApiClient.entregarPedido(p['id'] as int);
-              _snack(r.message);
-              await _refreshVivos();
-            }
-          },
-          icon: const Icon(Icons.check),
-          label: const Text('Marcar entregado'),
-        ),
+        // Botón contextual: cobrar si abierta (por pagar), entregar si pagada.
+        if (!pagada)
+          FilledButton.icon(
+            onPressed: () async => _dialogPagarPedido(p['id'] as int, montoMostrar: numVal(p['total'])),
+            icon: const Icon(Icons.payments_outlined),
+            label: const Text('Cobrar'),
+          )
+        else
+          FilledButton.icon(
+            onPressed: () async {
+              final ok = await _dialogConfirm('¿Marcar como entregado?');
+              if (ok == true) {
+                final r = await ApiClient.entregarPedido(p['id'] as int);
+                _snack(r.message);
+                await _refreshVivos();
+              }
+            },
+            icon: const Icon(Icons.check),
+            label: const Text('Marcar entregado'),
+          ),
       ]),
     );
   }
@@ -1361,5 +1489,22 @@ class _PosSalesViewState extends State<PosSalesView> {
       _snack(r.message);
       await _load();
     }
+  }
+}
+
+/// Pequeña leyenda (círculo + label) para el código de color de la vista de
+/// para llevar (turquesa = pagada, terracota = por pagar).
+class _LeyendaColor extends StatelessWidget {
+  const _LeyendaColor({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 6),
+      Text(label, style: const TextStyle(fontSize: 12)),
+    ]);
   }
 }

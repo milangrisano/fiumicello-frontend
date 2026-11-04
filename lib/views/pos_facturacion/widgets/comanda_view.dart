@@ -41,6 +41,8 @@ class ComandaView extends StatelessWidget {
     required this.onAgregarMesa,
     required this.turnoAbierto,
     this.onCerrarTurno,
+    this.pestanaActiva = 0,
+    this.onPestana,
   });
 
   final List<Linea> items;
@@ -66,6 +68,66 @@ class ComandaView extends StatelessWidget {
   final CbAgregarMesa onAgregarMesa;
   final bool turnoAbierto;
   final VoidCallback? onCerrarTurno;
+  /// Pestaña activa (0=Nueva comanda, 1=Mesas, 2=Domicilios, 3=Para llevar, 4=Cocina).
+  final int pestanaActiva;
+  /// Callback al pulsar una pestaña (recibe el índice de la pestaña). null si
+  /// el widget no gestiona pestañas (estaduales).
+  final ValueChanged<int>? onPestana;
+
+  /// Barra de pestañas superior (sobre el buscador): Nueva comanda, Mesas
+  /// abiertas, Domicilios, Para llevar, Cocina. Cada pestaña navega a la vista
+  /// que hoy abre la card correspondiente del POS de facturación.
+  Widget _barraPestanas(BuildContext context) {
+    final tabs = [
+      ('Nueva comanda', Icons.menu_book),
+      ('Mesas abiertas', Icons.restaurant),
+      ('Domicilios', Icons.local_shipping),
+      ('Para llevar', Icons.takeout_dining),
+      ('Cocina', Icons.kitchen),
+    ];
+    return Container(
+      height: 44,
+      color: Theme.of(context).colorScheme.surface,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: [
+          for (final (i, t) in tabs.indexed)
+            _tabPestana(context, i, t.$1, t.$2),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabPestana(BuildContext context, int i, String label, IconData icon) {
+    final scheme = Theme.of(context).colorScheme;
+    final activa = pestanaActiva == i;
+    final color = activa ? scheme.primary : scheme.onSurfaceVariant;
+    return InkWell(
+      onTap: () => onPestana?.call(i),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: activa ? scheme.primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: activa ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ]),
+      ),
+    );
+  }
 
   List<Map<String, dynamic>> _itemsDeCategoriaSel() {
     final b = busqueda.toLowerCase();
@@ -187,7 +249,8 @@ class ComandaView extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(height: 8),
+              _barraPestanas(context),
+              const Divider(height: 1),
               // Flexible vertical: acota el alto del área a lo disponible en el
               // viewport. El cuerpo (SingleChildScrollView) scrollea SOLO cuando
               // el grid de productos excede ese alto; si cabe, no hay scroll.
@@ -258,6 +321,8 @@ class ComandaView extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _barraPestanas(context),
+            const Divider(height: 1),
             cabeceraMovil,
             chipsFijos,
             SizedBox(height: gap / 2),
