@@ -211,32 +211,14 @@ class ComandaView extends StatelessWidget {
             ],
           );
         }
-        // Móvil/tablet: cabecera fija (flecha + buscador reducido) + chips fijos en
-        // doble línea, fuera del scroll. Abajo: scroll con productos (3 cols) +
-        // comanda + total + botón. Sin "Nueva comanda".
-        final cabeceraMovil = Padding(
-          padding: EdgeInsets.fromLTRB(borde, 4, borde, 0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              IconButton(icon: const Icon(Icons.arrow_back), onPressed: onVolver),
-              SizedBox(width: 4),
-              // El buscador ocupa TODO el espacio sobrante (Flexible).
-              Flexible(
-                child: TextField(
-                  onChanged: onBuscar,
-                  decoration: const InputDecoration(hintText: 'Buscar…', prefixIcon: Icon(Icons.search), isDense: true, border: InputBorder.none),
-                ),
-              ),
-            ],
-          ),
-        );
-        // Chips: espacio HORIZONTAL entre ellos (6), sin espacio VERTICAL (runSpacing 0).
+        // Móvil/tablet: chips fijos en doble línea, fuera del scroll. La búsqueda
+        // se hace desde el icono al final de las chips (ventana flotante).
         final chipsFijos = Padding(
           padding: EdgeInsets.fromLTRB(borde, 0, borde, 0),
           child: Wrap(
             spacing: 6,
             runSpacing: 0,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ChoiceChip(
                 label: const Text('Todos', style: TextStyle(fontSize: 12)),
@@ -251,13 +233,19 @@ class ComandaView extends StatelessWidget {
                   shape: const StadiumBorder(),
                   onSelected: (_) => onCategoria(c['id'] as int?),
                 ),
+              // Icono de búsqueda al final de las chips: abre la ventana flotante.
+              IconButton(
+                tooltip: 'Buscar producto',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.search),
+                onPressed: () => _abrirBusqueda(context),
+              ),
             ],
           ),
         );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            cabeceraMovil,
             chipsFijos,
             SizedBox(height: gap / 2),
             Flexible(
@@ -356,25 +344,6 @@ class ComandaView extends StatelessWidget {
     // En móvil el buscador y los chips ya van en la cabecera fija; aquí solo productos.
     if (movil) return content;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: EdgeInsets.fromLTRB(0, 0, 0, gap),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: 'Volver',
-              onPressed: onVolver,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: TextField(
-                onChanged: onBuscar,
-                decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: InputBorder.none),
-              ),
-            ),
-          ],
-        ),
-      ),
       SizedBox(
         height: 46,
         child: ListView(
@@ -395,6 +364,16 @@ class ComandaView extends StatelessWidget {
                 selected: categoriaSel == (c['id'] as int?),
                 onSelected: (_) => onCategoria(c['id'] as int?),
               )),
+            // Icono de búsqueda al final de las chips: abre la ventana flotante.
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                tooltip: 'Buscar producto',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.search),
+                onPressed: () => _abrirBusqueda(context),
+              ),
+            ),
           ],
         ),
       ),
@@ -523,6 +502,15 @@ class ComandaView extends StatelessWidget {
           onPressed: () => onQuitar(l),
         ),
       ]),
+    );
+  }
+
+  /// Icono de búsqueda activado -> ventana flotante para buscar y agregar
+  /// productos desde TODAS las categorías (no solo la seleccionada).
+  void _abrirBusqueda(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _BusquedaDialog(categorias: categorias, onAgregar: onAgregar),
     );
   }
 
@@ -655,6 +643,68 @@ class _PrecioInlineState extends State<_PrecioInline> {
               decorationStyle: TextDecorationStyle.dotted,
               color: Theme.of(context).colorScheme.primary),
         ),
+      ),
+    );
+  }
+}
+
+/// Diálogo de búsqueda de producto (icono lupa al final de las chips de
+/// categoría). Estado propio: campo de texto + resultados filtrados de TODAS
+/// las categorías (independiente de la categoría seleccionada). Al pulsar un
+/// resultado lo agrega a la comanda (onAgregar) y cierra el diálogo.
+class _BusquedaDialog extends StatefulWidget {
+  const _BusquedaDialog({super.key, required this.categorias, required this.onAgregar});
+  final List<Map<String, dynamic>> categorias;
+  final CbAgregar onAgregar;
+
+  late final TextEditingController _ctrl = TextEditingController();
+  String _filtro = '';
+
+  List<Map<String, dynamic>> _resultados() {
+    final b = _filtro.toLowerCase();
+    return categorias
+        .expand((c) => (c['items'] as List? ?? []).cast<Map<String, dynamic>>())
+        .cast<Map<String, dynamic>>()
+        .where((i) => b.isEmpty || (i['nombre'] ?? '').toString().toLowerCase().contains(b))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resultados = _resultados();
+    return AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.search, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            onChanged: (v) => setState(() => _filtro = v),
+            autofocus: true,
+            hintText: 'Buscar producto…',
+            decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+          ),
+        ),
+      ]),
+      content: SizedBox(
+        width: 460,
+        height: 380,
+        child: resultados.isEmpty
+            ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Sin resultados.', style: TextStyle(color: Colors.grey))))
+            : ListView(
+                children: [
+                  for (final it in resultados)
+                    ListTile(
+                      leading: const Icon(Icons.shopping_cart, size: 20),
+                      title: Text(it['nombre'] ?? ''),
+                      subtitle: Text(money(numVal(it['precio']))),
+                      onTap: () {
+                        onAgregar(it, null);
+                        Navigator.pop(context, it);
+                      },
+                    ),
+                ],
+              ),
       ),
     );
   }

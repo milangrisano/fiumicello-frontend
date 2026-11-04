@@ -1047,25 +1047,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     // quedan flotando en espacio extra.
     final cards = <Widget>[
       _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; })),
-      _inicioCard('Mesas abiertas (${_mesasAbiertas.length})', Icons.restaurant, () async {
-        await _refreshVivos();
-        if (!mounted) return;
-        if (_mesasAbiertas.isEmpty) { _snack('No hay mesas abiertas en este momento.'); return; }
-        setState(() => _pantalla = Pantalla.mesas);
-      }),
-      _inicioCard('Domicilios (${_domicilios.length})', Icons.local_shipping, () async {
-        await _refreshVivos();
-        if (!mounted) return;
-        if (_domicilios.isEmpty) { _snack('No hay domicilios pendientes.'); return; }
-        setState(() => _pantalla = Pantalla.entregas);
-      }),
-      _inicioCard('Para llevar (${_paraLlevar.length})', Icons.takeout_dining, () async {
-        await _refreshVivos();
-        if (!mounted) return;
-        setState(() => _pantalla = Pantalla.paraLlevar);
-      }),
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
-      _inicioCard('Cocina', Icons.kitchen, () => setState(() => _pantalla = Pantalla.cocina)),
       _inicioCard('Movimientos de caja', Icons.swap_horiz, () {
         if (_turno == null) { _dialogAbrirCaja(); return; }
         _movimientosCaja();
