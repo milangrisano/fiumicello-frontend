@@ -709,10 +709,32 @@ class _BusquedaDialogState extends State<_BusquedaDialog> {
                     ListTile(
                       leading: const Icon(Icons.shopping_cart, size: 20),
                       title: Text(it['nombre'] ?? ''),
-                      subtitle: Text(money(numVal(it['precio']))),
+                      // Con tamaños el precio base es null -> mostrar Personal como
+                      // referencia (como hace la tarjeta). Sin tamaños, el precio.
+                      subtitle: Text(it['precio_personal'] != null
+                          ? 'Personal · ${money(numVal(it['precio_personal']))}'
+                          : money(numVal(it['precio']))),
                       onTap: () {
-                        widget.onAgregar(it, null);
-                        Navigator.pop(context, it);
+                        // Misma lógica que la tarjeta: con tamaños pide elegir
+                        // tamaño; sin tamaños agrega directo.
+                        if (it['precio_personal'] != null) {
+                          showDialog<void>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(it['nombre'] ?? ''),
+                              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                                FilledButton(onPressed: () { Navigator.pop(ctx); widget.onAgregar(it, 'personal'); }, child: Text('Personal · ${money(numVal(it['precio_personal']))}')),
+                                const SizedBox(height: 6),
+                                FilledButton(onPressed: () { Navigator.pop(ctx); widget.onAgregar(it, 'mediana'); }, child: Text('Mediana · ${money(numVal(it['precio_mediana']))}')),
+                                const SizedBox(height: 6),
+                                FilledButton(onPressed: () { Navigator.pop(ctx); widget.onAgregar(it, 'grande'); }, child: Text('Grande · ${money(numVal(it['precio_grande']))}')),
+                              ]),
+                            ),
+                          );
+                        } else {
+                          widget.onAgregar(it, null);
+                          Navigator.pop(context, it);
+                        }
                       },
                     ),
                 ],

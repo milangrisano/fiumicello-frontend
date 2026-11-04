@@ -814,13 +814,13 @@ class _PosSalesViewState extends State<PosSalesView> {
         AppTitulo.titulo.value = 'Nueva comanda';
         return;
       case Pantalla.mesas:
-        AppTitulo.titulo.value = 'Mesas abiertas';
+        AppTitulo.titulo.value = 'Mesas abiertas (${_mesasAbiertas.length})';
         return;
       case Pantalla.entregas:
-        AppTitulo.titulo.value = 'Domicilios';
+        AppTitulo.titulo.value = 'Domicilios (${_domicilios.length})';
         return;
       case Pantalla.paraLlevar:
-        AppTitulo.titulo.value = 'Para llevar';
+        AppTitulo.titulo.value = 'Para llevar (${_paraLlevar.length})';
         return;
       case Pantalla.cocina:
         AppTitulo.titulo.value = 'Cocina';
@@ -1208,13 +1208,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-          IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
-          Text('Mesas abiertas (${_mesasAbiertas.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 8),
         if (_mesasAbiertas.isEmpty)
           const Padding(padding: EdgeInsets.all(16), child: Text('No hay mesas abiertas.', style: TextStyle(color: Colors.grey))),
         for (final m in _mesasAbiertas) _mesaCard(m),
@@ -1373,10 +1366,8 @@ class _PosSalesViewState extends State<PosSalesView> {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _pantalla = Pantalla.inicio)),
-            Text('Domicilios (${_domicilios.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
             IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
           ]),
         const SizedBox(height: 8),
@@ -1394,8 +1385,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Para llevar (${_paraLlevar.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
         ]),
         const SizedBox(height: 4),
