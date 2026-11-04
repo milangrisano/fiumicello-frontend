@@ -1401,9 +1401,9 @@ class _PosSalesViewState extends State<PosSalesView> {
           children: [
             appIcon(esDomicilio ? Icons.local_shipping : Icons.takeout_dining, size: 22),
             const SizedBox(width: 8),
-            Flexible(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: const TextStyle(fontWeight: FontWeight.bold, color: texto))),
+            Flexible(child: Text(esDomicilio ? 'Domicilio' : 'Para llevar', style: TextStyle(fontWeight: FontWeight.bold, color: texto))),
             const SizedBox(width: 8),
-            Text(transcurrido, style: const TextStyle(fontWeight: FontWeight.bold, color: texto)),
+            Text(transcurrido, style: TextStyle(fontWeight: FontWeight.bold, color: texto)),
             const SizedBox(width: 8),
             // Badge de estado
             Container(
@@ -1414,9 +1414,9 @@ class _PosSalesViewState extends State<PosSalesView> {
           ],
         ),
         const SizedBox(height: 2),
-        Text('Cliente: $nombre', style: const TextStyle(fontWeight: FontWeight.w600, color: texto)),
-        if (p['direccion'] != null) Text('Dirección: ${p['direccion']}', style: const TextStyle(fontSize: 13, color: texto)),
-        Text('Total: ${money(numVal(p['total']))}', style: const TextStyle(fontWeight: FontWeight.w600, color: texto)),
+        Text('Cliente: $nombre', style: TextStyle(fontWeight: FontWeight.w600, color: texto)),
+        if (p['direccion'] != null) Text('Dirección: ${p['direccion']}', style: TextStyle(fontSize: 13, color: texto)),
+        Text('Total: ${money(numVal(p['total']))}', style: TextStyle(fontWeight: FontWeight.w600, color: texto)),
         if (p['numero_factura'] != null) Text('Factura: ${p['numero_factura']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 6),
         // Botón contextual: cobrar si abierta (por pagar), entregar si pagada.
