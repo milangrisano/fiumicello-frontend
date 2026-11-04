@@ -715,16 +715,22 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   /// Barra de pestañas visible en TODAS las vistas del POS (Nueva comanda,
-  /// Mesas, Domicilios, Para llevar, Cocina) para moverse entre ellas.
+  /// Mesas, Domicilios, Para llevar, Cocina, Movimientos de caja, Pago de
+  /// propinas) para moverse entre ellas o abrir esas vistas.
   /// SIN records ni for-index: el SDK de Flutter de este proyecto es viejo.
   Widget _barraPestanas() {
-    final labels = <String>['Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina'];
+    final labels = <String>[
+      'Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina',
+      'Movimientos de caja', 'Pago de propinas',
+    ];
     final icons = <IconData>[
       Icons.menu_book,
       Icons.restaurant,
       Icons.local_shipping,
       Icons.takeout_dining,
       Icons.kitchen,
+      Icons.swap_horiz,
+      Icons.redeem,
     ];
     final scheme = Theme.of(context).colorScheme;
     final activa = _pestanaActiva();
@@ -803,6 +809,15 @@ class _PosSalesViewState extends State<PosSalesView> {
         return;
       case 4:
         setState(() => _pantalla = Pantalla.cocina);
+        return;
+      case 5: // Movimientos de caja (requiere turno abierto)
+        if (_turno == null) { _dialogAbrirCaja(); return; }
+        _movimientosCaja();
+        return;
+      case 6: // Pago de propinas
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PagoPropinaView()),
+        );
         return;
     }
   }
