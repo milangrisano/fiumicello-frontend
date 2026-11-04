@@ -704,33 +704,41 @@ class _BusquedaDialogState extends State<_BusquedaDialog> {
         child: resultados.isEmpty
             ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Sin resultados.', style: TextStyle(color: Colors.grey))))
             : ListView(
-                children: [
-                  for (final it in resultados)
-                    if (it['precio_personal'] != null) ...[
-                      // Producto con tamaños: una fila por opción disponible,
-                      // para elegir la talla directo desde el buscador.
-                      if (it['precio_personal'] != null) _opcionTamano(it, 'Personal', it['precio_personal']),
-                      if (it['precio_mediana'] != null) _opcionTamano(it, 'Mediana', it['precio_mediana']),
-                      if (it['precio_grande'] != null) _opcionTamano(it, 'Grande', it['precio_grande']),
-                    ]
-                    else
-                      ListTile(
-                        leading: const Icon(Icons.shopping_cart, size: 20),
-                        title: Text(it['nombre'] ?? ''),
-                        subtitle: Text(money(numVal(it['precio']))),
-                        onTap: () {
-                          widget.onAgregar(it, null);
-                          Navigator.pop(context, it);
-                        },
-                      ),
-                ],
+                children: _filasBusqueda(resultados, context),
+              ),
         ),
     );
   }
 
+  /// Construye la lista plana de filas del buscador: por cada producto sin
+  /// tamaños una fila; por cada producto con tamaños, una fila POR TALLA
+  /// (Personal/Mediana/Grande) para elegir directo. Evita el collection-if
+  /// combinado con spread+else que este SDK Flutter no parsea.
+  List<Widget> _filasBusqueda(List<Map<String, dynamic>> resultados, BuildContext context) {
+    final filas = <Widget>[];
+    for (final it in resultados) {
+      if (it['precio_personal'] != null) {
+        if (it['precio_personal'] != null) filas.add(_opcionTamano(it, 'Personal', it['precio_personal'], context));
+        if (it['precio_mediana'] != null) filas.add(_opcionTamano(it, 'Mediana', it['precio_mediana'], context));
+        if (it['precio_grande'] != null) filas.add(_opcionTamano(it, 'Grande', it['precio_grande'], context));
+      } else {
+        filas.add(ListTile(
+          leading: const Icon(Icons.shopping_cart, size: 20),
+          title: Text(it['nombre'] ?? ''),
+          subtitle: Text(money(numVal(it['precio']))),
+          onTap: () {
+            widget.onAgregar(it, null);
+            Navigator.pop(context, it);
+          },
+        ));
+      }
+    }
+    return filas;
+  }
+
   /// Una fila de tamaño del buscador: nombre + talla + precio; al tocarla
   /// agrega ese tamaño a la comanda y cierra el diálogo.
-  Widget _opcionTamano(Map<String, dynamic> it, String talla, dynamic precio) {
+  Widget _opcionTamano(Map<String, dynamic> it, String talla, dynamic precio, BuildContext context) {
     return ListTile(
       leading: const Icon(Icons.shopping_cart, size: 20),
       title: Text(it['nombre'] ?? ''),
