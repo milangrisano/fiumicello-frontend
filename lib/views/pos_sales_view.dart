@@ -1382,19 +1382,12 @@ class _PosSalesViewState extends State<PosSalesView> {
   // Fondo completo por estado de pago: TURQUESA = pagada (pagada_pendiente),
   // TERRACOTA = por pagar (abierta). Así se distingue de un vistazo.
   Widget _vistaParaLlevar() {
+    // Sin fila de leyenda ni icono de actualizar: hay túnel de tiempo real
+    // (comanda:nueva -> _refreshVivos) y el estado PAGADA/POR PAGAR ya lo marca
+    // el badge de cada tarjeta.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          IconButton(tooltip: 'Actualizar', icon: const Icon(Icons.refresh), onPressed: () async { await _refreshVivos(); }),
-        ]),
-        const SizedBox(height: 4),
-        Row(children: const [
-          _LeyendaColor(color: Color(0xFF26A69A), label: 'Pagada'),
-          SizedBox(width: 16),
-          _LeyendaColor(color: Color(0xFFD2691E), label: 'Por pagar'),
-        ]),
-        const SizedBox(height: 10),
         if (_paraLlevar.isEmpty)
           const Padding(padding: EdgeInsets.all(16), child: Text('No hay pedidos para llevar.', style: TextStyle(color: Colors.grey))),
         for (final p in _paraLlevar) _pendienteCard(p, paraLlevar: true),
@@ -1524,22 +1517,5 @@ class _PosSalesViewState extends State<PosSalesView> {
       _snack(r.message);
       await _load();
     }
-  }
-}
-
-/// Pequeña leyenda (círculo + label) para el código de color de la vista de
-/// para llevar (turquesa = pagada, terracota = por pagar).
-class _LeyendaColor extends StatelessWidget {
-  const _LeyendaColor({required this.color, required this.label});
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(fontSize: 12)),
-    ]);
   }
 }
