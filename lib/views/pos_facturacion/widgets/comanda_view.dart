@@ -219,7 +219,7 @@ class ComandaView extends StatelessWidget {
           child: Wrap(
             spacing: 6,
             runSpacing: 0,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ChoiceChip(
                 label: const Text('Todos', style: TextStyle(fontSize: 12)),
@@ -694,8 +694,7 @@ class _BusquedaDialogState extends State<_BusquedaDialog> {
             controller: _ctrl,
             onChanged: (v) => setState(() => _filtro = v),
             autofocus: true,
-            hintText: 'Buscar producto…',
-            decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+            decoration: const InputDecoration(isDense: true, border: OutlineInputBorder(), hintText: 'Buscar producto…'),
           ),
         ),
       ]),
