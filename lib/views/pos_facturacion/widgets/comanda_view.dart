@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_themes.dart';
 import '../../../core/utils/formatters.dart';
 import '../pos_models.dart';
+import '../pos_utils.dart';
 
 typedef void CbAgregar(Map<String, dynamic> item, String? tamanio);
 typedef void CbBuscar(String v);
