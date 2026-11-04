@@ -122,6 +122,16 @@ class _CierreCajaViewState extends State<CierreCajaView> {
             _fila('Propina en efectivo (sale)', '- ${money(_num(a['propinaEfectivo']))}'),
             _fila('Egresos', '- ${money(_num(a['egresos']))}'),
             _fila('Ingresos', '+ ${money(_num(a['ingresos']))}'),
+            const SizedBox(height: 4),
+            // Registro de retiro/ingreso de caja desde la propia ventana de cierre.
+            OutlinedButton.icon(
+              onPressed: () async {
+                final ok = await _dialogMovimiento();
+                if (ok == true) await _load(); // recargar arqueo: actualiza egresos/ingresos
+              },
+              icon: const Icon(Icons.swap_horiz, size: 18),
+              label: const Text('Registrar retiro / ingreso de caja'),
+            ),
             const Divider(),
             _fila('Efectivo teórico esperado', money(_num(a['efectivoTeorico'])), bold: true),
             const SizedBox(height: 12),
@@ -169,6 +179,90 @@ class _CierreCajaViewState extends State<CierreCajaView> {
         ],
       ),
     );
+  }
+
+  /// Diálogo para registrar un movimiento de caja (retiro/egreso o ingreso)
+  /// desde la ventana de cierre. El egreso no exige autorización; el ingreso
+  /// exige seleccionar un autorizador (admin/encargado), como en movimientos.
+  Future<bool?> _dialogMovimiento() async {
+    String tipo = 'egreso';
+    final concepto = TextEditingController();
+    final monto = TextEditingController();
+    List<Map<String, dynamic>> autorizadores = [];
+    int? autorizadoPor;
+    final cargarAutorizadores = await ApiClient.listarUsuarios();
+    if (cargarAutorizadores.ok) {
+      autorizadores = cargarAutorizadores.list
+          .cast<Map<String, dynamic>>()
+          .where((x) => ['admin', 'encargado', 'superadmin'].contains('${x['rol']}'))
+          .toList();
+    }
+    final guardar = StatefulBuilder(
+      builder: (ctx, setDlg) {
+        return AlertDialog(
+          title: const Text('Registrar movimiento de caja'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'egreso', label: Text('Retiro (egreso)')),
+                  ButtonSegment(value: 'ingreso', label: Text('Ingreso')),
+                ],
+                selected: {tipo},
+                onSelectionChanged: (s) => setDlg(() => tipo = s.first),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: concepto,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Concepto', hintText: 'Ej. Retiro para insumos'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: monto,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Monto', prefixText: r'$'),
+              ),
+              if (tipo == 'ingreso') ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int?>(
+                  initialValue: autorizadoPor,
+                  items: autorizadores
+                      .map<DropdownMenuItem<int>>((a) => DropdownMenuItem(value: a['id'] as int, child: Text('${a['rol']} (${a['email']})')))
+                      .toList(),
+                  onChanged: (v) => setDlg(() => autorizadoPor = v),
+                  decoration: const InputDecoration(labelText: 'Autorizado por'),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () async {
+                final m = double.tryParse(monto.text.replaceAll(',', '.')) ?? 0;
+                if (concepto.text.trim().isEmpty) { _snack('Describa el concepto.'); return; }
+                if (m <= 0) { _snack('Ingrese un monto válido.'); return; }
+                if (tipo == 'ingreso' && autorizadoPor == null) { _snack('Seleccione quién autoriza el ingreso.'); return; }
+                Navigator.pop(ctx, true);
+                final r = tipo == 'egreso'
+                    ? await ApiClient.cajaEgreso(widget.turno['id'] as int, concepto.text.trim(), m)
+                    : await ApiClient.cajaIngreso(widget.turno['id'] as int, concepto.text.trim(), m, autorizadoPor!);
+                if (r.ok) {
+                  _snack('Movimiento registrado.');
+                } else {
+                  _snack(r.message);
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+    return showDialog<bool?>(context: context, builder: (_) => guardar);
   }
 
   Widget _fila(String label, String valor, {bool bold = false}) => Padding(
