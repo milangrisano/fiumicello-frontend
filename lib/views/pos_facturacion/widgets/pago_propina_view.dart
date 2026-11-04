@@ -4,7 +4,10 @@ import '../../../core/utils/formatters.dart';
 
 /// Registro del pago/entrega de propinas a los trabajadores (por día).
 class PagoPropinaView extends StatefulWidget {
-  const PagoPropinaView({super.key});
+  /// Si está embebida dentro del POS (pestaña), omite su propio Scaffold/AppBar
+  /// para no duplicar la barra superior que ya aporta el shell del POS.
+  final bool embebido;
+  const PagoPropinaView({super.key, this.embebido = false});
 
   @override
   State<PagoPropinaView> createState() => _PagoPropinaViewState();
@@ -72,9 +75,7 @@ class _PagoPropinaViewState extends State<PagoPropinaView> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
-    return Scaffold(
-      appBar: AppBar(title: const Text('Pago de propinas')),
-      body: SingleChildScrollView(
+    final cuerpo = SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +117,11 @@ class _PagoPropinaViewState extends State<PagoPropinaView> {
                 ))),
           ],
         ),
-      ),
+      );
+    if (widget.embebido) return cuerpo;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Pago de propinas')),
+      body: cuerpo,
     );
   }
 }

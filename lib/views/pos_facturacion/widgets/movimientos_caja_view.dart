@@ -7,7 +7,10 @@ import '../../../core/utils/formatters.dart';
 /// - Ingreso: devolución u otro (requiere autorizador admin/encargado).
 class MovimientosCajaView extends StatefulWidget {
   final Map<String, dynamic> turno;
-  const MovimientosCajaView({super.key, required this.turno});
+  /// Si está embebida dentro del POS (pestaña), omite su propio Scaffold/AppBar
+  /// para no duplicar la barra superior que ya aporta el shell del POS.
+  final bool embebido;
+  const MovimientosCajaView({super.key, required this.turno, this.embebido = false});
 
   @override
   State<MovimientosCajaView> createState() => _MovimientosCajaViewState();
@@ -78,9 +81,7 @@ class _MovimientosCajaViewState extends State<MovimientosCajaView> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
-    return Scaffold(
-      appBar: AppBar(title: Text('Movimientos — Turno ${widget.turno['numero_dia']}')),
-      body: SingleChildScrollView(
+    final cuerpo = SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +139,11 @@ class _MovimientosCajaViewState extends State<MovimientosCajaView> {
                 ))),
           ],
         ),
-      ),
+      );
+    if (widget.embebido) return cuerpo;
+    return Scaffold(
+      appBar: AppBar(title: Text('Movimientos — Turno ${widget.turno['numero_dia']}')),
+      body: cuerpo,
     );
   }
 }

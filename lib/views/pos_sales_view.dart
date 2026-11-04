@@ -709,6 +709,10 @@ class _PosSalesViewState extends State<PosSalesView> {
         return 3;
       case Pantalla.cocina:
         return 4;
+      case Pantalla.movimientos:
+        return 5;
+      case Pantalla.propinas:
+        return 6;
       default:
         return 0; // comanda / inicio -> Nueva comanda
     }
@@ -810,14 +814,12 @@ class _PosSalesViewState extends State<PosSalesView> {
       case 4:
         setState(() => _pantalla = Pantalla.cocina);
         return;
-      case 5: // Movimientos de caja (requiere turno abierto)
+      case 5: // Movimientos de caja (requiere turno abierto) — vista DENTRO del POS
         if (_turno == null) { _dialogAbrirCaja(); return; }
-        _movimientosCaja();
+        setState(() => _pantalla = Pantalla.movimientos);
         return;
-      case 6: // Pago de propinas
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PagoPropinaView()),
-        );
+      case 6: // Pago de propinas — vista DENTRO del POS
+        setState(() => _pantalla = Pantalla.propinas);
         return;
     }
   }
@@ -839,6 +841,12 @@ class _PosSalesViewState extends State<PosSalesView> {
         return;
       case Pantalla.cocina:
         AppTitulo.titulo.value = 'Cocina';
+        return;
+      case Pantalla.movimientos:
+        AppTitulo.titulo.value = 'Movimientos de caja';
+        return;
+      case Pantalla.propinas:
+        AppTitulo.titulo.value = 'Pago de propinas';
         return;
       case Pantalla.inicio:
         AppTitulo.titulo.value = 'POS de facturación';
@@ -977,12 +985,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
-  Future<void> _movimientosCaja() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => MovimientosCajaView(turno: _turno!)),
-    );
-  }
-
   Widget _pantallaAbrirCaja({required Future<void> Function() onAbrir, required ValueChanged<double> onChange}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -1045,6 +1047,12 @@ class _PosSalesViewState extends State<PosSalesView> {
         return _vistaConPestanas(_vistaParaLlevar());
       case Pantalla.cocina:
         return _vistaConPestanas(CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio)));
+      case Pantalla.movimientos:
+        // Requiere turno abierto; si no, se pide abrir la caja.
+        if (_turno == null) { _dialogAbrirCaja(); return _vistaInicio(); }
+        return _vistaConPestanas(MovimientosCajaView(turno: _turno!, embebido: true));
+      case Pantalla.propinas:
+        return _vistaConPestanas(PagoPropinaView(embebido: true));
       default:
         return _vistaInicio();
     }
@@ -1065,12 +1073,10 @@ class _PosSalesViewState extends State<PosSalesView> {
       _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
       _inicioCard('Movimientos de caja', Icons.swap_horiz, () {
         if (_turno == null) { _dialogAbrirCaja(); return; }
-        _movimientosCaja();
+        setState(() => _pantalla = Pantalla.movimientos);
       }),
-      _inicioCard('Pago de propinas', Icons.redeem, () async {
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PagoPropinaView()),
-        );
+      _inicioCard('Pago de propinas', Icons.redeem, () {
+        setState(() => _pantalla = Pantalla.propinas);
       }),
       // Cards del turno en curso / turnos anteriores (siempre visibles).
       _inicioCard('Por Comandas', Icons.receipt_long, () {
