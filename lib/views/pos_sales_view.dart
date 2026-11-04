@@ -714,6 +714,73 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
+  /// Barra de pestañas visible en TODAS las vistas del POS (Nueva comanda,
+  /// Mesas, Domicilios, Para llevar, Cocina) para moverse entre ellas.
+  /// SIN records ni for-index: el SDK de Flutter de este proyecto es viejo.
+  Widget _barraPestanas() {
+    final labels = <String>['Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina'];
+    final icons = <IconData>[
+      Icons.menu_book,
+      Icons.restaurant,
+      Icons.local_shipping,
+      Icons.takeout_dining,
+      Icons.kitchen,
+    ];
+    final scheme = Theme.of(context).colorScheme;
+    final activa = _pestanaActiva();
+    return Container(
+      height: 44,
+      color: scheme.surface,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            _tabPestana(context, i, labels[i], icons[i], activa),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabPestana(BuildContext context, int i, String label, IconData icon, int activa) {
+    final scheme = Theme.of(context).colorScheme;
+    final isActiva = activa == i;
+    final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
+    return InkWell(
+      onTap: () => _navegarPestana(i),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActiva ? scheme.primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ]),
+      ),
+    );
+  }
+
+  /// Envuelve la vista de cada pestaña con la barra superior.
+  Widget _vistaConPestanas(Widget cuerpo) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _barraPestanas(),
+      const Divider(height: 1),
+      Expanded(child: cuerpo),
+    ]);
+  }
+
   /// Navega a la vista correspondiente al pulsar una pestaña de la barra de la
   /// vista comanda. Refresca los datos antes de mostrar la pantalla.
   void _navegarPestana(int i) {
@@ -949,22 +1016,20 @@ class _PosSalesViewState extends State<PosSalesView> {
           return _vistaInicio();
       }
     }
-    // Cocina: no requiere caja abierta (preparación). El AppBar lo maneja el shell
-    // (título "Cocina" con el sombrerito que lleva a la carta / inicio).
-    if (_pantalla == Pantalla.cocina) {
-      return CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
-    }
-    // Renderizado por pantalla del flujo POS. Sin turno abierto se puede armar la
-    // comanda libremente; el gate de apertura se pide al pulsar "Continuar".
+    // Renderizado por pantalla del flujo POS. TODAS con la barra de pestañas
+    // encima para navegar entre ellas (Nueva comanda / Mesas / Domicilios /
+    // Para llevar / Cocina). Cocina no requiere caja abierta (preparación).
     switch (_pantalla) {
       case Pantalla.comanda:
-        return _vistaComanda();
+        return _vistaConPestanas(_vistaComanda());
       case Pantalla.mesas:
-        return _vistaMesas();
+        return _vistaConPestanas(_vistaMesas());
       case Pantalla.entregas:
-        return _vistaEntregas();
+        return _vistaConPestanas(_vistaEntregas());
       case Pantalla.paraLlevar:
-        return _vistaParaLlevar();
+        return _vistaConPestanas(_vistaParaLlevar());
+      case Pantalla.cocina:
+        return _vistaConPestanas(CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio)));
       default:
         return _vistaInicio();
     }
@@ -1123,8 +1188,6 @@ class _PosSalesViewState extends State<PosSalesView> {
       onVolver: () => setState(() => _pantalla = Pantalla.inicio),
       turnoAbierto: _turno != null,
       onCerrarTurno: () => _cerrarTurno(),
-      pestanaActiva: _pestanaActiva(),
-      onPestana: (i) => _navegarPestana(i),
       onAgregarMesa: (m) async {
         // Opción C: volver a tocar el tab de la mesa activa = comanda nueva vacía;
         // tocar otra mesa = cargar sus productos en modo "agregar".

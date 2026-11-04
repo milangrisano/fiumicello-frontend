@@ -41,8 +41,6 @@ class ComandaView extends StatelessWidget {
     required this.onAgregarMesa,
     required this.turnoAbierto,
     this.onCerrarTurno,
-    this.pestanaActiva = 0,
-    this.onPestana,
   });
 
   final List<Linea> items;
@@ -68,69 +66,6 @@ class ComandaView extends StatelessWidget {
   final CbAgregarMesa onAgregarMesa;
   final bool turnoAbierto;
   final VoidCallback? onCerrarTurno;
-  /// Pestaña activa (0=Nueva comanda, 1=Mesas, 2=Domicilios, 3=Para llevar, 4=Cocina).
-  final int pestanaActiva;
-  /// Callback al pulsar una pestaña (recibe el índice de la pestaña). null si
-  /// el widget no gestiona pestañas (estaduales).
-  final ValueChanged<int>? onPestana;
-
-  /// Barra de pestañas superior (sobre el buscador): Nueva comanda, Mesas
-  /// abiertas, Domicilios, Para llevar, Cocina. Cada pestaña navega a la vista
-  /// que hoy abre la card correspondiente del POS de facturación.
-  Widget _barraPestanas(BuildContext context) {
-    // Lista plana [etiqueta, icono] por pestaña. SIN records ni for-index:
-    // el SDK de Flutter de este proyecto es viejo y no los compila.
-    final labels = <String>['Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina'];
-    final icons = <IconData>[
-      Icons.menu_book,
-      Icons.restaurant,
-      Icons.local_shipping,
-      Icons.takeout_dining,
-      Icons.kitchen,
-    ];
-    return Container(
-      height: 44,
-      color: Theme.of(context).colorScheme.surface,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        children: [
-          for (var i = 0; i < labels.length; i++)
-            _tabPestana(context, i, labels[i], icons[i]),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabPestana(BuildContext context, int i, String label, IconData icon) {
-    final scheme = Theme.of(context).colorScheme;
-    final activa = pestanaActiva == i;
-    final color = activa ? scheme.primary : scheme.onSurfaceVariant;
-    return InkWell(
-      onTap: () => onPestana?.call(i),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: activa ? scheme.primary : Colors.transparent,
-              width: 3,
-            ),
-          ),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: activa ? FontWeight.w700 : FontWeight.w500,
-                  color: color)),
-        ]),
-      ),
-    );
-  }
 
   List<Map<String, dynamic>> _itemsDeCategoriaSel() {
     final b = busqueda.toLowerCase();
@@ -252,8 +187,6 @@ class ComandaView extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _barraPestanas(context),
-              const Divider(height: 1),
               // Flexible vertical: acota el alto del área a lo disponible en el
               // viewport. El cuerpo (SingleChildScrollView) scrollea SOLO cuando
               // el grid de productos excede ese alto; si cabe, no hay scroll.
@@ -292,7 +225,7 @@ class ComandaView extends StatelessWidget {
               Flexible(
                 child: TextField(
                   onChanged: onBuscar,
-                  decoration: const InputDecoration(hintText: 'Buscar…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+                  decoration: const InputDecoration(hintText: 'Buscar…', prefixIcon: Icon(Icons.search), isDense: true, border: InputBorder.none),
                 ),
               ),
             ],
@@ -324,8 +257,6 @@ class ComandaView extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _barraPestanas(context),
-            const Divider(height: 1),
             cabeceraMovil,
             chipsFijos,
             SizedBox(height: gap / 2),
@@ -438,7 +369,7 @@ class ComandaView extends StatelessWidget {
             Expanded(
               child: TextField(
                 onChanged: onBuscar,
-                decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+                decoration: const InputDecoration(hintText: 'Buscar producto…', prefixIcon: Icon(Icons.search), isDense: true, border: InputBorder.none),
               ),
             ),
           ],
