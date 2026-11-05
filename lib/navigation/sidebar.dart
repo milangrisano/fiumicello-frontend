@@ -108,21 +108,7 @@ class Sidebar extends StatelessWidget {
             );
           },
         ),
-        // App version (tooltip sobre un icono info).
-        Tooltip(
-          message: 'Versión $APP_VERSION',
-          waitDuration: const Duration(milliseconds: 400),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () {},
-            child: Container(
-              width: 52,
-              height: 52,
-              alignment: Alignment.center,
-              child: const Icon(Icons.info_outline, size: 22, color: Colors.grey),
-            ),
-          ),
-        ),
+        // Cerrar sesión (la versión se muestra justo debajo).
         Tooltip(
           message: 'Cerrar sesión',
           waitDuration: const Duration(milliseconds: 400),
@@ -137,6 +123,10 @@ class Sidebar extends StatelessWidget {
             ),
           ),
         ),
+        // Versión de la app justo debajo del icono de cerrar sesión.
+        const SizedBox(height: 2),
+        Text('v.$APP_VERSION',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
         const SizedBox(height: 8),
       ],
     );
