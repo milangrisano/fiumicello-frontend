@@ -50,6 +50,10 @@ class _SummariesViewState extends State<SummariesView> {
   // Se persiste en SharedPreferences con clave por email.
   static const _sumOrdenKey = 'sum_pestanas_orden_';
   List<int> _ordenPestanasSum = const [0, 1, 2, 3, 4];
+  // True = "modo organizar": las pestañas se vuelven arrastrables (asidero
+  // visible) para reordenarlas con click-sostenido. En modo normal solo
+  // seleccionan al hacer clic.
+  bool _modoOrganizarSum = false;
 
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -107,7 +111,9 @@ class _SummariesViewState extends State<SummariesView> {
   /// Barra de pestañas superior (estilo la de Nueva comanda): permite saltar
   /// entre Resumen contable / Resumen de venta / Por comanda / Por ítem /
   /// Ítems de facturas. Visible SIEMPRE en esta vista.
-  /// Pestañas reordenables por arrastre; el orden se persiste por usuario.
+  /// Al final hay un icono que activa el "modo organizar": en ese modo cada
+  /// pestaña muestra un asidero y se reordena con click-sostenido normal
+  /// (funciona con mouse). El orden se persiste por usuario.
   Widget _barraPestanas() {
     final labels = <String>[
       'Resumen contable', 'Resumen de venta', 'Por comanda', 'Por ítem',
@@ -129,15 +135,35 @@ class _SummariesViewState extends State<SummariesView> {
           bottom: BorderSide(color: scheme.outlineVariant, width: 1),
         ),
       ),
-      child: ReorderableListView(
-        scrollDirection: Axis.horizontal,
-        buildDefaultDragHandles: false,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        onReorder: _reordenarPestanasSum,
+      child: Row(
         children: [
-          for (var pos = 0; pos < _ordenPestanasSum.length; pos++)
-            _tabPestana(context, pos, _ordenPestanasSum[pos],
-                labels[_ordenPestanasSum[pos]], icons[_ordenPestanasSum[pos]], scheme),
+          Expanded(
+            child: ReorderableListView(
+              scrollDirection: Axis.horizontal,
+              buildDefaultDragHandles: false,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              onReorder: _reordenarPestanasSum,
+              children: [
+                for (var pos = 0; pos < _ordenPestanasSum.length; pos++)
+                  _tabPestana(context, pos, _ordenPestanasSum[pos],
+                      labels[_ordenPestanasSum[pos]], icons[_ordenPestanasSum[pos]], scheme),
+              ],
+            ),
+          ),
+          // Botón que alterna el modo organizar (arrastre de pestañas).
+          Tooltip(
+            message: _modoOrganizarSum
+                ? 'Terminar de organizar'
+                : 'Organizar pestañas',
+            child: IconButton(
+              icon: Icon(
+                _modoOrganizarSum ? Icons.check : Icons.drag_indicator,
+                size: 20,
+                color: _modoOrganizarSum ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              onPressed: () => setState(() => _modoOrganizarSum = !_modoOrganizarSum),
+            ),
+          ),
         ],
       ),
     );
@@ -156,36 +182,50 @@ class _SummariesViewState extends State<SummariesView> {
   Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, ColorScheme scheme) {
     final isActiva = _pantalla == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
+    // En modo organizar: el asidero (drag_indicator) + click-sostenido arrastra.
+    // En modo normal: solo selecciona al hacer clic.
+    final tab = InkWell(
+      onTap: _modoOrganizarSum ? null : () => setState(() => _pantalla = id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActiva ? scheme.primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (_modoOrganizarSum) ...[
+            Icon(Icons.drag_indicator, size: 16, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 4),
+          ],
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ]),
+      ),
+    );
+    if (_modoOrganizarSum) {
+      return Padding(
+        key: ValueKey('res_pestana_$id'),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: ReorderableDragStartListener(
+          index: pos, // índice real de posición
+          child: tab,
+        ),
+      );
+    }
     return Padding(
       key: ValueKey('res_pestana_$id'),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: ReorderableDelayedDragStartListener(
-        index: pos, // índice real de posición en el ReorderableListView
-        child: InkWell(
-          onTap: () => setState(() => _pantalla = id),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isActiva ? scheme.primary : Colors.transparent,
-                  width: 3,
-                ),
-              ),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 5),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
-                      color: color)),
-            ]),
-          ),
-        ),
-      ),
+      child: tab,
     );
   }
 

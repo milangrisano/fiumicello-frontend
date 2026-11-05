@@ -57,6 +57,10 @@ class _PosSalesViewState extends State<PosSalesView> {
   // tenga su propio orden al entrar.
   static const _posOrdenKey = 'pos_pestanas_orden_';
   List<int> _ordenPestanasPos = const [0, 1, 2, 3, 4, 5, 6];
+  // True = "modo organizar": las pestañas se vuelven arrastrables (asidero
+  // visible) para reordenarlas con click-sostenido. En modo normal solo
+  // seleccionan al hacer clic.
+  bool _modoOrganizarPos = false;
 
   bool _loading = true;
   bool _cobrando = false;
@@ -783,8 +787,10 @@ class _PosSalesViewState extends State<PosSalesView> {
   /// Barra de pestañas visible en TODAS las vistas del POS (Nueva comanda,
   /// Mesas, Domicilios, Para llevar, Cocina, Movimientos de caja, Pago de
   /// propinas) para moverse entre ellas o abrir esas vistas.
-  /// Las pestañas son reordenables por arrastre y el orden se persiste por
-  /// usuario. SIN records ni for-index: el SDK de Flutter es viejo.
+  /// Al final hay un icono que activa el "modo organizar": en ese modo cada
+  /// pestaña muestra un asidero y se reordena con click-sostenido normal
+  /// (funciona con mouse). El orden se persiste por usuario.
+  /// SIN records ni for-index: el SDK de Flutter es viejo.
   Widget _barraPestanas() {
     final labels = <String>[
       'Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina',
@@ -809,15 +815,35 @@ class _PosSalesViewState extends State<PosSalesView> {
           bottom: BorderSide(color: scheme.outlineVariant, width: 1),
         ),
       ),
-      child: ReorderableListView(
-        scrollDirection: Axis.horizontal,
-        buildDefaultDragHandles: false,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        onReorder: _reordenarPestanasPos,
+      child: Row(
         children: [
-          for (var pos = 0; pos < _ordenPestanasPos.length; pos++)
-            _tabPestana(context, pos, _ordenPestanasPos[pos],
-                labels[_ordenPestanasPos[pos]], icons[_ordenPestanasPos[pos]], activa),
+          Expanded(
+            child: ReorderableListView(
+              scrollDirection: Axis.horizontal,
+              buildDefaultDragHandles: false,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              onReorder: _reordenarPestanasPos,
+              children: [
+                for (var pos = 0; pos < _ordenPestanasPos.length; pos++)
+                  _tabPestana(context, pos, _ordenPestanasPos[pos],
+                      labels[_ordenPestanasPos[pos]], icons[_ordenPestanasPos[pos]], activa),
+              ],
+            ),
+          ),
+          // Botón que alterna el modo organizar (arrastre de pestañas).
+          Tooltip(
+            message: _modoOrganizarPos
+                ? 'Terminar de organizar'
+                : 'Organizar pestañas',
+            child: IconButton(
+              icon: Icon(
+                _modoOrganizarPos ? Icons.check : Icons.drag_indicator,
+                size: 20,
+                color: _modoOrganizarPos ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              onPressed: () => setState(() => _modoOrganizarPos = !_modoOrganizarPos),
+            ),
+          ),
         ],
       ),
     );
@@ -837,36 +863,50 @@ class _PosSalesViewState extends State<PosSalesView> {
     final scheme = Theme.of(context).colorScheme;
     final isActiva = activa == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
+    // En modo organizar: el asidero (drag_indicator) + click-sostenido arrastra.
+    // En modo normal: solo selecciona al hacer clic.
+    final tab = InkWell(
+      onTap: _modoOrganizarPos ? null : () => _navegarPestana(id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActiva ? scheme.primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (_modoOrganizarPos) ...[
+            Icon(Icons.drag_indicator, size: 16, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 4),
+          ],
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ]),
+      ),
+    );
+    if (_modoOrganizarPos) {
+      return Padding(
+        key: ValueKey('pestana_$id'),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: ReorderableDragStartListener(
+          index: pos, // índice real de posición
+          child: tab,
+        ),
+      );
+    }
     return Padding(
       key: ValueKey('pestana_$id'),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: ReorderableDelayedDragStartListener(
-        index: pos, // índice real de posición en el ReorderableListView
-        child: InkWell(
-          onTap: () => _navegarPestana(id),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isActiva ? scheme.primary : Colors.transparent,
-                  width: 3,
-                ),
-              ),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 5),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
-                      color: color)),
-            ]),
-          ),
-        ),
-      ),
+      child: tab,
     );
   }
 
