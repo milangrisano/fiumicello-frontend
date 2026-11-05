@@ -185,15 +185,19 @@ class _SummariesViewState extends State<SummariesView> {
 
   /// Mueve la pestaña `id` de su posición actual +`delta` posiciones y guarda.
   void _moverPestanaSum(int id, int delta) {
+    final fromIndex = _ordenPestanasSum.indexOf(id);
+    if (fromIndex < 0) return;
+    // Clamp con aritmética de int (no usar num.clamp: devuelve num y rompe
+    // insert(int,...) al compilar).
+    var toIndex = fromIndex + delta;
+    if (toIndex < 0) toIndex = 0;
+    if (toIndex >= _ordenPestanasSum.length) toIndex = _ordenPestanasSum.length - 1;
+    if (toIndex == fromIndex) return;
     setState(() {
-      final fromIndex = _ordenPestanasSum.indexOf(id);
-      if (fromIndex < 0) return;
-      final toIndex = (fromIndex + delta).clamp(0, _ordenPestanasSum.length - 1);
-      if (toIndex == fromIndex) return;
       _ordenPestanasSum.removeAt(fromIndex);
       _ordenPestanasSum.insert(toIndex, id);
-      _guardarOrdenPestanasSum();
     });
+    _guardarOrdenPestanasSum();
   }
 
   Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, ColorScheme scheme) {

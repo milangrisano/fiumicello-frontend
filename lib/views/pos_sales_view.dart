@@ -865,15 +865,19 @@ class _PosSalesViewState extends State<PosSalesView> {
 
   /// Mueve la pestaña `id` de su posición actual +`delta` posiciones y guarda.
   void _moverPestanaPos(int id, int delta) {
+    final fromIndex = _ordenPestanasPos.indexOf(id);
+    if (fromIndex < 0) return;
+    // Clamp con aritmética de int (no usar num.clamp: devuelve num y rompe
+    // insert(int,...) al compilar).
+    var toIndex = fromIndex + delta;
+    if (toIndex < 0) toIndex = 0;
+    if (toIndex >= _ordenPestanasPos.length) toIndex = _ordenPestanasPos.length - 1;
+    if (toIndex == fromIndex) return;
     setState(() {
-      final fromIndex = _ordenPestanasPos.indexOf(id);
-      if (fromIndex < 0) return;
-      final toIndex = (fromIndex + delta).clamp(0, _ordenPestanasPos.length - 1);
-      if (toIndex == fromIndex) return;
       _ordenPestanasPos.removeAt(fromIndex);
       _ordenPestanasPos.insert(toIndex, id);
-      _guardarOrdenPestanasPos();
     });
+    _guardarOrdenPestanasPos();
   }
 
   Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, int activa) {
