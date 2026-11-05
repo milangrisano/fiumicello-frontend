@@ -126,8 +126,8 @@ class _SummariesViewState extends State<SummariesView> {
   /// entre Resumen contable / Resumen de venta / Por comanda / Por ítem /
   /// Ítems de facturas. Visible SIEMPRE en esta vista.
   /// Al final hay un icono que activa el "modo organizar": en ese modo cada
-  /// pestaña muestra un asidero y se reordena arrastrándola con el ratón
-  /// (Draggable + DragTarget, fiable en web). El orden se persiste por usuario.
+  /// pestaña muestra flechas ‹ › para moverla de posición (fiable en web, sin
+  /// `drag`). El orden se persiste por usuario.
   Widget _barraPestanas() {
     final labels = <String>[
       'Resumen contable', 'Resumen de venta', 'Por comanda', 'Por ítem',
@@ -164,14 +164,14 @@ class _SummariesViewState extends State<SummariesView> {
               ),
             ),
           ),
-          // Botón que alterna el modo organizar (arrastre de pestañas).
+          // Botón que alterna el modo organizar (mover pestañas con flechas).
           Tooltip(
             message: _modoOrganizarSum
                 ? 'Terminar de organizar'
                 : 'Organizar pestañas',
             child: IconButton(
               icon: Icon(
-                _modoOrganizarSum ? Icons.check : Icons.drag_indicator,
+                _modoOrganizarSum ? Icons.check : Icons.tune,
                 size: 20,
                 color: _modoOrganizarSum ? scheme.primary : scheme.onSurfaceVariant,
               ),
@@ -183,16 +183,15 @@ class _SummariesViewState extends State<SummariesView> {
     );
   }
 
-  /// Reordena la lista de pestañas al soltar el arrastre de la pestaña
-  /// `fromId` en la posición `targetPos`, y guarda el orden.
-  void _moverPestanaSum(int fromId, int targetPos) {
+  /// Mueve la pestaña `id` de su posición actual +`delta` posiciones y guarda.
+  void _moverPestanaSum(int id, int delta) {
     setState(() {
-      final fromIndex = _ordenPestanasSum.indexOf(fromId);
-      if (fromIndex < 0 || fromIndex == targetPos) return;
+      final fromIndex = _ordenPestanasSum.indexOf(id);
+      if (fromIndex < 0) return;
+      final toIndex = (fromIndex + delta).clamp(0, _ordenPestanasSum.length - 1);
+      if (toIndex == fromIndex) return;
       _ordenPestanasSum.removeAt(fromIndex);
-      final insertar = (fromIndex < targetPos) ? targetPos - 1 : targetPos;
-      _ordenPestanasSum.insert(
-          insertar.clamp(0, _ordenPestanasSum.length), fromId);
+      _ordenPestanasSum.insert(toIndex, id);
       _guardarOrdenPestanasSum();
     });
   }
@@ -200,67 +199,65 @@ class _SummariesViewState extends State<SummariesView> {
   Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, ColorScheme scheme) {
     final isActiva = _pantalla == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
-    final tab = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      height: 46,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: _modoOrganizarSum ? scheme.surfaceContainerHighest : null,
-        border: Border(
-          bottom: BorderSide(
-            color: isActiva ? scheme.primary : Colors.transparent,
-            width: 3,
-          ),
-        ),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (_modoOrganizarSum) ...[
-          Icon(Icons.drag_indicator, size: 16, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-        ],
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 5),
-        Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
-                color: color)),
-      ]),
-    );
-    // En modo organizar: arrastre real por mouse (Draggable + DragTarget).
-    if (_modoOrganizarSum) {
-      return Padding(
-        key: ValueKey('res_pestana_$id'),
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: DragTarget<int>(
-          onWillAcceptWithDetails: (_) => true,
-          onAcceptWithDetails: (d) => _moverPestanaSum(d.data, pos),
-          builder: (context, candidate, _) => Draggable<int>(
-            data: id,
-            feedback: Material(
-              color: scheme.primaryContainer,
-              elevation: 4,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(icon, size: 18, color: scheme.primary),
-                  const SizedBox(width: 5),
-                  Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                ]),
-              ),
+    final cuerpo = InkWell(
+      onTap: _modoOrganizarSum ? null : () => setState(() => _pantalla = id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 46,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _modoOrganizarSum ? scheme.surfaceContainerHighest : null,
+          border: Border(
+            bottom: BorderSide(
+              color: isActiva ? scheme.primary : Colors.transparent,
+              width: 3,
             ),
-            childWhenDragging: Opacity(opacity: 0.3, child: tab),
-            child: tab,
           ),
         ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ]),
+      ),
+    );
+    // En modo organizar: flechas ‹ › para mover cada pestaña (sin drag).
+    if (_modoOrganizarSum) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 40),
+            icon: Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
+            tooltip: 'Mover a la izquierda',
+            onPressed: pos == 0 ? null : () => _moverPestanaSum(id, -1),
+          ),
+          cuerpo,
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 40),
+            icon: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+            tooltip: 'Mover a la derecha',
+            onPressed: pos == _ordenPestanasSum.length - 1
+                ? null
+                : () => _moverPestanaSum(id, 1),
+          ),
+        ],
       );
     }
-    // Modo normal: solo selecciona al hacer clic.
     return Padding(
       key: ValueKey('res_pestana_$id'),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: InkWell(onTap: () => setState(() => _pantalla = id), child: tab),
+      child: cuerpo,
     );
   }
 
