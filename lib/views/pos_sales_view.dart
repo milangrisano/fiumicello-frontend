@@ -259,7 +259,9 @@ class _PosSalesViewState extends State<PosSalesView> {
   Future<String?> _dialogEscenario() async {
     final sel = _EscenarioSel(_escenario);
     final mesaCtrl = TextEditingController(text: _numeroMesa);
-    final nombreCtrl = TextEditingController(text: _clienteNombre);
+    // Por defecto el nombre del cliente es "Cliente" (editable; la X lo borra).
+    final nombreCtrl = TextEditingController(
+        text: _clienteNombre.trim().isEmpty ? 'Cliente' : _clienteNombre);
     final direccionCtrl = TextEditingController(text: _direccion);
     final telefonoCtrl = TextEditingController(text: _telefono);
     final result = await showDialog<Map<String, dynamic>>(
@@ -284,6 +286,25 @@ class _PosSalesViewState extends State<PosSalesView> {
                 ),
             ],
           );
+          // Campo de nombre del cliente: label "Nombre del Cliente", valor por
+          // defecto "Cliente" y una X al final para borrar el contenido.
+          final campoNombre = TextField(
+            controller: nombreCtrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Nombre del Cliente',
+              border: const OutlineInputBorder(),
+              isDense: true,
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: 'Borrar',
+                onPressed: () {
+                  nombreCtrl.clear();
+                  setDlg(() {});
+                },
+              ),
+            ),
+          );
           final contenido = sel.esc == 'mesa'
               ? TextField(
                   controller: mesaCtrl,
@@ -296,28 +317,12 @@ class _PosSalesViewState extends State<PosSalesView> {
                   ),
                 )
               : sel.esc == 'para_llevar'
-                  ? TextField(
-                      controller: nombreCtrl,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de la persona',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    )
+                  ? campoNombre
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        TextField(
-                          controller: nombreCtrl,
-                          autofocus: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre de la persona',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
+                        campoNombre,
                         const SizedBox(height: 8),
                         TextField(
                           controller: direccionCtrl,
