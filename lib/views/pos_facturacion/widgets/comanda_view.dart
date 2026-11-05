@@ -516,8 +516,10 @@ class ComandaView extends StatelessWidget {
   }
 
   Widget _productoBoton(BuildContext context, Map<String, dynamic> it, {double lado = 120}) {
-    final conTamanos = it['precio_personal'] != null;
     final nombre = it['nombre'] ?? '';
+    // Tamaños dinámicos de la carta (Personal, Mediana, 1/2 Mediana, ...).
+    final tamanios = _tamaniosDe(it);
+    final conTamanos = tamanios.isNotEmpty;
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(
@@ -528,20 +530,25 @@ class ComandaView extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          // Sin ventana flotante: se agrega directo. Con tamaños, solo se elige
+          // Sin ventana flotante: se agrega directo. Con tamaños, se elige
           // tamaño; sin tamaños, se agrega de una.
           if (conTamanos) {
             showDialog(
               context: context,
               builder: (_) => AlertDialog(
                 title: Text(nombre),
-                content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  FilledButton(onPressed: () { Navigator.pop(context); onAgregar(it, 'personal'); }, child: Text('Personal · ${money(it['precio_personal'])}')),
-                  const SizedBox(height: 6),
-                  FilledButton(onPressed: () { Navigator.pop(context); onAgregar(it, 'mediana'); }, child: Text('Mediana · ${money(it['precio_mediana'])}')),
-                  const SizedBox(height: 6),
-                  FilledButton(onPressed: () { Navigator.pop(context); onAgregar(it, 'grande'); }, child: Text('Grande · ${money(it['precio_grande'])}')),
-                ]),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < tamanios.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 6),
+                      FilledButton(
+                        onPressed: () { Navigator.pop(context); onAgregar(it, (tamanios[i]['nombre'] ?? '').toString()); },
+                        child: Text('${tamanios[i]['nombre']} · ${money(numVal(tamanios[i]['precio']))}'),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             );
           } else {
@@ -568,6 +575,21 @@ class ComandaView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Tamaños de un producto: `it['tamanios']` (lista dinámica [{nombre,precio}])
+  /// si existe; si no, deriva Personal/Mediana/Grande de las columnas fijas
+  /// (compat con datos previos). Devuelve lista vacía si no tiene tamaños.
+  List<Map<String, dynamic>> _tamaniosDe(Map<String, dynamic> it) {
+    final din = (it['tamanios'] as List?) ?? const <dynamic>[];
+    if (din.isNotEmpty) {
+      return din.cast<Map<String, dynamic>>();
+    }
+    final out = <Map<String, dynamic>>[];
+    if (it['precio_personal'] != null) out.add({'nombre': 'Personal', 'precio': it['precio_personal']});
+    if (it['precio_mediana'] != null) out.add({'nombre': 'Mediana', 'precio': it['precio_mediana']});
+    if (it['precio_grande'] != null) out.add({'nombre': 'Grande', 'precio': it['precio_grande']});
+    return out;
   }
 }
 
@@ -712,15 +734,17 @@ class _BusquedaDialogState extends State<_BusquedaDialog> {
 
   /// Construye la lista plana de filas del buscador: por cada producto sin
   /// tamaños una fila; por cada producto con tamaños, una fila POR TALLA
-  /// (Personal/Mediana/Grande) para elegir directo. Evita el collection-if
-  /// combinado con spread+else que este SDK Flutter no parsea.
+  /// (Personal, Mediana, 1/2 Mediana, ...) para elegir directo. Evita el
+  /// collection-if combinado con spread+else que este SDK Flutter no parsea.
   List<Widget> _filasBusqueda(List<Map<String, dynamic>> resultados, BuildContext context) {
     final filas = <Widget>[];
     for (final it in resultados) {
-      if (it['precio_personal'] != null) {
-        if (it['precio_personal'] != null) filas.add(_opcionTamano(it, 'Personal', it['precio_personal'], context));
-        if (it['precio_mediana'] != null) filas.add(_opcionTamano(it, 'Mediana', it['precio_mediana'], context));
-        if (it['precio_grande'] != null) filas.add(_opcionTamano(it, 'Grande', it['precio_grande'], context));
+      final tamanios = _tamaniosDe(it);
+      if (tamanios.isNotEmpty) {
+        for (final t in tamanios) {
+          filas.add(_opcionTamano(it, (t['nombre'] ?? '').toString(),
+              t['precio'], context));
+        }
       } else {
         filas.add(ListTile(
           leading: const Icon(Icons.shopping_cart, size: 20),
@@ -736,6 +760,17 @@ class _BusquedaDialogState extends State<_BusquedaDialog> {
     return filas;
   }
 
+  /// Tamaños de un producto para el buscador (dinámicos o legado por columnas).
+  List<Map<String, dynamic>> _tamaniosDe(Map<String, dynamic> it) {
+    final din = (it['tamanios'] as List?) ?? const <dynamic>[];
+    if (din.isNotEmpty) return din.cast<Map<String, dynamic>>();
+    final out = <Map<String, dynamic>>[];
+    if (it['precio_personal'] != null) out.add({'nombre': 'Personal', 'precio': it['precio_personal']});
+    if (it['precio_mediana'] != null) out.add({'nombre': 'Mediana', 'precio': it['precio_mediana']});
+    if (it['precio_grande'] != null) out.add({'nombre': 'Grande', 'precio': it['precio_grande']});
+    return out;
+  }
+
   /// Una fila de tamaño del buscador: nombre + talla + precio; al tocarla
   /// agrega ese tamaño a la comanda y cierra el diálogo.
   Widget _opcionTamano(Map<String, dynamic> it, String talla, dynamic precio, BuildContext context) {
@@ -744,7 +779,7 @@ class _BusquedaDialogState extends State<_BusquedaDialog> {
       title: Text(it['nombre'] ?? ''),
       subtitle: Text('$talla · ${money(numVal(precio))}'),
       onTap: () {
-        widget.onAgregar(it, talla.toLowerCase());
+        widget.onAgregar(it, talla);
         Navigator.pop(context, it);
       },
     );

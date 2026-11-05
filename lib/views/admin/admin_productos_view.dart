@@ -53,6 +53,12 @@ class _ProductsViewState extends State<ProductsView> {
             children: [
               Text('Productos', style: Theme.of(context).textTheme.titleLarge),
               const Spacer(),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.create_new_folder_outlined),
+                label: const Text('Nueva categoría'),
+                onPressed: _crearCategoria,
+              ),
+              const SizedBox(width: 8),
               FilledButton.icon(
                 icon: const Icon(Icons.add),
                 label: const Text('Nuevo producto'),
@@ -68,9 +74,23 @@ class _ProductsViewState extends State<ProductsView> {
             children: [
               for (final c in _categorias) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 4),
-                  child: Text(c['nombre'] ?? '',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  padding: const EdgeInsets.only(top: 6, bottom: 2),
+                  child: Row(children: [
+                    Expanded(child: Text(c['nombre'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      tooltip: 'Acciones de categoría',
+                      onSelected: (v) {
+                        if (v == 'renombrar') _renombrarCategoria(c);
+                        if (v == 'eliminar') _eliminarCategoria(c);
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'renombrar', child: Text('Renombrar')),
+                        PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+                      ],
+                    ),
+                  ]),
                 ),
                 for (final it in (c['items'] as List? ?? []).cast<Map<String, dynamic>>())
                   _item(it, c['id'] as int? ?? 0, c['nombre'] as String? ?? ''),
@@ -85,7 +105,8 @@ class _ProductsViewState extends State<ProductsView> {
   Widget _item(Map<String, dynamic> it, int catId, String catNombre) {
     final id = it['id'] as int? ?? 0;
     final activo = it['activo'] == true;
-    final conTamanos = it['precio_personal'] != null;
+    final tamanios = (it['tamanios'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final conTamanos = tamanios.isNotEmpty;
     Color chipColor = activo ? Colors.green[600]! : Colors.grey;
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -102,7 +123,7 @@ class _ProductsViewState extends State<ProductsView> {
         title: Text(it['nombre'] ?? '', style: activo ? null : const TextStyle(color: Colors.grey)),
         subtitle: Text(
           conTamanos
-              ? 'Personal ${money(it['precio_personal'])} · Mediana ${money(it['precio_mediana'])} · Grande ${money(it['precio_grande'])}'
+              ? tamanios.map((t) => '${t['nombre']} ${money(t['precio'])}').join(' · ')
               : money(it['precio']),
         ),
         trailing: Row(
@@ -167,6 +188,66 @@ class _ProductsViewState extends State<ProductsView> {
     _load();
   }
 
+  Future<String?> _dialogNombre(String titulo, {String inicial = ''}) async {
+    final ctrl = TextEditingController(text: inicial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(titulo),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Guardar')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _crearCategoria() async {
+    final nombre = await _dialogNombre('Nueva categoría');
+    if (nombre == null || nombre.isEmpty) return;
+    final r = await ApiClient.crearCategoria(nombre);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
+    _load();
+  }
+
+  Future<void> _renombrarCategoria(Map<String, dynamic> c) async {
+    final nombre = await _dialogNombre('Renombrar categoría', inicial: (c['nombre'] ?? '').toString());
+    if (nombre == null || nombre.isEmpty || nombre == c['nombre']) return;
+    final r = await ApiClient.actualizarCategoria(c['id'] as int, nombre);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
+    _load();
+  }
+
+  Future<void> _eliminarCategoria(Map<String, dynamic> c) async {
+    final nombre = (c['nombre'] ?? '').toString();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar categoría'),
+        content: Text('¿Eliminar "$nombre" y todos sus productos?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final r = await ApiClient.eliminarCategoria(c['id'] as int);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
+    _load();
+  }
+
   Future<void> _editar(Map<String, dynamic> it, int catId, String catNombre) async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ProductEditView(
@@ -203,9 +284,8 @@ class _ProductEditViewState extends State<ProductEditView> {
   late final TextEditingController _nombre;
   late final TextEditingController _descripcion;
   late final TextEditingController _precio;
-  late final TextEditingController _pPersonal;
-  late final TextEditingController _pMediana;
-  late final TextEditingController _pGrande;
+  // Lista de tamaños dinámicos: cada entrada con su control (nombre + precio).
+  late final List<_TamanoCtrl> _tamanios = [];
   int _categoria;
   bool _esNuevo = true;
   bool _saving = false;
@@ -220,9 +300,19 @@ class _ProductEditViewState extends State<ProductEditView> {
     _nombre = TextEditingController(text: widget.producto?['nombre'] ?? '');
     _descripcion = TextEditingController(text: widget.producto?['descripcion'] ?? '');
     _precio = TextEditingController(text: _fmt(widget.producto?['precio']));
-    _pPersonal = TextEditingController(text: _fmt(widget.producto?['precio_personal']));
-    _pMediana = TextEditingController(text: _fmt(widget.producto?['precio_mediana']));
-    _pGrande = TextEditingController(text: _fmt(widget.producto?['precio_grande']));
+    _tamanios.clear();
+    // Tamaños dinámicos de la carta (nuevos), o fallback a las columnas fijas.
+    final din = (widget.producto?['tamanios'] as List?) ?? <dynamic>[];
+    if (din.isNotEmpty) {
+      for (final t in din.cast<Map<String, dynamic>>()) {
+        _tamanios.add(_TamanoCtrl(t['nombre']?.toString() ?? '', _fmt(t['precio'])));
+      }
+    } else {
+      // Legado: derivar Personal/Mediana/Grande de las columnas fijas.
+      if (widget.producto?['precio_personal'] != null) _tamanios.add(_TamanoCtrl('Personal', _fmt(widget.producto?['precio_personal'])));
+      if (widget.producto?['precio_mediana'] != null) _tamanios.add(_TamanoCtrl('Mediana', _fmt(widget.producto?['precio_mediana'])));
+      if (widget.producto?['precio_grande'] != null) _tamanios.add(_TamanoCtrl('Grande', _fmt(widget.producto?['precio_grande'])));
+    }
   }
 
   String _fmt(dynamic v) {
@@ -239,14 +329,22 @@ class _ProductEditViewState extends State<ProductEditView> {
       return;
     }
     setState(() => _saving = true);
+    final tamanios = <Map<String, dynamic>>[
+      for (final t in _tamanios)
+        if (t.nombre.text.trim().isNotEmpty && _toNum(t.precio.text) > 0)
+          {'nombre': t.nombre.text.trim(), 'precio': _toNum(t.precio.text)},
+    ];
     final body = <String, dynamic>{
       'id_categoria': _categoria,
       'nombre': nombre,
       'descripcion': _descripcion.text.trim().isEmpty ? null : _descripcion.text.trim(),
       'precio': _precio.text.trim().isEmpty ? null : _toNum(_precio.text),
-      'precio_personal': _pPersonal.text.trim().isEmpty ? null : _toNum(_pPersonal.text),
-      'precio_mediana': _pMediana.text.trim().isEmpty ? null : _toNum(_pMediana.text),
-      'precio_grande': _pGrande.text.trim().isEmpty ? null : _toNum(_pGrande.text),
+      // Columnas fijas por compatibilidad con lo ya facturado: la primera se
+      // rellena desde los tamaños Personal/Mediana/Grande si existen.
+      'precio_personal': _nombrado('personal'),
+      'precio_mediana': _nombrado('mediana'),
+      'precio_grande': _nombrado('grande'),
+      'tamanios': tamanios,
     };
     final r = _esNuevo
         ? await ApiClient.crearItemCarta(body)
@@ -255,6 +353,18 @@ class _ProductEditViewState extends State<ProductEditView> {
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
     if (r.ok) Navigator.of(context).pop();
+  }
+
+  /// Precio de una columna fija (personal/mediana/grande) si existe un tamaño
+  /// dinámico con ese nombre; null si no, para no pisar datos del legado.
+  double? _nombrado(String nombre) {
+    for (final t in _tamanios) {
+      if (t.nombre.text.trim().toLowerCase() == nombre) {
+        final v = _toNum(t.precio.text);
+        return v > 0 ? v : null;
+      }
+    }
+    return null;
   }
 
   @override
@@ -278,17 +388,42 @@ class _ProductEditViewState extends State<ProductEditView> {
           const SizedBox(height: 12),
           TextField(controller: _descripcion, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder())),
           const SizedBox(height: 16),
-          const Text('Precio (si no tiene tamaños)'),
+          const Text('Precio (si no tiene tamaños)', style: TextStyle(fontWeight: FontWeight.w600)),
           TextField(controller: _precio, keyboardType: TextInputType.number, decoration: const InputDecoration(border: OutlineInputBorder())),
-          const SizedBox(height: 12),
-          const Text('Precios por tamaño (opcional)'),
+          const SizedBox(height: 20),
+          // ---- Tamaños dinámicos (Personal, Mediana, 1/2 Mediana, ...) ----
           Row(children: [
-            Expanded(child: TextField(controller: _pPersonal, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Personal', border: OutlineInputBorder()))),
-            const SizedBox(width: 8),
-            Expanded(child: TextField(controller: _pMediana, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Mediana', border: OutlineInputBorder()))),
-            const SizedBox(width: 8),
-            Expanded(child: TextField(controller: _pGrande, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Grande', border: OutlineInputBorder()))),
+            const Text('Tamaños y precios', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('Añadir tamaño'),
+              onPressed: () => setState(() => _tamanios.add(_TamanoCtrl('', ''))),
+            ),
           ]),
+          const Text('Ingrese tamaño y precio. Ej: Personal, Mediana, 1/2 Mediana, 1/2 Grande…', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          for (var i = 0; i < _tamanios.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                Expanded(flex: 3, child: TextField(
+                  controller: _tamanios[i].nombre,
+                  decoration: const InputDecoration(labelText: 'Tamaño', border: OutlineInputBorder()),
+                )),
+                const SizedBox(width: 8),
+                Expanded(flex: 2, child: TextField(
+                  controller: _tamanios[i].precio,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Precio', prefixText: r'$', border: OutlineInputBorder()),
+                )),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Quitar tamaño',
+                  onPressed: () => setState(() => _tamanios.removeAt(i)),
+                ),
+              ]),
+            ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _guardar,
@@ -300,4 +435,13 @@ class _ProductEditViewState extends State<ProductEditView> {
       ),
     );
   }
+}
+
+/// Controles de un tamaño dinámico (nombre + precio).
+class _TamanoCtrl {
+  final TextEditingController nombre;
+  final TextEditingController precio;
+  _TamanoCtrl(String n, String p)
+      : nombre = TextEditingController(text: n),
+        precio = TextEditingController(text: p);
 }
