@@ -75,20 +75,28 @@ class _LoginViewState extends State<LoginView> {
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 28),
-                TextField(
-                  controller: _user,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.mail_outline),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _pass,
-                  obscureText: !_showPass,
-                  decoration: InputDecoration(
+                AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _user,
+                        keyboardType: TextInputType.emailAddress,
+                        // Hace que el navegador ofrezca el email guardado en las
+                        // credenciales (sin esto solo detecta la contraseña).
+                        autofillHints: const [AutofillHints.email],
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.mail_outline),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _pass,
+                        obscureText: !_showPass,
+                        autofillHints: const [AutofillHints.password],
+                        decoration: InputDecoration(
                     labelText: 'Contraseña',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
@@ -102,6 +110,9 @@ class _LoginViewState extends State<LoginView> {
                     ),
                   ),
                   onSubmitted: (_) => _submit(),
+                      ),
+                    ],
+                  ),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
