@@ -815,8 +815,9 @@ class _PosSalesViewState extends State<PosSalesView> {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         onReorder: _reordenarPestanasPos,
         children: [
-          for (final id in _ordenPestanasPos)
-            _tabPestana(context, id, labels[id], icons[id], activa),
+          for (var pos = 0; pos < _ordenPestanasPos.length; pos++)
+            _tabPestana(context, pos, _ordenPestanasPos[pos],
+                labels[_ordenPestanasPos[pos]], icons[_ordenPestanasPos[pos]], activa),
         ],
       ),
     );
@@ -832,15 +833,15 @@ class _PosSalesViewState extends State<PosSalesView> {
     });
   }
 
-  Widget _tabPestana(BuildContext context, int id, String label, IconData icon, int activa) {
+  Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, int activa) {
     final scheme = Theme.of(context).colorScheme;
     final isActiva = activa == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
     return Padding(
       key: ValueKey('pestana_$id'),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: ReorderableDragStartListener(
-        index: 0, // el índice real se aplica en onReorder vía _ordenPestanasPos
+      child: ReorderableDelayedDragStartListener(
+        index: pos, // índice real de posición en el ReorderableListView
         child: InkWell(
           onTap: () => _navegarPestana(id),
           child: Container(

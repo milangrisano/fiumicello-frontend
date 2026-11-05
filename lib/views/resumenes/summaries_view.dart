@@ -135,8 +135,9 @@ class _SummariesViewState extends State<SummariesView> {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         onReorder: _reordenarPestanasSum,
         children: [
-          for (final id in _ordenPestanasSum)
-            _tabPestana(context, id, labels[id], icons[id], scheme),
+          for (var pos = 0; pos < _ordenPestanasSum.length; pos++)
+            _tabPestana(context, pos, _ordenPestanasSum[pos],
+                labels[_ordenPestanasSum[pos]], icons[_ordenPestanasSum[pos]], scheme),
         ],
       ),
     );
@@ -152,14 +153,14 @@ class _SummariesViewState extends State<SummariesView> {
     });
   }
 
-  Widget _tabPestana(BuildContext context, int id, String label, IconData icon, ColorScheme scheme) {
+  Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, ColorScheme scheme) {
     final isActiva = _pantalla == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
     return Padding(
       key: ValueKey('res_pestana_$id'),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: ReorderableDragStartListener(
-        index: 0, // el índice real se aplica en onReorder vía _ordenPestanasSum
+      child: ReorderableDelayedDragStartListener(
+        index: pos, // índice real de posición en el ReorderableListView
         child: InkWell(
           onTap: () => setState(() => _pantalla = id),
           child: Container(
