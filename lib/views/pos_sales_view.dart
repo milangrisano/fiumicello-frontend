@@ -802,8 +802,8 @@ class _PosSalesViewState extends State<PosSalesView> {
   /// Mesas, Domicilios, Para llevar, Cocina, Movimientos de caja, Pago de
   /// propinas) para moverse entre ellas o abrir esas vistas.
   /// Al final hay un icono que activa el "modo organizar": en ese modo cada
-  /// pestaña muestra un asidero y se reordena con click-sostenido normal
-  /// (funciona con mouse). El orden se persiste por usuario.
+  /// pestaña muestra un asidero y se reordena arrastrándola con el ratón
+  /// (Draggable + DragTarget, fiable en web). El orden se persiste por usuario.
   /// SIN records ni for-index: el SDK de Flutter es viejo.
   Widget _barraPestanas() {
     final labels = <String>[
@@ -832,16 +832,16 @@ class _PosSalesViewState extends State<PosSalesView> {
       child: Row(
         children: [
           Expanded(
-            child: ReorderableListView(
+            child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              buildDefaultDragHandles: false,
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              onReorder: _reordenarPestanasPos,
-              children: [
-                for (var pos = 0; pos < _ordenPestanasPos.length; pos++)
-                  _tabPestana(context, pos, _ordenPestanasPos[pos],
-                      labels[_ordenPestanasPos[pos]], icons[_ordenPestanasPos[pos]], activa),
-              ],
+              child: Row(
+                children: [
+                  for (var pos = 0; pos < _ordenPestanasPos.length; pos++)
+                    _tabPestana(context, pos, _ordenPestanasPos[pos],
+                        labels[_ordenPestanasPos[pos]], icons[_ordenPestanasPos[pos]], activa),
+                ],
+              ),
             ),
           ),
           // Botón que alterna el modo organizar (arrastre de pestañas).
@@ -863,12 +863,17 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
   }
 
-  /// Reordena la lista de pestañas al soltar un arrastre y guarda el orden.
-  void _reordenarPestanasPos(int oldIndex, int newIndex) {
+  /// Reordena la lista de pestañas al soltar el arrastre de la pestaña
+  /// `fromId` en la posición `targetPos`, y guarda el orden.
+  void _moverPestanaPos(int fromId, int targetPos) {
     setState(() {
-      if (newIndex > oldIndex) newIndex--;
-      final item = _ordenPestanasPos.removeAt(oldIndex);
-      _ordenPestanasPos.insert(newIndex, item);
+      final fromIndex = _ordenPestanasPos.indexOf(fromId);
+      if (fromIndex < 0 || fromIndex == targetPos) return;
+      _ordenPestanasPos.removeAt(fromIndex);
+      // Si se movía desde antes de targetPos, targetPos ya bajó un índice.
+      final insertar = (fromIndex < targetPos) ? targetPos - 1 : targetPos;
+      _ordenPestanasPos.insert(
+          insertar.clamp(0, _ordenPestanasPos.length), fromId);
       _guardarOrdenPestanasPos();
     });
   }
@@ -877,50 +882,67 @@ class _PosSalesViewState extends State<PosSalesView> {
     final scheme = Theme.of(context).colorScheme;
     final isActiva = activa == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
-    // En modo organizar: el asidero (drag_indicator) + click-sostenido arrastra.
-    // En modo normal: solo selecciona al hacer clic.
-    final tab = InkWell(
-      onTap: _modoOrganizarPos ? null : () => _navegarPestana(id),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActiva ? scheme.primary : Colors.transparent,
-              width: 3,
-            ),
+    final tab = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: _modoOrganizarPos ? scheme.surfaceContainerHighest : null,
+        border: Border(
+          bottom: BorderSide(
+            color: isActiva ? scheme.primary : Colors.transparent,
+            width: 3,
           ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (_modoOrganizarPos) ...[
-            Icon(Icons.drag_indicator, size: 16, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 4),
-          ],
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
-                  color: color)),
-        ]),
       ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (_modoOrganizarPos) ...[
+          Icon(Icons.drag_indicator, size: 16, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 4),
+        ],
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 5),
+        Text(label,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                color: color)),
+      ]),
     );
+    // En modo organizar: arrastre real por mouse (Draggable + DragTarget).
     if (_modoOrganizarPos) {
       return Padding(
         key: ValueKey('pestana_$id'),
         padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: ReorderableDragStartListener(
-          index: pos, // índice real de posición
-          child: tab,
+        child: DragTarget<int>(
+          onWillAcceptWithDetails: (_) => true,
+          onAcceptWithDetails: (d) => _moverPestanaPos(d.data, pos),
+          builder: (context, candidate, _) => Draggable<int>(
+            data: id,
+            feedback: Material(
+              color: scheme.primaryContainer,
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(icon, size: 18, color: scheme.primary),
+                  const SizedBox(width: 5),
+                  Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+            childWhenDragging: Opacity(opacity: 0.3, child: tab),
+            child: tab,
+          ),
         ),
       );
     }
+    // Modo normal: solo selecciona al hacer clic.
     return Padding(
       key: ValueKey('pestana_$id'),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: tab,
+      child: InkWell(onTap: () => _navegarPestana(id), child: tab),
     );
   }
 
