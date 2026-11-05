@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
 import '../pos_facturacion/widgets/resumen_ventas_view.dart';
@@ -45,6 +46,11 @@ class _SummariesViewState extends State<SummariesView> {
   // Turnos de caja (para las pestañas Por comanda / Por ítem).
   List<Map<String, dynamic>> _turnos = [];
 
+  // Orden de las pestañas de la barra de resúmenes (ids 0..4) POR USUARIO.
+  // Se persiste en SharedPreferences con clave por email.
+  static const _sumOrdenKey = 'sum_pestanas_orden_';
+  List<int> _ordenPestanasSum = const [0, 1, 2, 3, 4];
+
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -53,6 +59,35 @@ class _SummariesViewState extends State<SummariesView> {
     super.initState();
     _cargar();
     _cargarTurnos();
+    _cargarOrdenPestanasSum(); // orden de pestañas por usuario
+  }
+
+  /// Carga el orden de pestañas guardado del usuario actual (por email).
+  Future<void> _cargarOrdenPestanasSum() async {
+    final email = ApiClient.currentEmail ?? 'anon';
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList('$_sumOrdenKey$email');
+    if (raw == null || raw.isEmpty) {
+      if (mounted) setState(() => _ordenPestanasSum = const [0, 1, 2, 3, 4]);
+      return;
+    }
+    final vistos = <int>{};
+    final orden = <int>[];
+    for (final s in raw) {
+      final id = int.tryParse(s);
+      if (id != null && id >= 0 && id <= 4 && vistos.add(id)) orden.add(id);
+    }
+    for (var i = 0; i <= 4; i++) {
+      if (vistos.add(i)) orden.add(i);
+    }
+    if (mounted) setState(() => _ordenPestanasSum = orden);
+  }
+
+  Future<void> _guardarOrdenPestanasSum() async {
+    final email = ApiClient.currentEmail ?? 'anon';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+        '$_sumOrdenKey$email', _ordenPestanasSum.map((e) => '$e').toList());
   }
 
   Future<void> _cargarTurnos() async {
@@ -72,6 +107,7 @@ class _SummariesViewState extends State<SummariesView> {
   /// Barra de pestañas superior (estilo la de Nueva comanda): permite saltar
   /// entre Resumen contable / Resumen de venta / Por comanda / Por ítem /
   /// Ítems de facturas. Visible SIEMPRE en esta vista.
+  /// Pestañas reordenables por arrastre; el orden se persiste por usuario.
   Widget _barraPestanas() {
     final labels = <String>[
       'Resumen contable', 'Resumen de venta', 'Por comanda', 'Por ítem',
@@ -86,44 +122,68 @@ class _SummariesViewState extends State<SummariesView> {
     ];
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      height: 44,
+      height: 48,
       color: scheme.surface,
-      child: ListView(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: scheme.outlineVariant, width: 1),
+        ),
+      ),
+      child: ReorderableListView(
         scrollDirection: Axis.horizontal,
+        buildDefaultDragHandles: false,
         padding: const EdgeInsets.symmetric(horizontal: 4),
+        onReorder: _reordenarPestanasSum,
         children: [
-          for (var i = 0; i < labels.length; i++)
-            _tabPestana(context, i, labels[i], icons[i], scheme),
+          for (final id in _ordenPestanasSum)
+            _tabPestana(context, id, labels[id], icons[id], scheme),
         ],
       ),
     );
   }
 
-  Widget _tabPestana(BuildContext context, int i, String label, IconData icon, ColorScheme scheme) {
-    final isActiva = _pantalla == i;
+  /// Reordena la lista de pestañas al soltar un arrastre y guarda el orden.
+  void _reordenarPestanasSum(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex--;
+      final item = _ordenPestanasSum.removeAt(oldIndex);
+      _ordenPestanasSum.insert(newIndex, item);
+      _guardarOrdenPestanasSum();
+    });
+  }
+
+  Widget _tabPestana(BuildContext context, int id, String label, IconData icon, ColorScheme scheme) {
+    final isActiva = _pantalla == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
-    return InkWell(
-      onTap: () => setState(() => _pantalla = i),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActiva ? scheme.primary : Colors.transparent,
-              width: 3,
+    return Padding(
+      key: ValueKey('res_pestana_$id'),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: ReorderableDragStartListener(
+        index: 0, // el índice real se aplica en onReorder vía _ordenPestanasSum
+        child: InkWell(
+          onTap: () => setState(() => _pantalla = id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: isActiva ? scheme.primary : Colors.transparent,
+                  width: 3,
+                ),
+              ),
             ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                      color: color)),
+            ]),
           ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
-                  color: color)),
-        ]),
       ),
     );
   }

@@ -52,6 +52,12 @@ class _PosSalesViewState extends State<PosSalesView> {
   // Pedidos de domicilio (abiertos + pagados pendientes de entrega).
   List<Map<String, dynamic>> _domicilios = [];
 
+  // Orden de las pestañas de la barra del POS (ids 0..6) POR USUARIO. Se
+  // persiste en SharedPreferences con clave por email para que cada empleado
+  // tenga su propio orden al entrar.
+  static const _posOrdenKey = 'pos_pestanas_orden_';
+  List<int> _ordenPestanasPos = const [0, 1, 2, 3, 4, 5, 6];
+
   bool _loading = true;
   bool _cobrando = false;
   String? _error;
@@ -72,6 +78,7 @@ class _PosSalesViewState extends State<PosSalesView> {
     _load();
     // Restaura una comanda a medio armar si el usuario salió sin enviarla.
     _cargarComandaGuardada();
+    _cargarOrdenPestanasPos(); // orden de pestañas por usuario
     // Tiempo real: refresca el turno de caja y las listas al abrir/cerrar turno.
     final rt = RealtimeService.instance;
     rt.conectar();
@@ -251,81 +258,135 @@ class _PosSalesViewState extends State<PosSalesView> {
     await _crearPedido(accion: accion);
   }
 
-  /// Ventana del escenario elegido: captura los datos (mesa/llevar/domicilio) y
-  /// ofrece 2 acciones: comandar (a cocina) o pagar. Retorna 'comandar'|'pagar'
-  /// o null si se cancela.
+  /// Ventana del escenario elegido: muestra los chips Mesa / Para llevar /
+  /// Domicilio (preseleccionado el actual de la comanda, pero CAMBIABLE ahí
+  /// mismo) y el campo correspondiente. Ofrece 2 acciones: comandar (a cocina)
+  /// o pagar. Retorna 'comandar'|'pagar' o null si se cancela.
+  /// Al aceptar, persiste el escenario y los campos en el State del POS.
   Future<String?> _dialogEscenario() async {
-    if (_escenario == 'mesa') {
-      final n = await _dialogEscenarioAccion(
-        titulo: 'Mesa',
-        etiqueta: 'Número de mesa',
-        icono: Icons.restaurant,
-        textoInicial: _numeroMesa,
-        teclado: TextInputType.number,
-      );
-      if (n == null) return null;
-      setState(() => _numeroMesa = n['valor'].trim());
-      return n['accion'] as String?;
-    } else if (_escenario == 'para_llevar') {
-      final res = await _dialogEscenarioAccion(
-        titulo: 'Para llevar',
-        etiqueta: 'Nombre de la persona',
-        icono: Icons.takeout_dining,
-        textoInicial: _clienteNombre,
-      );
-      if (res == null) return null;
-      setState(() => _clienteNombre = res['valor'].trim());
-      return res['accion'] as String?;
-    } else {
-      final datos = await _dialogDomicilio();
-      if (datos == null) return null;
-      setState(() {
-        _clienteNombre = (datos['nombre'] ?? '').trim();
-        _direccion = (datos['direccion'] ?? '').trim();
-        _telefono = (datos['telefono'] ?? '').trim();
-      });
-      return datos['accion'] as String?;
-    }
-  }
-
-  /// Diálogo de un campo + 2 botones (Comandar / Pagar).
-  Future<Map<String, dynamic>?> _dialogEscenarioAccion({
-    required String titulo,
-    required String etiqueta,
-    required IconData icono,
-    String textoInicial = '',
-    TextInputType? teclado,
-  }) {
-    final ctrl = TextEditingController(text: textoInicial);
-    return showDialog<Map<String, dynamic>>(
+    final sel = _EscenarioSel(_escenario);
+    final mesaCtrl = TextEditingController(text: _numeroMesa);
+    final nombreCtrl = TextEditingController(text: _clienteNombre);
+    final direccionCtrl = TextEditingController(text: _direccion);
+    final telefonoCtrl = TextEditingController(text: _telefono);
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(children: [Icon(icono), const SizedBox(width: 8), Text(titulo)]),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: teclado,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: etiqueta,
-            border: const OutlineInputBorder(),
-            isDense: true,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton.icon(
-            icon: const Icon(Icons.kitchen_outlined),
-            onPressed: () => Navigator.pop(ctx, {'valor': ctrl.text, 'accion': 'comandar'}),
-            label: const Text('Comandar'),
-          ),
-          FilledButton.icon(
-            icon: const Icon(Icons.payments_outlined),
-            onPressed: () => Navigator.pop(ctx, {'valor': ctrl.text, 'accion': 'pagar'}),
-            label: const Text('Pagar'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          final chips = Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final o in const [
+                ['mesa', 'Mesa', Icons.restaurant],
+                ['para_llevar', 'Para llevar', Icons.takeout_dining],
+                ['domicilio', 'Domicilio', Icons.local_shipping],
+              ])
+                ChoiceChip(
+                  label: Text(o[1] as String),
+                  avatar: Icon(o[2] as IconData, size: 18),
+                  selected: sel.esc == o[0],
+                  shape: const StadiumBorder(),
+                  onSelected: (_) => setDlg(() => sel.esc = o[0] as String),
+                ),
+            ],
+          );
+          final contenido = sel.esc == 'mesa'
+              ? TextField(
+                  controller: mesaCtrl,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de mesa',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                )
+              : sel.esc == 'para_llevar'
+                  ? TextField(
+                      controller: nombreCtrl,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre de la persona',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: nombreCtrl,
+                          autofocus: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Nombre de la persona',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: direccionCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Dirección',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: telefonoCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Teléfono',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ],
+                    );
+          return AlertDialog(
+            title: const Text('Comandar'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                chips,
+                const SizedBox(height: 12),
+                contenido,
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton.icon(
+                icon: const Icon(Icons.kitchen_outlined),
+                onPressed: () =>
+                    Navigator.pop(ctx, {'esc': sel.esc, 'accion': 'comandar'}),
+                label: const Text('Comandar'),
+              ),
+              FilledButton.icon(
+                icon: const Icon(Icons.payments_outlined),
+                onPressed: () =>
+                    Navigator.pop(ctx, {'esc': sel.esc, 'accion': 'pagar'}),
+                label: const Text('Pagar'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    if (result == null) return null;
+    // Persistir escenario elegido + campos en el State del POS.
+    setState(() {
+      _escenario = (result['esc'] ?? _escenario) as String;
+      _numeroMesa = mesaCtrl.text.trim();
+      _clienteNombre = nombreCtrl.text.trim();
+      _direccion = direccionCtrl.text.trim();
+      _telefono = telefonoCtrl.text.trim();
+    });
+    return result['accion'] as String?;
   }
 
   /// Selección de escenario (chip): solo marca la opción elegida. La ventana de
@@ -363,47 +424,6 @@ class _PosSalesViewState extends State<PosSalesView> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text),
             child: const Text('Aceptar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Ventana flotante de domicilio (nombre + dirección + teléfono) + 2 botones
-  /// (comandar / pagar).
-  Future<Map<String, String>?> _dialogDomicilio() {
-    final n = TextEditingController(text: _clienteNombre);
-    final d = TextEditingController(text: _direccion);
-    final t = TextEditingController(text: _telefono);
-    return showDialog<Map<String, String>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(children: [Icon(Icons.local_shipping), SizedBox(width: 8), Text('Domicilio')]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: n, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre de la persona', border: OutlineInputBorder(), isDense: true)),
-            const SizedBox(height: 8),
-            TextField(controller: d, decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder(), isDense: true)),
-            const SizedBox(height: 8),
-            TextField(controller: t, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Teléfono', border: OutlineInputBorder(), isDense: true)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton.icon(
-            icon: const Icon(Icons.kitchen_outlined),
-            onPressed: () => Navigator.pop(ctx, {
-              'nombre': n.text, 'direccion': d.text, 'telefono': t.text, 'accion': 'comandar',
-            }),
-            label: const Text('Comandar'),
-          ),
-          FilledButton.icon(
-            icon: const Icon(Icons.payments_outlined),
-            onPressed: () => Navigator.pop(ctx, {
-              'nombre': n.text, 'direccion': d.text, 'telefono': t.text, 'accion': 'pagar',
-            }),
-            label: const Text('Pagar'),
           ),
         ],
       ),
@@ -708,8 +728,9 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
-  /// Pestaña activa según la pantalla actual (índices de la barra de pestañas
-  /// de la vista comanda: 0 Nueva comanda, 1 Mesas, 2 Domicilios, 3 Para llevar, 4 Cocina).
+  /// Pestaña activa según la pantalla actual (ids de la barra de pestañas
+  /// del POS: 0 Nueva comanda, 1 Mesas, 2 Domicilios, 3 Para llevar, 4 Cocina,
+  /// 5 Movimientos, 6 Propinas). Devuelve el ID de pantalla, no la posición.
   int _pestanaActiva() {
     switch (_pantalla) {
       case Pantalla.mesas:
@@ -725,14 +746,45 @@ class _PosSalesViewState extends State<PosSalesView> {
       case Pantalla.propinas:
         return 6;
       default:
-        return 0; // comanda / inicio -> Nueva comanda
+        return 0; // comanda -> Nueva comanda
     }
+  }
+
+  /// Carga el orden de pestañas guardado del usuario actual (por email).
+  Future<void> _cargarOrdenPestanasPos() async {
+    final email = ApiClient.currentEmail ?? 'anon';
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList('$_posOrdenKey$email');
+    if (raw == null || raw.isEmpty) {
+      // Sin preferencia guardada -> orden por defecto.
+      if (mounted) setState(() => _ordenPestanasPos = const [0, 1, 2, 3, 4, 5, 6]);
+      return;
+    }
+    // Parsea ids enteros válidos, sin repetir, completando los faltantes.
+    final vistos = <int>{};
+    final orden = <int>[];
+    for (final s in raw) {
+      final id = int.tryParse(s);
+      if (id != null && id >= 0 && id <= 6 && vistos.add(id)) orden.add(id);
+    }
+    for (var i = 0; i <= 6; i++) {
+      if (vistos.add(i)) orden.add(i);
+    }
+    if (mounted) setState(() => _ordenPestanasPos = orden);
+  }
+
+  Future<void> _guardarOrdenPestanasPos() async {
+    final email = ApiClient.currentEmail ?? 'anon';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+        '$_posOrdenKey$email', _ordenPestanasPos.map((e) => '$e').toList());
   }
 
   /// Barra de pestañas visible en TODAS las vistas del POS (Nueva comanda,
   /// Mesas, Domicilios, Para llevar, Cocina, Movimientos de caja, Pago de
   /// propinas) para moverse entre ellas o abrir esas vistas.
-  /// SIN records ni for-index: el SDK de Flutter de este proyecto es viejo.
+  /// Las pestañas son reordenables por arrastre y el orden se persiste por
+  /// usuario. SIN records ni for-index: el SDK de Flutter es viejo.
   Widget _barraPestanas() {
     final labels = <String>[
       'Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina',
@@ -750,45 +802,69 @@ class _PosSalesViewState extends State<PosSalesView> {
     final scheme = Theme.of(context).colorScheme;
     final activa = _pestanaActiva();
     return Container(
-      height: 44,
+      height: 48,
       color: scheme.surface,
-      child: ListView(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: scheme.outlineVariant, width: 1),
+        ),
+      ),
+      child: ReorderableListView(
         scrollDirection: Axis.horizontal,
+        buildDefaultDragHandles: false,
         padding: const EdgeInsets.symmetric(horizontal: 4),
+        onReorder: _reordenarPestanasPos,
         children: [
-          for (var i = 0; i < labels.length; i++)
-            _tabPestana(context, i, labels[i], icons[i], activa),
+          for (final id in _ordenPestanasPos)
+            _tabPestana(context, id, labels[id], icons[id], activa),
         ],
       ),
     );
   }
 
-  Widget _tabPestana(BuildContext context, int i, String label, IconData icon, int activa) {
+  /// Reordena la lista de pestañas al soltar un arrastre y guarda el orden.
+  void _reordenarPestanasPos(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex--;
+      final item = _ordenPestanasPos.removeAt(oldIndex);
+      _ordenPestanasPos.insert(newIndex, item);
+      _guardarOrdenPestanasPos();
+    });
+  }
+
+  Widget _tabPestana(BuildContext context, int id, String label, IconData icon, int activa) {
     final scheme = Theme.of(context).colorScheme;
-    final isActiva = activa == i;
+    final isActiva = activa == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
-    return InkWell(
-      onTap: () => _navegarPestana(i),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActiva ? scheme.primary : Colors.transparent,
-              width: 3,
+    return Padding(
+      key: ValueKey('pestana_$id'),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: ReorderableDragStartListener(
+        index: 0, // el índice real se aplica en onReorder vía _ordenPestanasPos
+        child: InkWell(
+          onTap: () => _navegarPestana(id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: isActiva ? scheme.primary : Colors.transparent,
+                  width: 3,
+                ),
+              ),
             ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                      color: color)),
+            ]),
           ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
-                  color: color)),
-        ]),
       ),
     );
   }
@@ -802,11 +878,11 @@ class _PosSalesViewState extends State<PosSalesView> {
     ]);
   }
 
-  /// Navega a la vista correspondiente al pulsar una pestaña de la barra de la
-  /// vista comanda. Refresca los datos antes de mostrar la pantalla.
-  void _navegarPestana(int i) {
+  /// Navega a la vista correspondiente al pulsar una pestaña (recibe el ID de
+  /// pantalla, no la posición — el orden visual lo gestiona _ordenPestanasPos).
+  void _navegarPestana(int id) {
     if (!mounted) return;
-    switch (i) {
+    switch (id) {
       case 0:
         setState(() { _pantalla = Pantalla.comanda; _modoAgregarMesaId = null; });
         return;
@@ -1604,4 +1680,12 @@ class _MotivoAnulacion {
   final String motivo;
   final String password;
   const _MotivoAnulacion(this.motivo, this.password);
+}
+
+/// Holder mutable del escenario elegido en el diálogo de comandar. Necesario
+/// porque el builder es re-invocado por setDlg y no se puede reasignar la
+/// variable local capturada directamente dentro de un cierre en este SDK.
+class _EscenarioSel {
+  String esc;
+  _EscenarioSel(this.esc);
 }
