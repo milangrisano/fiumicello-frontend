@@ -1557,53 +1557,66 @@ class _PosSalesViewState extends State<PosSalesView> {
       {required bool aprobador}) async {
     final motivoCtrl = TextEditingController();
     final claveCtrl = TextEditingController();
+    // StatefulBuilder para que el botón se habilite/deshabilite en VIVO al
+    // escribir (un showDialog estático evalúa el onPressed una sola vez y el
+    // botón queda congelado en su estado inicial).
     return showDialog<_MotivoAnulacion>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(children: [
-          Icon(aprobador ? Icons.verified_user : Icons.help_outline, size: 22),
-          const SizedBox(width: 8),
-          const Text('Anular mesa'),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('$nombre — Total ${money(total)}', style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: motivoCtrl,
-              autofocus: true,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Motivo de la anulación',
-                hintText: 'Explique por qué se anula la comanda / mesa…',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            if (aprobador) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: claveCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Contraseña del aprobador',
-                  border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          final motivoOk = motivoCtrl.text.trim().isNotEmpty;
+          final claveOk =
+              !aprobador || claveCtrl.text.trim().isNotEmpty;
+          final puedeEnviar = motivoOk && claveOk;
+          return AlertDialog(
+            title: Row(children: [
+              Icon(aprobador ? Icons.verified_user : Icons.help_outline, size: 22),
+              const SizedBox(width: 8),
+              const Text('Anular mesa'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('$nombre — Total ${money(total)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: motivoCtrl,
+                  autofocus: true,
+                  maxLines: 3,
+                  onChanged: (_) => setDlg(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo de la anulación',
+                    hintText: 'Explique por qué se anula la comanda / mesa…',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
+                if (aprobador) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: claveCtrl,
+                    obscureText: true,
+                    onChanged: (_) => setDlg(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña del aprobador',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: puedeEnviar
+                    ? () => Navigator.pop(ctx,
+                        _MotivoAnulacion(motivoCtrl.text.trim(), aprobador ? claveCtrl.text : ''))
+                    : null,
+                child: Text(aprobador ? 'Aprobar y anular' : 'Solicitar aprobación'),
               ),
             ],
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: motivoCtrl.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(ctx, _MotivoAnulacion(motivoCtrl.text.trim(),
-                    aprobador ? claveCtrl.text : '')),
-            child: Text(aprobador ? 'Aprobar y anular' : 'Solicitar aprobación'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1616,42 +1629,48 @@ class _PosSalesViewState extends State<PosSalesView> {
     final nombreShow = nombre.isEmpty ? 'Pedido #$pedidoId' : nombre;
     final aprobar = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.warning_amber_outlined, size: 22),
-          SizedBox(width: 8),
-          Text('Aprobación de anulación'),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('$nombreShow — Total ${money(numVal(total))}',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            const Text('Motivo del cajero:'),
-            Text(motivo.isEmpty ? '(sin motivo)' : motivo,
-                style: const TextStyle(fontStyle: FontStyle.italic)),
-            const SizedBox(height: 12),
-            // Un solo recuadro: el aprobador (quien recibe) digita su clave.
-            TextField(
-              controller: claveCtrl,
-              obscureText: true,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Tu contraseña para aprobar',
-                border: OutlineInputBorder(),
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          final puedeAprobar = claveCtrl.text.trim().isNotEmpty;
+          return AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.warning_amber_outlined, size: 22),
+              SizedBox(width: 8),
+              Text('Aprobación de anulación'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('$nombreShow — Total ${money(numVal(total))}',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                const Text('Motivo del cajero:'),
+                Text(motivo.isEmpty ? '(sin motivo)' : motivo,
+                    style: const TextStyle(fontStyle: FontStyle.italic)),
+                const SizedBox(height: 12),
+                // Un solo recuadro: el aprobador (quien recibe) digita su clave.
+                TextField(
+                  controller: claveCtrl,
+                  obscureText: true,
+                  autofocus: true,
+                  onChanged: (_) => setDlg(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Tu contraseña para aprobar',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Rechazar')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Aprobar y anular'),
-          ),
-        ],
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Rechazar')),
+              FilledButton(
+                onPressed: puedeAprobar ? () => Navigator.pop(ctx, true) : null,
+                child: const Text('Aprobar y anular'),
+              ),
+            ],
+          );
+        },
       ),
     );
     if (aprobar != true) return;
