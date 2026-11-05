@@ -47,8 +47,12 @@ class _SummariesViewState extends State<SummariesView> {
   List<Map<String, dynamic>> _turnos = [];
 
   // Orden de las pestañas de la barra de resúmenes (ids 0..4) POR USUARIO.
-  // Se persiste en SharedPreferences con clave por email.
+  // Se persiste en SharedPreferences (clave por email) y además en un cache
+  // ESTÁTICO para que sobreviva a la recreación del State al cambiar de
+  // sección (ActiveView destruye la vista al salir y la recrea al volver).
   static const _sumOrdenKey = 'sum_pestanas_orden_';
+  static List<int> _ordenMemSum = const [0, 1, 2, 3, 4];
+  static bool _cargadoMemSum = false;
   List<int> _ordenPestanasSum = const [0, 1, 2, 3, 4];
   // True = "modo organizar": las pestañas se vuelven arrastrables (asidero
   // visible) para reordenarlas con click-sostenido. En modo normal solo
@@ -67,12 +71,20 @@ class _SummariesViewState extends State<SummariesView> {
   }
 
   /// Carga el orden de pestañas guardado del usuario actual (por email).
+  /// Usa un cache ESTÁTICO: si esta sesión de la app ya lo cargó (aunque el
+  /// State se haya recreado al cambiar de sección), lo reutiliza sin re-leer.
   Future<void> _cargarOrdenPestanasSum() async {
+    if (_cargadoMemSum) {
+      if (mounted) setState(() => _ordenPestanasSum = _ordenMemSum);
+      return;
+    }
+    _cargadoMemSum = true;
     final email = ApiClient.currentEmail ?? 'anon';
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList('$_sumOrdenKey$email');
     if (raw == null || raw.isEmpty) {
-      if (mounted) setState(() => _ordenPestanasSum = const [0, 1, 2, 3, 4]);
+      _ordenMemSum = const [0, 1, 2, 3, 4];
+      if (mounted) setState(() => _ordenPestanasSum = _ordenMemSum);
       return;
     }
     final vistos = <int>{};
@@ -84,10 +96,12 @@ class _SummariesViewState extends State<SummariesView> {
     for (var i = 0; i <= 4; i++) {
       if (vistos.add(i)) orden.add(i);
     }
-    if (mounted) setState(() => _ordenPestanasSum = orden);
+    _ordenMemSum = orden;
+    if (mounted) setState(() => _ordenPestanasSum = _ordenMemSum);
   }
 
   Future<void> _guardarOrdenPestanasSum() async {
+    _ordenMemSum = List<int>.from(_ordenPestanasSum);
     final email = ApiClient.currentEmail ?? 'anon';
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(

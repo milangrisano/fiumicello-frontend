@@ -56,6 +56,10 @@ class _PosSalesViewState extends State<PosSalesView> {
   // persiste en SharedPreferences con clave por email para que cada empleado
   // tenga su propio orden al entrar.
   static const _posOrdenKey = 'pos_pestanas_orden_';
+  // Orden de pestañas con cache ESTÁTICO (sobrevive a la recreación del State
+  // al cambiar de sección) + respaldo en SharedPreferences por email.
+  static List<int> _ordenMemPos = const [0, 1, 2, 3, 4, 5, 6];
+  static bool _cargadoMemPos = false;
   List<int> _ordenPestanasPos = const [0, 1, 2, 3, 4, 5, 6];
   // True = "modo organizar": las pestañas se vuelven arrastrables (asidero
   // visible) para reordenarlas con click-sostenido. En modo normal solo
@@ -755,13 +759,21 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   /// Carga el orden de pestañas guardado del usuario actual (por email).
+  /// Usa un cache ESTÁTICO: si esta sesión de la app ya lo cargó (aunque el
+  /// State se haya recreado al cambiar de sección), lo reutiliza sin re-leer.
   Future<void> _cargarOrdenPestanasPos() async {
+    if (_cargadoMemPos) {
+      if (mounted) setState(() => _ordenPestanasPos = _ordenMemPos);
+      return;
+    }
+    _cargadoMemPos = true;
     final email = ApiClient.currentEmail ?? 'anon';
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList('$_posOrdenKey$email');
     if (raw == null || raw.isEmpty) {
       // Sin preferencia guardada -> orden por defecto.
-      if (mounted) setState(() => _ordenPestanasPos = const [0, 1, 2, 3, 4, 5, 6]);
+      _ordenMemPos = const [0, 1, 2, 3, 4, 5, 6];
+      if (mounted) setState(() => _ordenPestanasPos = _ordenMemPos);
       return;
     }
     // Parsea ids enteros válidos, sin repetir, completando los faltantes.
@@ -774,10 +786,12 @@ class _PosSalesViewState extends State<PosSalesView> {
     for (var i = 0; i <= 6; i++) {
       if (vistos.add(i)) orden.add(i);
     }
-    if (mounted) setState(() => _ordenPestanasPos = orden);
+    _ordenMemPos = orden;
+    if (mounted) setState(() => _ordenPestanasPos = _ordenMemPos);
   }
 
   Future<void> _guardarOrdenPestanasPos() async {
+    _ordenMemPos = List<int>.from(_ordenPestanasPos);
     final email = ApiClient.currentEmail ?? 'anon';
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
