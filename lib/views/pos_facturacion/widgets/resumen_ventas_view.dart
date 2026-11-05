@@ -10,7 +10,10 @@ class ResumenVentasView extends StatefulWidget {
   /// Callback para volver a la pantalla anterior (las cards del POS). Si es null,
   /// se usa Navigator.pop como respaldo.
   final VoidCallback? onVolver;
-  const ResumenVentasView({super.key, this.onVolver});
+  /// Modo embebido: omite la fila de flecha-atrás + título (para renderizarse
+  /// dentro de un layout que ya aporta barra de navegación/pestañas).
+  final bool embebido;
+  const ResumenVentasView({super.key, this.onVolver, this.embebido = false});
   @override
   State<ResumenVentasView> createState() => _ResumenVentasViewState();
 }
@@ -250,22 +253,25 @@ class _ResumenVentasViewState extends State<ResumenVentasView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                if (widget.onVolver != null) {
-                  widget.onVolver!();
-                } else {
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-            const SizedBox(width: 8),
-            const Text('Resumen de ventas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-          ]),
-          SizedBox(height: 2),
-          Text('Periodo: ${(_data == null ? '' : (_data!['etiqueta'] ?? ''))}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          if (!widget.embebido)
+            Row(children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  if (widget.onVolver != null) {
+                    widget.onVolver!();
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              const Text('Resumen de ventas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+            ]),
+          if (!widget.embebido) const SizedBox(height: 2),
+          if (!widget.embebido)
+            Text('Periodo: ${(_data == null ? '' : (_data!['etiqueta'] ?? ''))}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          if (widget.embebido) const SizedBox(height: 4),
           SizedBox(height: gap),
           contenido,
         ],

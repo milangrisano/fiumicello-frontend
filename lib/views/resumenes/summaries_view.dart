@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
+import '../pos_facturacion/widgets/resumen_ventas_view.dart';
+import '../pos_facturacion/widgets/comandas_turno_view.dart';
+import '../pos_facturacion/widgets/items_turno_view.dart';
+import '../pos_facturacion/widgets/facturas_items_view.dart';
 
 /// Module 3 — Resumen contable (haber/deber).
 ///
@@ -34,6 +38,13 @@ class _SummariesViewState extends State<SummariesView> {
   // Selectores colapsables
   final Set<String> _abiertos = {};
 
+  // Pestaña activa de la barra de resúmenes:
+  // 0 Resumen contable · 1 Resumen de venta · 2 Por comanda · 3 Por ítem ·
+  // 4 Ítems de facturas.
+  int _pantalla = 0;
+  // Turnos de caja (para las pestañas Por comanda / Por ítem).
+  List<Map<String, dynamic>> _turnos = [];
+
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -41,6 +52,80 @@ class _SummariesViewState extends State<SummariesView> {
   void initState() {
     super.initState();
     _cargar();
+    _cargarTurnos();
+  }
+
+  Future<void> _cargarTurnos() async {
+    final t = await ApiClient.cajaTurnos();
+    if (!mounted) return;
+    if (t.ok) {
+      final lista = t.list.cast<Map<String, dynamic>>();
+      final abiertoIdx = lista.indexWhere((x) => x['estado'] == 'abierto');
+      if (abiertoIdx > 0) {
+        final abierto = lista.removeAt(abiertoIdx);
+        lista.insert(0, abierto);
+      }
+      setState(() => _turnos = lista);
+    }
+  }
+
+  /// Barra de pestañas superior (estilo la de Nueva comanda): permite saltar
+  /// entre Resumen contable / Resumen de venta / Por comanda / Por ítem /
+  /// Ítems de facturas. Visible SIEMPRE en esta vista.
+  Widget _barraPestanas() {
+    final labels = <String>[
+      'Resumen contable', 'Resumen de venta', 'Por comanda', 'Por ítem',
+      'Ítems de facturas',
+    ];
+    final icons = <IconData>[
+      Icons.account_balance_wallet,
+      Icons.pie_chart,
+      Icons.receipt_long,
+      Icons.list_alt,
+      Icons.shopping_cart,
+    ];
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 44,
+      color: scheme.surface,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            _tabPestana(context, i, labels[i], icons[i], scheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabPestana(BuildContext context, int i, String label, IconData icon, ColorScheme scheme) {
+    final isActiva = _pantalla == i;
+    final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
+    return InkWell(
+      onTap: () => setState(() => _pantalla = i),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActiva ? scheme.primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActiva ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ]),
+      ),
+    );
   }
 
   Future<void> _elegirRango() async {
@@ -608,8 +693,9 @@ class _SummariesViewState extends State<SummariesView> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// Cuerpo de la pestaña "Resumen contable" (el original), con su selector de
+  /// periodo, chips y el resumen ventas−facturas.
+  Widget _cuerpoResumenContable(BuildContext context) {
     final borde = 20.0;
     final gap = 16.0;
 
@@ -692,6 +778,39 @@ class _SummariesViewState extends State<SummariesView> {
         );
       }),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Cuerpo mostrado según la pestaña activa de la barra de resúmenes.
+    Widget cuerpo;
+    switch (_pantalla) {
+      case 1: // Resumen de venta
+        cuerpo = const ResumenVentasView(embebido: true);
+        break;
+      case 2: // Por comanda
+        cuerpo = _turnos.isEmpty
+            ? const Center(child: Text('No hay turnos registrados.', style: TextStyle(color: Colors.grey)))
+            : ComandasTurnoView(turnos: _turnos, embebido: true);
+        break;
+      case 3: // Por ítem
+        cuerpo = _turnos.isEmpty
+            ? const Center(child: Text('No hay turnos registrados.', style: TextStyle(color: Colors.grey)))
+            : ItemsTurnoView(turnos: _turnos, embebido: true);
+        break;
+      case 4: // Ítems de facturas
+        cuerpo = const FacturasItemsView(embebido: true);
+        break;
+      default: // 0 Resumen contable
+        cuerpo = _cuerpoResumenContable(context);
+    }
+    // Barra de pestañas SIEMPRE visible sobre el cuerpo de la vista, para
+    // saltar entre las sub-vistas de resúmenes.
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _barraPestanas(),
+      const Divider(height: 1),
+      Expanded(child: cuerpo),
+    ]);
   }
 
   Widget _buildResumen(BuildContext context, double gap) {

@@ -12,7 +12,10 @@ import '../../../core/utils/formatters.dart';
 class ItemsTurnoView extends StatefulWidget {
   final List<Map<String, dynamic>> turnos;
   final int indiceInicial;
-  const ItemsTurnoView({super.key, required this.turnos, this.indiceInicial = 0});
+  /// Modo embebido: omite el AppBar/flecha (para renderizarse dentro de un
+  /// layout que ya aporta la barra de navegación por pestañas).
+  final bool embebido;
+  const ItemsTurnoView({super.key, required this.turnos, this.indiceInicial = 0, this.embebido = false});
 
   @override
   State<ItemsTurnoView> createState() => _ItemsTurnoViewState();
@@ -258,16 +261,18 @@ class _ItemsTurnoViewState extends State<ItemsTurnoView> {
     final cs = Theme.of(context).colorScheme;
     final turnoFecha = _fechaTurno(_turnoAct['fecha']);
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('Por ítem'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
-        ],
-      ),
+      appBar: widget.embebido
+          ? null
+          : AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: const Text('Por ítem'),
+              actions: [
+                IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
+              ],
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

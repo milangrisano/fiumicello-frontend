@@ -10,14 +10,10 @@ import 'pos_facturacion/pos_models.dart';
 import 'pos_facturacion/pos_utils.dart'
     show numVal, precioDe;
 import 'pos_facturacion/widgets/comanda_view.dart';
-import 'pos_facturacion/widgets/facturas_items_view.dart';
-import 'pos_facturacion/widgets/resumen_ventas_view.dart';
 import 'pos_facturacion/widgets/cierre_caja_view.dart';
 import 'pos_facturacion/widgets/movimientos_caja_view.dart';
 import 'pos_facturacion/widgets/pago_propina_view.dart';
 import 'pos_facturacion/widgets/conteo_denominacion.dart';
-import 'pos_facturacion/widgets/comandas_turno_view.dart';
-import 'pos_facturacion/widgets/items_turno_view.dart';
 import '../core/services/realtime_service.dart';
 import 'cocina/cocina_view.dart';
 
@@ -44,7 +40,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   String _clienteNombre = '';
   String _direccion = '';
   String _telefono = '';
-  int _pantalla = Pantalla.inicio;
+  int _pantalla = Pantalla.comanda;
   // Modo "agregar a mesa abierta": si no es null, la comanda se agrega a ese
   // pedido (mesa) al continuar, sin pasar por la etapa de asignación.
   int? _modoAgregarMesaId;
@@ -863,11 +859,8 @@ class _PosSalesViewState extends State<PosSalesView> {
       case Pantalla.propinas:
         AppTitulo.titulo.value = 'Pago de propinas';
         return;
-      case Pantalla.inicio:
-        AppTitulo.titulo.value = 'POS de facturación';
-        return;
       default:
-        AppTitulo.titulo.value = 'POS de facturación';
+        AppTitulo.titulo.value = 'Nueva comanda';
     }
   }
 
@@ -947,8 +940,8 @@ class _PosSalesViewState extends State<PosSalesView> {
     );
     if (cerrado == true) {
       await _cargarTurno();
-      // Al cerrar la caja se va a la pantalla de POS de facturación (inicio).
-      if (mounted) setState(() => _pantalla = Pantalla.inicio);
+      // Al cerrar la caja se vuelve a la comanda (nueva).
+      if (mounted) setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; });
     }
   }
 
@@ -1036,21 +1029,11 @@ class _PosSalesViewState extends State<PosSalesView> {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
     _pintarTitulo();
-    // Pantallas que NO requieren caja abierta (cards de inicio y resumen) se
-    // muestran siempre. Las de facturación/cobro/entregas SÍ exigen turno abierto
-    // (si no hay turno, se abre el dialog de apertura antes de facturar).
-    // (Comandas/Ítems del turno se abren con Navigator.push desde las cards.)
-    if (_pantalla == Pantalla.inicio || _pantalla == Pantalla.resumen) {
-      switch (_pantalla) {
-        case Pantalla.resumen:
-          return ResumenVentasView(onVolver: () => setState(() => _pantalla = Pantalla.inicio));
-        default:
-          return _vistaInicio();
-      }
-    }
     // Renderizado por pantalla del flujo POS. TODAS con la barra de pestañas
     // encima para navegar entre ellas (Nueva comanda / Mesas / Domicilios /
     // Para llevar / Cocina). Cocina no requiere caja abierta (preparación).
+    // No hay pantalla "inicio" del POS: se entra directo a Nueva comanda y el
+    // resto se maneja por las pestañas y el menú lateral.
     switch (_pantalla) {
       case Pantalla.comanda:
         return _vistaConPestanas(_vistaComanda());
@@ -1061,124 +1044,21 @@ class _PosSalesViewState extends State<PosSalesView> {
       case Pantalla.paraLlevar:
         return _vistaConPestanas(_vistaParaLlevar());
       case Pantalla.cocina:
-        return _vistaConPestanas(CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.inicio)));
+        return _vistaConPestanas(CocinaView(onVolver: () => setState(() => _pantalla = Pantalla.comanda)));
       case Pantalla.movimientos:
-        // Requiere turno abierto; si no, se pide abrir la caja.
-        if (_turno == null) { _dialogAbrirCaja(); return _vistaInicio(); }
+        // Requiere turno abierto; si no, se pide abrir la caja y se queda en
+        // Nueva comanda. Movimientos de caja se abre también desde la pestaña.
+        if (_turno == null) { _dialogAbrirCaja(); return _vistaConPestanas(_vistaComanda()); }
         return _vistaConPestanas(MovimientosCajaView(turno: _turno!, embebido: true));
       case Pantalla.propinas:
         return _vistaConPestanas(PagoPropinaView(embebido: true));
       default:
-        return _vistaInicio();
+        return _vistaConPestanas(_vistaComanda());
     }
   }
 
   Widget appIcon(IconData i, {double size = 28}) {
     return Icon(i, size: size, color: Theme.of(context).colorScheme.primary);
-  }
-
-  // ---------- Inicio ----------
-  Widget _vistaInicio() {
-    // Uniforme en TODAS las vistas: las 4 cards reparten el ancho disponible
-    // (mismo tamaño flex), con gap uniforme y margen simétrico a los bordes.
-    // Ancho grande -> 4 en fila; tablet/móvil -> se acomodan en cuadrícula, nunca
-    // quedan flotando en espacio extra.
-    final cards = <Widget>[
-      _inicioCard('Nueva comanda', Icons.menu_book, () => setState(() { _modoAgregarMesaId = null; _pantalla = Pantalla.comanda; })),
-      _inicioCard('Resumen de ventas', Icons.pie_chart, () => setState(() => _pantalla = Pantalla.resumen)),
-      _inicioCard('Movimientos de caja', Icons.swap_horiz, () {
-        if (_turno == null) { _dialogAbrirCaja(); return; }
-        setState(() => _pantalla = Pantalla.movimientos);
-      }),
-      _inicioCard('Pago de propinas', Icons.redeem, () {
-        setState(() => _pantalla = Pantalla.propinas);
-      }),
-      // Cards del turno en curso / turnos anteriores (siempre visibles).
-      _inicioCard('Por Comandas', Icons.receipt_long, () {
-        if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ComandasTurnoView(turnos: _turnos)),
-        );
-      }),
-      _inicioCard('Por ítem', Icons.list_alt, () {
-        if (_turnos.isEmpty) { _snack('No hay turnos registrados.'); return; }
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ItemsTurnoView(turnos: _turnos)),
-        );
-      }),
-      _inicioCard('Ítems de facturas', Icons.shopping_cart, () async {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => FacturasItemsView()),
-        );
-      }),
-    ];
-    // Wrap uniforme: cards del mismo ancho (según ancho real de pantalla)
-    // y mismo alto (IntrinsicHeight dentro de un alto fijo), gaps uniformes y
-    // margen simétrico. Se acomoda a 4/2/1 columnas según el espacio.
-    return LayoutBuilder(builder: (context, c) {
-      final ancho = c.maxWidth;
-      final gap = 20.0;
-      final borde = 20.0;
-      final cols = ancho >= 240 * 4 ? 4 : (ancho >= 240 * 2 ? 2 : 1);
-      final cardAncho = (ancho - borde * 2 - gap * (cols - 1)) / cols;
-      return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(borde, 12, borde, 0),
-            child: Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              alignment: WrapAlignment.start,
-              crossAxisAlignment: WrapCrossAlignment.start,
-              children: [
-                for (final card in cards)
-                  SizedBox(width: cardAncho, child: card),
-              ],
-            ),
-          ),
-          // En móvil, la versión de la app al final de las cards del POS.
-          if (ancho < 800)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Versión $APP_VERSION',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-              ),
-            ),
-        ],
-      ),
-      );
-    });
-  }
-
-  Widget _inicioCard(String titulo, IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      elevation: 1,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(icon, size: 40, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 12),
-              Flexible(child: Text(titulo, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   // ---------- Etapa 1: Comanda ----------
@@ -1203,7 +1083,7 @@ class _PosSalesViewState extends State<PosSalesView> {
       onSumar: _sumarLinea,
       onContinuar: _siguienteEtapa,
       onBorrar: _borrarComanda,
-      onVolver: () => setState(() => _pantalla = Pantalla.inicio),
+      onVolver: () => setState(() => _pantalla = Pantalla.comanda),
       turnoAbierto: _turno != null,
       onCerrarTurno: () => _cerrarTurno(),
       onAgregarMesa: (m) async {

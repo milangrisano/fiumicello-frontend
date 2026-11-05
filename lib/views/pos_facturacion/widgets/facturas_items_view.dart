@@ -9,7 +9,10 @@ import '../../../core/utils/formatters.dart';
 /// rango. En móvil (ancho <640) se muestran tarjetas (ListTile); en PC, tabla.
 /// Accesible desde la pantalla de inicio del POS.
 class FacturasItemsView extends StatefulWidget {
-  const FacturasItemsView({super.key});
+  /// Modo embebido: omite la fila de flecha-atrás + título (para renderizarse
+  /// dentro de un layout que ya aporta la barra de navegación por pestañas).
+  final bool embebido;
+  const FacturasItemsView({super.key, this.embebido = false});
 
   @override
   State<FacturasItemsView> createState() => _FacturasItemsViewState();
@@ -198,17 +201,18 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     return Scaffold(
       body: Column(
         children: [
-          const SizedBox(height: 8),
-          Row(children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            Expanded(
-              child: Text('Ítems de facturas',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
-            ),
-          ]),
+          if (!widget.embebido) const SizedBox(height: 8),
+          if (!widget.embebido)
+            Row(children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              Expanded(
+                child: Text('Ítems de facturas',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
+              ),
+            ]),
           // Selector de periodo: chips Semana/Mes/Año + calendario de rango.
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),

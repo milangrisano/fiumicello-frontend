@@ -25,7 +25,7 @@ class AppSections {
   static const List<String> _labelsAll = [
     'Carta',
     'Facturas y comprobantes',
-    'POS facturación',
+    'Nueva comanda',
     'Resúmenes contables',
     'Administración',
   ];

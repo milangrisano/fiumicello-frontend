@@ -13,7 +13,10 @@ import '../../../core/utils/formatters.dart';
 class ComandasTurnoView extends StatefulWidget {
   final List<Map<String, dynamic>> turnos;
   final int indiceInicial;
-  const ComandasTurnoView({super.key, required this.turnos, this.indiceInicial = 0});
+  /// Modo embebido: omite el AppBar/flecha (para renderizarse dentro de un
+  /// layout que ya aporta la barra de navegación por pestañas).
+  final bool embebido;
+  const ComandasTurnoView({super.key, required this.turnos, this.indiceInicial = 0, this.embebido = false});
 
   @override
   State<ComandasTurnoView> createState() => _ComandasTurnoViewState();
@@ -229,16 +232,18 @@ class _ComandasTurnoViewState extends State<ComandasTurnoView> {
     final tieneAcciones =
         ApiClient.hasPermiso('ventas:eliminar') || ApiClient.isSuperadmin;
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('Por Comandas'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
-        ],
-      ),
+      appBar: widget.embebido
+          ? null
+          : AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: const Text('Por Comandas'),
+              actions: [
+                IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
+              ],
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
