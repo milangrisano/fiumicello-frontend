@@ -43,11 +43,7 @@ class _LoginViewState extends State<LoginView> {
     return Scaffold(
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.only(bottom: 14),
-        child: Text(
-          'Versión $APP_VERSION',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
-        ),
+        child: _PieVersiones(),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -110,7 +106,7 @@ class _LoginViewState extends State<LoginView> {
                     ),
                   ),
                   onSubmitted: (_) => _submit(),
-                      ),
+                    ),
                     ],
                   ),
                 ),
@@ -148,6 +144,55 @@ class _LoginViewState extends State<LoginView> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Pie del login: muestra la versión del FRONTEND y la del BACKEND (leída del
+/// endpoint público /health) para poder verificar que ambos coinciden y que no
+/// haya un backend viejo desplegado. Si no coinciden, se marca en rojo.
+class _PieVersiones extends StatefulWidget {
+  const _PieVersiones();
+  @override
+  State<_PieVersiones> createState() => _PieVersionesState();
+}
+
+class _PieVersionesState extends State<_PieVersiones> {
+  String? _back;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    final v = await ApiClient.leerBackendVersion();
+    if (mounted) setState(() => _back = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final back = _back;
+    final coincide = back != null && back.isNotEmpty && back == APP_VERSION;
+    final color = coincide
+        ? Colors.grey
+        : (back == null ? Colors.grey : scheme.error);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Versión frontend: v$APP_VERSION',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(
+          back == null
+              ? 'Versión backend: —'
+              : 'Versión backend: v$back${coincide ? '' : '  ⚠ no coincide'}',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: color, fontSize: 12, fontWeight: coincide ? FontWeight.normal : FontWeight.bold),
+        ),
+      ],
     );
   }
 }

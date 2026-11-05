@@ -84,6 +84,25 @@ class ApiClient {
       }
     } catch (_) {}
   }
+  /// Versión de deploy del backend (endpoint público /health). Sirve para
+  /// verificar en runtime qué backend está sirviendo y que coincida con la del
+  /// frontend. Devuelve '' si no se puede leer.
+  static String backendVersion = '';
+  static Future<String> leerBackendVersion() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/health'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body) as Map?;
+        final v = (d?['version'] as String?) ?? '';
+        if (v.isNotEmpty) backendVersion = v;
+        return backendVersion;
+      }
+    } catch (_) {}
+    return backendVersion;
+  }
   static DateTime? _tokenExpira; // momento en que vence el access (si se conoce)
 
   /// Si el access token vence pronto (< 2 min) o ya venció, renueva la sesión.

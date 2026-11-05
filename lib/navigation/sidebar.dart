@@ -127,6 +127,24 @@ class Sidebar extends StatelessWidget {
         const SizedBox(height: 2),
         Text('v.$APP_VERSION',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+        // Versión del backend (leída de /health) para verificar coincidencia.
+        FutureBuilder<String>(
+          future: ApiClient.leerBackendVersion(),
+          builder: (context, snap) {
+            final bv = snap.data ?? '';
+            final coincide = bv.isNotEmpty && bv == APP_VERSION;
+            final col = coincide
+                ? scheme.onSurfaceVariant
+                : (bv.isEmpty ? scheme.onSurfaceVariant : scheme.error);
+            return Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                bv.isEmpty ? 'backend —' : 'be: v$bv${coincide ? '' : ' ⚠'}',
+                style: TextStyle(fontSize: 9, color: col),
+              ),
+            );
+          },
+        ),
         const SizedBox(height: 8),
       ],
     );
