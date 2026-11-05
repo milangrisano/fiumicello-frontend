@@ -82,6 +82,21 @@ class _PosSalesViewState extends State<PosSalesView> {
     rt.on('turno:abierto', (_) => _cargarTurno());
     rt.on('turno:cerrado', (_) => _cargarTurno());
     rt.on('comanda:nueva', (_) => _refreshVivos());
+    rt.on('pedido:anulacion-solicitada', (d) =>
+        _recibirSolicitudAnulacion(d['id'] as int? ?? 0, d));
+    rt.on('pedido:anulada', (_) => _refreshVivos());
+  }
+
+  /// Al llegar una solicitud de anulación (la lanzó un cajero), si este usuario
+  /// es superadmin/admin/encargado se le ofrece aprobarla con su contraseña.
+  void _recibirSolicitudAnulacion(int pedidoId, Map<String, dynamic> d) {
+    final puedeAprobar = ApiClient.hasPermiso('pedidos:anular') ||
+        ['superadmin', 'admin', 'encargado'].contains(ApiClient.currentRol);
+    if (!puedeAprobar) return;
+    if (pedidoId <= 0) return;
+    if (!mounted) return;
+    final nombre = (d['cliente_nombre'] ?? d['numero_mesa'] ?? '').toString();
+    _dialogAprobarAnulacion(pedidoId, nombre, d['total'], (d['motivo'] ?? '').toString());
   }
 
   Future<void> _load() async {
@@ -1291,6 +1306,14 @@ class _PosSalesViewState extends State<PosSalesView> {
           OutlinedButton(onPressed: () async { await _agregarProductoMesa(m); }, child: const Text('Agregar')),
           const SizedBox(width: 8),
           OutlinedButton(onPressed: () async { await _dialogPagarPedido(id, montoMostrar: total); }, child: const Text('Pedir la cuenta')),
+          const SizedBox(width: 8),
+          // Anular mesa: el cajero pide aprobación; admin/encargado/superadmin
+          // pueden aprobarla con su contraseña. Siempre se muestra el botón.
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () async { await _anularMesa(id, 'Mesa ${m['numero_mesa'] ?? m['id']}', total); },
+            child: const Text('Anular'),
+          ),
         ]),
       ]),
     );
@@ -1501,6 +1524,142 @@ class _PosSalesViewState extends State<PosSalesView> {
     return '${min.toString()} min';
   }
 
+  // ---------- Anulación de mesa / pedido ----------
+  bool get _puedeAprobarAnulacion =>
+      ApiClient.hasPermiso('pedidos:anular') ||
+      ['superadmin', 'admin', 'encargado'].contains(ApiClient.currentRol);
+
+  /// Punto de entrada del botón "Anular" de una mesa abierta:
+  /// - Superadmin/admin/encargado (permiso pedidos:anular): pedir motivo +
+  ///   su contraseña y anular en el momento.
+  /// - Cajero (sin permiso): pedir motivo y SOLICITAR aprobación; un
+  ///   admin/encargado la recibe por tiempo real y la aprueba con su clave.
+  Future<void> _anularMesa(int pedidoId, String nombre, double total) async {
+    if (!_puedeAprobarAnulacion) {
+      // Cajero: solo escribe el motivo y se envía la solicitud.
+      final solicitud = await _dialogMotivo(nombre, total, aprobador: false);
+      if (solicitud == null) return;
+      final r = await ApiClient.solicitarAnulacionPedido(pedidoId, solicitud.motivo);
+      _snack(r.ok ? 'Solicitud de anulación enviada para aprobación.' : r.message);
+      return;
+    }
+    // Aprobador: motivo + contraseña para autorizar en el momento.
+    final clave = await _dialogMotivo(nombre, total, aprobador: true);
+    if (clave == null) return;
+    final r = await ApiClient.anularPedido(pedidoId, clave.password);
+    _snack(r.ok ? '$nombre anulada correctamente.' : r.message);
+    if (r.ok) await _refreshVivos();
+  }
+
+  /// Diálogo para el cajero (solo motivo -> solicita) o para el aprobador
+  /// (motivo + contraseña -> autoriza). Devuelve null si cancela.
+  Future<_MotivoAnulacion?> _dialogMotivo(String nombre, double total,
+      {required bool aprobador}) async {
+    final motivoCtrl = TextEditingController();
+    final claveCtrl = TextEditingController();
+    return showDialog<_MotivoAnulacion>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(aprobador ? Icons.verified_user : Icons.help_outline, size: 22),
+          const SizedBox(width: 8),
+          const Text('Anular mesa'),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('$nombre — Total ${money(total)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: motivoCtrl,
+              autofocus: true,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Motivo de la anulación',
+                hintText: 'Explique por qué se anula la comanda / mesa…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (aprobador) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: claveCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Contraseña del aprobador',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: motivoCtrl.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(ctx, _MotivoAnulacion(motivoCtrl.text.trim(),
+                    aprobador ? claveCtrl.text : '')),
+            child: Text(aprobador ? 'Aprobar y anular' : 'Solicitar aprobación'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Notificación por tiempo real al aprobador (superadmin/admin/encargado):
+  /// un cajero pidió anular una mesa. Muestra el motivo y pide su contraseña.
+  Future<void> _dialogAprobarAnulacion(
+      int pedidoId, String nombre, dynamic total, String motivo) async {
+    final claveCtrl = TextEditingController();
+    final nombreShow = nombre.isEmpty ? 'Pedido #$pedidoId' : nombre;
+    final aprobar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.warning_amber_outlined, size: 22),
+          SizedBox(width: 8),
+          Text('Aprobación de anulación'),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('$nombreShow — Total ${money(numVal(total))}',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            const Text('Motivo del cajero:'),
+            Text(motivo.isEmpty ? '(sin motivo)' : motivo,
+                style: const TextStyle(fontStyle: FontStyle.italic)),
+            const SizedBox(height: 12),
+            // Un solo recuadro: el aprobador (quien recibe) digita su clave.
+            TextField(
+              controller: claveCtrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Tu contraseña para aprobar',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Rechazar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Aprobar y anular'),
+          ),
+        ],
+      ),
+    );
+    if (aprobar != true) return;
+    final r = await ApiClient.anularPedido(pedidoId, claveCtrl.text);
+    _snack(r.ok ? '$nombreShow anulada correctamente.' : r.message);
+    if (r.ok) await _refreshVivos();
+  }
+
   // ---------- Dialogs ----------
   Future<String?> _dialogNota(String titulo) async {
     final c = TextEditingController();
@@ -1539,4 +1698,11 @@ class _PosSalesViewState extends State<PosSalesView> {
       await _load();
     }
   }
+}
+
+/// Resultado del diálogo de anulación: motivo + contraseña (del aprobador).
+class _MotivoAnulacion {
+  final String motivo;
+  final String password;
+  const _MotivoAnulacion(this.motivo, this.password);
 }

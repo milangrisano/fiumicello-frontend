@@ -931,6 +931,18 @@ class ApiClient {
     return _postAuth('/pedidos/$id/entregar', const {});
   }
 
+  /// El cajero solicita anular un pedido/mesa abierta (guarda el motivo y
+  /// notifica a superadmin/admin/encargado para que aprueben con su clave).
+  static Future<PostResult> solicitarAnulacionPedido(int id, String motivo) async {
+    return _postAuth('/pedidos/$id/solicitar-anulacion', {'motivo': motivo});
+  }
+
+  /// El aprobador (superadmin/admin/encargado) anula el pedido validando su
+  /// contraseña. Devuelve el message (p. ej. 'Contraseña incorrecta.').
+  static Future<PostResult> anularPedido(int id, String password) async {
+    return _postAuth('/pedidos/$id/anular', {'password': password});
+  }
+
   /// Authenticated POST (requires bearer token).
   static Future<PostResult> _postAuth(String path, Map<String, dynamic> body) async {
     try {

@@ -16,6 +16,8 @@ class RealtimeService {
     'cocina:estado',
     'turno:abierto',
     'turno:cerrado',
+    'pedido:anulacion-solicitada',
+    'pedido:anulada',
   ];
 
   io.Socket? _socket;
