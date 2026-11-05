@@ -52,20 +52,6 @@ class _PosSalesViewState extends State<PosSalesView> {
   // Pedidos de domicilio (abiertos + pagados pendientes de entrega).
   List<Map<String, dynamic>> _domicilios = [];
 
-  // Orden de las pestañas de la barra del POS (ids 0..6) POR USUARIO. Se
-  // persiste en SharedPreferences con clave por email para que cada empleado
-  // tenga su propio orden al entrar.
-  static const _posOrdenKey = 'pos_pestanas_orden_';
-  // Orden de pestañas con cache ESTÁTICO (sobrevive a la recreación del State
-  // al cambiar de sección) + respaldo en SharedPreferences por email.
-  static List<int> _ordenMemPos = const [0, 1, 2, 3, 4, 5, 6];
-  static bool _cargadoMemPos = false;
-  List<int> _ordenPestanasPos = const [0, 1, 2, 3, 4, 5, 6];
-  // True = "modo organizar": las pestañas se vuelven arrastrables (asidero
-  // visible) para reordenarlas con click-sostenido. En modo normal solo
-  // seleccionan al hacer clic.
-  bool _modoOrganizarPos = false;
-
   bool _loading = true;
   bool _cobrando = false;
   String? _error;
@@ -86,7 +72,6 @@ class _PosSalesViewState extends State<PosSalesView> {
     _load();
     // Restaura una comanda a medio armar si el usuario salió sin enviarla.
     _cargarComandaGuardada();
-    _cargarOrdenPestanasPos(); // orden de pestañas por usuario
     // Tiempo real: refresca el turno de caja y las listas al abrir/cerrar turno.
     final rt = RealtimeService.instance;
     rt.conectar();
@@ -758,53 +743,10 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
-  /// Carga el orden de pestañas guardado del usuario actual (por email).
-  /// Usa un cache ESTÁTICO: si esta sesión de la app ya lo cargó (aunque el
-  /// State se haya recreado al cambiar de sección), lo reutiliza sin re-leer.
-  Future<void> _cargarOrdenPestanasPos() async {
-    if (_cargadoMemPos) {
-      if (mounted) setState(() => _ordenPestanasPos = _ordenMemPos);
-      return;
-    }
-    _cargadoMemPos = true;
-    final email = ApiClient.currentEmail ?? 'anon';
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList('$_posOrdenKey$email');
-    if (raw == null || raw.isEmpty) {
-      // Sin preferencia guardada -> orden por defecto.
-      _ordenMemPos = const [0, 1, 2, 3, 4, 5, 6];
-      if (mounted) setState(() => _ordenPestanasPos = _ordenMemPos);
-      return;
-    }
-    // Parsea ids enteros válidos, sin repetir, completando los faltantes.
-    final vistos = <int>{};
-    final orden = <int>[];
-    for (final s in raw) {
-      final id = int.tryParse(s);
-      if (id != null && id >= 0 && id <= 6 && vistos.add(id)) orden.add(id);
-    }
-    for (var i = 0; i <= 6; i++) {
-      if (vistos.add(i)) orden.add(i);
-    }
-    _ordenMemPos = orden;
-    if (mounted) setState(() => _ordenPestanasPos = _ordenMemPos);
-  }
-
-  Future<void> _guardarOrdenPestanasPos() async {
-    _ordenMemPos = List<int>.from(_ordenPestanasPos);
-    final email = ApiClient.currentEmail ?? 'anon';
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-        '$_posOrdenKey$email', _ordenPestanasPos.map((e) => '$e').toList());
-  }
-
   /// Barra de pestañas visible en TODAS las vistas del POS (Nueva comanda,
   /// Mesas, Domicilios, Para llevar, Cocina, Movimientos de caja, Pago de
-  /// propinas) para moverse entre ellas o abrir esas vistas.
-  /// Al final hay un icono que activa el "modo organizar": en ese modo cada
-  /// pestaña muestra flechas ‹ › para moverla de posición (fiable en web, sin
-  /// `drag`). El orden se persiste por usuario.
-  /// SIN records ni for-index: el SDK de Flutter es viejo.
+  /// propinas) para moverse entre ellas o abrir esas vistas. Fija, sin
+  /// reordenamiento. SIN records ni for-index: el SDK de Flutter es viejo.
   Widget _barraPestanas() {
     final labels = <String>[
       'Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina',
@@ -822,76 +764,29 @@ class _PosSalesViewState extends State<PosSalesView> {
     final scheme = Theme.of(context).colorScheme;
     final activa = _pestanaActiva();
     return Container(
-      height: 48,
+      height: 44,
       color: scheme.surface,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: scheme.outlineVariant, width: 1),
-        ),
-      ),
-      child: Row(
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                children: [
-                  for (var pos = 0; pos < _ordenPestanasPos.length; pos++)
-                    _tabPestana(context, pos, _ordenPestanasPos[pos],
-                        labels[_ordenPestanasPos[pos]], icons[_ordenPestanasPos[pos]], activa),
-                ],
-              ),
-            ),
-          ),
-          // Botón que alterna el modo organizar (mover pestañas con flechas).
-          Tooltip(
-            message: _modoOrganizarPos
-                ? 'Terminar de organizar'
-                : 'Organizar pestañas',
-            child: IconButton(
-              icon: Icon(
-                _modoOrganizarPos ? Icons.check : Icons.tune,
-                size: 20,
-                color: _modoOrganizarPos ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-              onPressed: () => setState(() => _modoOrganizarPos = !_modoOrganizarPos),
-            ),
-          ),
+          for (var i = 0; i < labels.length; i++)
+            _tabPestana(context, i, labels[i], icons[i], activa),
         ],
       ),
     );
   }
 
-  /// Mueve la pestaña `id` de su posición actual +`delta` posiciones y guarda.
-  void _moverPestanaPos(int id, int delta) {
-    final fromIndex = _ordenPestanasPos.indexOf(id);
-    if (fromIndex < 0) return;
-    // Clamp con aritmética de int (no usar num.clamp: devuelve num y rompe
-    // insert(int,...) al compilar).
-    var toIndex = fromIndex + delta;
-    if (toIndex < 0) toIndex = 0;
-    if (toIndex >= _ordenPestanasPos.length) toIndex = _ordenPestanasPos.length - 1;
-    if (toIndex == fromIndex) return;
-    setState(() {
-      _ordenPestanasPos.removeAt(fromIndex);
-      _ordenPestanasPos.insert(toIndex, id);
-    });
-    _guardarOrdenPestanasPos();
-  }
-
-  Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, int activa) {
+  Widget _tabPestana(BuildContext context, int i, String label, IconData icon, int activa) {
     final scheme = Theme.of(context).colorScheme;
-    final isActiva = activa == id;
+    final isActiva = activa == i;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
-    final cuerpo = InkWell(
-      onTap: _modoOrganizarPos ? null : () => _navegarPestana(id),
+    return InkWell(
+      onTap: () => _navegarPestana(i),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _modoOrganizarPos ? scheme.surfaceContainerHighest : null,
           border: Border(
             bottom: BorderSide(
               color: isActiva ? scheme.primary : Colors.transparent,
@@ -910,40 +805,6 @@ class _PosSalesViewState extends State<PosSalesView> {
         ]),
       ),
     );
-    // En modo organizar: flechas ‹ › para mover cada pestaña (sin drag).
-    if (_modoOrganizarPos) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 40),
-            icon: Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
-            tooltip: 'Mover a la izquierda',
-            onPressed: pos == 0 ? null : () => _moverPestanaPos(id, -1),
-          ),
-          cuerpo,
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 40),
-            icon: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-            tooltip: 'Mover a la derecha',
-            onPressed: pos == _ordenPestanasPos.length - 1
-                ? null
-                : () => _moverPestanaPos(id, 1),
-          ),
-        ],
-      );
-    }
-    return Padding(
-      key: ValueKey('pestana_$id'),
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: cuerpo,
-    );
   }
 
   /// Envuelve la vista de cada pestaña con la barra superior.
@@ -956,7 +817,7 @@ class _PosSalesViewState extends State<PosSalesView> {
   }
 
   /// Navega a la vista correspondiente al pulsar una pestaña (recibe el ID de
-  /// pantalla, no la posición — el orden visual lo gestiona _ordenPestanasPos).
+  /// pantalla, que coincide con la posición fija de la barra).
   void _navegarPestana(int id) {
     if (!mounted) return;
     switch (id) {

@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
 import '../pos_facturacion/widgets/resumen_ventas_view.dart';
@@ -39,25 +38,12 @@ class _SummariesViewState extends State<SummariesView> {
   // Selectores colapsables
   final Set<String> _abiertos = {};
 
-  // Pestaña activa de la barra de resúmenes:
+  // Pestaña activa de la barra de resúmenes (id de pantalla):
   // 0 Resumen contable · 1 Resumen de venta · 2 Por comanda · 3 Por ítem ·
   // 4 Ítems de facturas.
   int _pantalla = 0;
   // Turnos de caja (para las pestañas Por comanda / Por ítem).
   List<Map<String, dynamic>> _turnos = [];
-
-  // Orden de las pestañas de la barra de resúmenes (ids 0..4) POR USUARIO.
-  // Se persiste en SharedPreferences (clave por email) y además en un cache
-  // ESTÁTICO para que sobreviva a la recreación del State al cambiar de
-  // sección (ActiveView destruye la vista al salir y la recrea al volver).
-  static const _sumOrdenKey = 'sum_pestanas_orden_';
-  static List<int> _ordenMemSum = const [0, 1, 2, 3, 4];
-  static bool _cargadoMemSum = false;
-  List<int> _ordenPestanasSum = const [0, 1, 2, 3, 4];
-  // True = "modo organizar": las pestañas se vuelven arrastrables (asidero
-  // visible) para reordenarlas con click-sostenido. En modo normal solo
-  // seleccionan al hacer clic.
-  bool _modoOrganizarSum = false;
 
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -67,45 +53,6 @@ class _SummariesViewState extends State<SummariesView> {
     super.initState();
     _cargar();
     _cargarTurnos();
-    _cargarOrdenPestanasSum(); // orden de pestañas por usuario
-  }
-
-  /// Carga el orden de pestañas guardado del usuario actual (por email).
-  /// Usa un cache ESTÁTICO: si esta sesión de la app ya lo cargó (aunque el
-  /// State se haya recreado al cambiar de sección), lo reutiliza sin re-leer.
-  Future<void> _cargarOrdenPestanasSum() async {
-    if (_cargadoMemSum) {
-      if (mounted) setState(() => _ordenPestanasSum = _ordenMemSum);
-      return;
-    }
-    _cargadoMemSum = true;
-    final email = ApiClient.currentEmail ?? 'anon';
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList('$_sumOrdenKey$email');
-    if (raw == null || raw.isEmpty) {
-      _ordenMemSum = const [0, 1, 2, 3, 4];
-      if (mounted) setState(() => _ordenPestanasSum = _ordenMemSum);
-      return;
-    }
-    final vistos = <int>{};
-    final orden = <int>[];
-    for (final s in raw) {
-      final id = int.tryParse(s);
-      if (id != null && id >= 0 && id <= 4 && vistos.add(id)) orden.add(id);
-    }
-    for (var i = 0; i <= 4; i++) {
-      if (vistos.add(i)) orden.add(i);
-    }
-    _ordenMemSum = orden;
-    if (mounted) setState(() => _ordenPestanasSum = _ordenMemSum);
-  }
-
-  Future<void> _guardarOrdenPestanasSum() async {
-    _ordenMemSum = List<int>.from(_ordenPestanasSum);
-    final email = ApiClient.currentEmail ?? 'anon';
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-        '$_sumOrdenKey$email', _ordenPestanasSum.map((e) => '$e').toList());
   }
 
   Future<void> _cargarTurnos() async {
@@ -123,94 +70,56 @@ class _SummariesViewState extends State<SummariesView> {
   }
 
   /// Barra de pestañas superior (estilo la de Nueva comanda): permite saltar
-  /// entre Resumen contable / Resumen de venta / Por comanda / Por ítem /
-  /// Ítems de facturas. Visible SIEMPRE en esta vista.
-  /// Al final hay un icono que activa el "modo organizar": en ese modo cada
-  /// pestaña muestra flechas ‹ › para moverla de posición (fiable en web, sin
-  /// `drag`). El orden se persiste por usuario.
+  /// entre las sub-vistas de resúmenes. Visible SIEMPRE en esta vista.
+  /// Orden FIJO (por comanda primero, como pidió Enrique): Por comanda,
+  /// Resumen contable, Resumen de venta, Por ítem, Ítems de facturas.
+  /// SIN reordenamiento. SIN records ni for-index: el SDK de Flutter es viejo.
   Widget _barraPestanas() {
-    final labels = <String>[
-      'Resumen contable', 'Resumen de venta', 'Por comanda', 'Por ítem',
-      'Ítems de facturas',
-    ];
-    final icons = <IconData>[
-      Icons.account_balance_wallet,
-      Icons.pie_chart,
-      Icons.receipt_long,
-      Icons.list_alt,
-      Icons.shopping_cart,
-    ];
+    final labels = <int, String>{
+      0: 'Resumen contable',
+      1: 'Resumen de venta',
+      2: 'Por comanda',
+      3: 'Por ítem',
+      4: 'Ítems de facturas',
+    };
+    final icons = <int, IconData>{
+      0: Icons.account_balance_wallet,
+      1: Icons.pie_chart,
+      2: Icons.receipt_long,
+      3: Icons.list_alt,
+      4: Icons.shopping_cart,
+    };
+    // Orden visual fijo: Por comanda primero.
+    final orden = <int>[2, 0, 1, 3, 4];
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      height: 48,
+      height: 44,
       color: scheme.surface,
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: scheme.outlineVariant, width: 1),
         ),
       ),
-      child: Row(
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                children: [
-                  for (var pos = 0; pos < _ordenPestanasSum.length; pos++)
-                    _tabPestana(context, pos, _ordenPestanasSum[pos],
-                        labels[_ordenPestanasSum[pos]], icons[_ordenPestanasSum[pos]], scheme),
-                ],
-              ),
-            ),
-          ),
-          // Botón que alterna el modo organizar (mover pestañas con flechas).
-          Tooltip(
-            message: _modoOrganizarSum
-                ? 'Terminar de organizar'
-                : 'Organizar pestañas',
-            child: IconButton(
-              icon: Icon(
-                _modoOrganizarSum ? Icons.check : Icons.tune,
-                size: 20,
-                color: _modoOrganizarSum ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-              onPressed: () => setState(() => _modoOrganizarSum = !_modoOrganizarSum),
-            ),
-          ),
+          for (final id in orden)
+            _tabPestana(context, id, labels[id]!, icons[id]!, scheme),
         ],
       ),
     );
   }
 
-  /// Mueve la pestaña `id` de su posición actual +`delta` posiciones y guarda.
-  void _moverPestanaSum(int id, int delta) {
-    final fromIndex = _ordenPestanasSum.indexOf(id);
-    if (fromIndex < 0) return;
-    // Clamp con aritmética de int (no usar num.clamp: devuelve num y rompe
-    // insert(int,...) al compilar).
-    var toIndex = fromIndex + delta;
-    if (toIndex < 0) toIndex = 0;
-    if (toIndex >= _ordenPestanasSum.length) toIndex = _ordenPestanasSum.length - 1;
-    if (toIndex == fromIndex) return;
-    setState(() {
-      _ordenPestanasSum.removeAt(fromIndex);
-      _ordenPestanasSum.insert(toIndex, id);
-    });
-    _guardarOrdenPestanasSum();
-  }
-
-  Widget _tabPestana(BuildContext context, int pos, int id, String label, IconData icon, ColorScheme scheme) {
+  Widget _tabPestana(BuildContext context, int id, String label, IconData icon, ColorScheme scheme) {
     final isActiva = _pantalla == id;
     final color = isActiva ? scheme.primary : scheme.onSurfaceVariant;
-    final cuerpo = InkWell(
-      onTap: _modoOrganizarSum ? null : () => setState(() => _pantalla = id),
+    return InkWell(
+      onTap: () => setState(() => _pantalla = id),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _modoOrganizarSum ? scheme.surfaceContainerHighest : null,
           border: Border(
             bottom: BorderSide(
               color: isActiva ? scheme.primary : Colors.transparent,
@@ -228,40 +137,6 @@ class _SummariesViewState extends State<SummariesView> {
                   color: color)),
         ]),
       ),
-    );
-    // En modo organizar: flechas ‹ › para mover cada pestaña (sin drag).
-    if (_modoOrganizarSum) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 40),
-            icon: Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
-            tooltip: 'Mover a la izquierda',
-            onPressed: pos == 0 ? null : () => _moverPestanaSum(id, -1),
-          ),
-          cuerpo,
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 40),
-            icon: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-            tooltip: 'Mover a la derecha',
-            onPressed: pos == _ordenPestanasSum.length - 1
-                ? null
-                : () => _moverPestanaSum(id, 1),
-          ),
-        ],
-      );
-    }
-    return Padding(
-      key: ValueKey('res_pestana_$id'),
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: cuerpo,
     );
   }
 
