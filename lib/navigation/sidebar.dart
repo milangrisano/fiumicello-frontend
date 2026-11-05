@@ -5,7 +5,9 @@ import '../core/app_version.dart';
 import '../core/theme/theme_controller.dart';
 
 /// Reusable lateral menu used by the desktop shell (and optionally as a drawer).
-/// The logout button sits at the bottom of the sidebar.
+/// Ahora es una barra de SOLO ICONOS (sin textos): al pasar el mouse sobre cada
+/// icono, un Tooltip (la nube característica) muestra el nombre de la sección.
+/// El botón de cerrar sesión vive al fondo de la barra.
 class Sidebar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -19,58 +21,123 @@ class Sidebar extends StatelessWidget {
     }
   }
 
+  /// Ícono de sección con su tooltip (nube con el nombre). Vertical apilado.
+  Widget _iconoSec(BuildContext context, SectionEntry s) {
+    final scheme = Theme.of(context).colorScheme;
+    final activo = selectedIndex == s.index;
+    final color = activo ? scheme.primary : scheme.onSurfaceVariant;
+    return Tooltip(
+      message: s.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: InkWell(
+        onTap: selectedIndex == s.index ? null : () => onSelect(s.index),
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
+          decoration: activo
+              ? BoxDecoration(
+                  color: scheme.primaryContainer.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
+                )
+              : null,
+          child: Icon(s.icon, color: color, size: 26),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = AppSections.visible();
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
+        // Logo (gorro) arriba, como acceso a la carta.
+        const SizedBox(height: 8),
+        Tooltip(
+          message: 'Carta',
+          waitDuration: const Duration(milliseconds: 400),
+          child: InkWell(
+            onTap: () => onSelect(AppSections.carta),
+            customBorder: const CircleBorder(),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Image.asset(
+                Theme.of(context).brightness == Brightness.dark
+                    ? 'assets/gorro_fiumicello_blanco.png'
+                    : 'assets/gorro_fiumicello.png',
+                height: 30,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            children: [
-              for (final s in visible)
-                ListTile(
-                  selected: selectedIndex == s.index,
-                  leading: Icon(s.icon),
-                  title: Text(s.label),
-                  onTap: selectedIndex == s.index ? null : () => onSelect(s.index),
-                ),
-            ],
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [for (final s in visible) _iconoSec(context, s)],
           ),
         ),
         const Divider(height: 1),
-        // Alternar tema (claro/oscuro) — sigue al sistema por defecto; el toggle
-        // permite forzar light o dark.
+        // Alternar tema (claro/oscuro).
         AnimatedBuilder(
           animation: ThemeController.instance,
           builder: (context, _) {
             final ctrl = ThemeController.instance;
             final oscuro = Theme.of(context).brightness == Brightness.dark;
-            return ListTile(
-              leading: Icon(oscuro ? Icons.light_mode : Icons.dark_mode),
-              title: const Text('Tema'),
-              subtitle: const Text('Claro / Oscuro', style: TextStyle(fontSize: 12)),
-              onTap: () => ctrl.toggle(),
+            return Tooltip(
+              message: 'Tema: ${oscuro ? 'Oscuro' : 'Claro'}',
+              waitDuration: const Duration(milliseconds: 400),
+              child: InkWell(
+                onTap: () => ctrl.toggle(),
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  alignment: Alignment.center,
+                  child: Icon(
+                    oscuro ? Icons.light_mode : Icons.dark_mode,
+                    color: scheme.onSurfaceVariant,
+                    size: 26,
+                  ),
+                ),
+              ),
             );
           },
         ),
-        // App version above logout.
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.info_outline, size: 14, color: Colors.grey),
-              SizedBox(width: 6),
-              Text('Versión $APP_VERSION', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
+        // App version (tooltip sobre un icono info).
+        Tooltip(
+          message: 'Versión $APP_VERSION',
+          waitDuration: const Duration(milliseconds: 400),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () {},
+            child: Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              child: const Icon(Icons.info_outline, size: 22, color: Colors.grey),
+            ),
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.logout),
-          title: const Text('Cerrar sesión'),
-          onTap: () => _logout(context),
+        Tooltip(
+          message: 'Cerrar sesión',
+          waitDuration: const Duration(milliseconds: 400),
+          child: InkWell(
+            onTap: () => _logout(context),
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              child: Icon(Icons.logout, color: scheme.onSurfaceVariant, size: 26),
+            ),
+          ),
         ),
+        const SizedBox(height: 8),
       ],
     );
   }

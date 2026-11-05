@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'sidebar.dart';
 import 'app_titulo.dart';
-import 'app_sections.dart';
 
 /// Shell #3 — Desktop app (width >= 1200).
 /// Shows a collapsible sidebar on the left; the body keeps the active view.
@@ -17,50 +16,31 @@ class DesktopShell extends StatefulWidget {
 }
 
 class _DesktopShellState extends State<DesktopShell> {
-  bool _sidebarVisible = true;
-
-  void _toggleSidebar() {
-    setState(() => _sidebarVisible = !_sidebarVisible);
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Sidebar siempre visible (solo iconos). Sin botón burger en el AppBar.
     return Scaffold(
+      // Logo (gorro) como leading para ir a la carta: se mantiene igual pero
+      // sin duplicarlo con el sidebar; el sidebar ya lo ofrece arriba.
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Ver carta',
-          icon: Image.asset(
-            Theme.of(context).brightness == Brightness.dark
-                ? 'assets/gorro_fiumicello_blanco.png'
-                : 'assets/gorro_fiumicello.png',
-            height: 34,
-            fit: BoxFit.contain,
-          ),
-          onPressed: () => widget.onSelect(AppSections.carta),
-        ),
         title: ValueListenableBuilder<String>(
           valueListenable: AppTitulo.titulo,
           builder: (context, t, _) => Text(t),
         ),
         automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            tooltip: 'Ocultar menú',
-            icon: const Icon(Icons.menu_open),
-            onPressed: _toggleSidebar,
-          ),
-        ],
       ),
       body: Row(
         children: [
-          if (_sidebarVisible)
-            SizedBox(
-              width: 220,
+          SizedBox(
+            width: 68,
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Sidebar(
                 selectedIndex: widget.selectedIndex,
                 onSelect: widget.onSelect,
               ),
             ),
+          ),
           const VerticalDivider(width: 1),
           Expanded(child: ActiveView(index: widget.selectedIndex, onNavegar: widget.onSelect)),
         ],
