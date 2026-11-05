@@ -41,7 +41,8 @@ class _SummariesViewState extends State<SummariesView> {
   // Pestaña activa de la barra de resúmenes (id de pantalla):
   // 0 Resumen contable · 1 Resumen de venta · 2 Por comanda · 3 Por ítem ·
   // 4 Ítems de facturas.
-  int _pantalla = 0;
+  // Al entrar a Resúmenes contables se muestra "Por comanda" de primero.
+  int _pantalla = 2;
   // Turnos de caja (para las pestañas Por comanda / Por ítem).
   List<Map<String, dynamic>> _turnos = [];
 
