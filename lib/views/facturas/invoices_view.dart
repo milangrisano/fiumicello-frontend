@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 import '../../core/data/api_client.dart';
 import '../../core/utils/formatters.dart';
+import '../pos_facturacion/widgets/facturas_items_view.dart';
 
 /// Module 1 — Invoices and payment vouchers.
 ///
@@ -13,17 +14,19 @@ class InvoicesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           const TabBar(tabs: [
             Tab(text: 'Facturas de compra'),
             Tab(text: 'Comprobantes de pago'),
+            Tab(text: 'Ítems de facturas'),
           ]),
           const Expanded(
             child: TabBarView(children: [
               FacturasList(),
               ComprobantesList(),
+              FacturasItemsView(embebido: true),
             ]),
           ),
         ],

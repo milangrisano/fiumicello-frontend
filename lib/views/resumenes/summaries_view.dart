@@ -8,7 +8,6 @@ import '../../core/utils/formatters.dart';
 import '../pos_facturacion/widgets/resumen_ventas_view.dart';
 import '../pos_facturacion/widgets/comandas_turno_view.dart';
 import '../pos_facturacion/widgets/items_turno_view.dart';
-import '../pos_facturacion/widgets/facturas_items_view.dart';
 
 /// Module 3 — Resumen contable (haber/deber).
 ///
@@ -39,8 +38,7 @@ class _SummariesViewState extends State<SummariesView> {
   final Set<String> _abiertos = {};
 
   // Pestaña activa de la barra de resúmenes (id de pantalla):
-  // 0 Resumen contable · 1 Resumen de venta · 2 Por comanda · 3 Por ítem ·
-  // 4 Ítems de facturas.
+  // 0 Resumen contable · 1 Resumen de venta · 2 Por comanda · 3 Por ítem.
   // Al entrar a Resúmenes contables se muestra "Por comanda" de primero.
   int _pantalla = 2;
   // Turnos de caja (para las pestañas Por comanda / Por ítem).
@@ -73,7 +71,7 @@ class _SummariesViewState extends State<SummariesView> {
   /// Barra de pestañas superior (estilo la de Nueva comanda): permite saltar
   /// entre las sub-vistas de resúmenes. Visible SIEMPRE en esta vista.
   /// Orden FIJO (por comanda primero, como pidió Enrique): Por comanda,
-  /// Resumen contable, Resumen de venta, Por ítem, Ítems de facturas.
+  /// Resumen contable, Resumen de venta, Por ítem.
   /// SIN reordenamiento. SIN records ni for-index: el SDK de Flutter es viejo.
   Widget _barraPestanas() {
     final labels = <int, String>{
@@ -81,17 +79,15 @@ class _SummariesViewState extends State<SummariesView> {
       1: 'Resumen de venta',
       2: 'Por comanda',
       3: 'Por ítem',
-      4: 'Ítems de facturas',
     };
     final icons = <int, IconData>{
       0: Icons.account_balance_wallet,
       1: Icons.pie_chart,
       2: Icons.receipt_long,
       3: Icons.list_alt,
-      4: Icons.shopping_cart,
     };
     // Orden visual fijo: Por comanda primero.
-    final orden = <int>[2, 0, 1, 3, 4];
+    final orden = <int>[2, 0, 1, 3];
     final scheme = Theme.of(context).colorScheme;
     return Container(
       height: 44,
@@ -810,9 +806,6 @@ class _SummariesViewState extends State<SummariesView> {
         cuerpo = _turnos.isEmpty
             ? const Center(child: Text('No hay turnos registrados.', style: TextStyle(color: Colors.grey)))
             : ItemsTurnoView(turnos: _turnos, embebido: true);
-        break;
-      case 4: // Ítems de facturas
-        cuerpo = const FacturasItemsView(embebido: true);
         break;
       default: // 0 Resumen contable
         cuerpo = _cuerpoResumenContable(context);
