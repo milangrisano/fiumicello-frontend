@@ -45,14 +45,166 @@ class FacturasList extends StatefulWidget {
 class _FacturasListState extends State<FacturasList> {
   late Future<Map<String, dynamic>> _future;
 
+  // Filtro de período: 'año' | 'mes' | 'semana' (chips) o rango libre
+  // (calendario). Si _rango != null, manda el rango y los chips se desmarcan.
+  String _periodo = 'mes';
+  DateTimeRange? _rango;
+
+  static String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   @override
   void initState() {
     super.initState();
-    _future = ApiClient.getList('/facturas?limit=100');
+    _future = _buildFuture();
+  }
+
+  /// Construye la petición con el rango de fechas del período elegido.
+  Future<Map<String, dynamic>> _buildFuture() {
+    String? desde;
+    String? hasta;
+    if (_rango != null) {
+      desde = _fmt(_rango!.start);
+      hasta = _fmt(_rango!.end);
+    } else {
+      final hoy = DateTime.now();
+      if (_periodo == 'año') {
+        desde = '${hoy.year}-01-01';
+        hasta = '${hoy.year}-12-31';
+      } else if (_periodo == 'mes') {
+        desde = _fmt(DateTime(hoy.year, hoy.month, 1));
+        hasta = _fmt(DateTime(hoy.year, hoy.month + 1, 0));
+      } else {
+        // semana: lunes a domingo de la semana actual.
+        final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
+        desde = _fmt(lunes);
+        hasta = _fmt(lunes.add(const Duration(days: 6)));
+      }
+    }
+    final url = '/facturas?limit=500&desde=$desde&hasta=$hasta';
+    return ApiClient.getList(url);
+  }
+
+  Future<void> _elegirRango() async {
+    final hoy = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: hoy,
+      initialDateRange: _rango ??
+          DateTimeRange(start: DateTime(hoy.year, hoy.month, 1), end: hoy),
+      helpText: 'Elegir período',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+      saveText: 'Aplicar',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _rango = picked;
+      _future = _buildFuture();
+    });
+  }
+
+  /// Descripción de la factura: concepto si existe; si no, el proveedor.
+  String _descripcion(Map<String, dynamic> f) {
+    final c = (f['concepto'] ?? '').toString().trim();
+    if (c.isNotEmpty) return c;
+    final p = (f['proveedor'] ?? '').toString().trim();
+    return p.isNotEmpty ? p : '—';
+  }
+
+  Widget _chips(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final p in ['año', 'mes', 'semana'])
+            ChoiceChip(
+              label: Text(p),
+              selected: _rango == null && _periodo == p,
+              shape: const StadiumBorder(),
+              onSelected: (_) {
+                setState(() {
+                  _periodo = p;
+                  _rango = null;
+                  _future = _buildFuture();
+                });
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            tooltip: 'Elegir período (rango)',
+            onPressed: _elegirRango,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Celda de la tabla (PC): ancho flexible y alineación opcional a la derecha.
+  Widget _celda(String t,
+      {int flex = 1, bool right = false, bool bold = false, Color? color}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        t,
+        textAlign: right ? TextAlign.right : TextAlign.left,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  /// Tabla ordenada para PC: Fecha · # Factura · Descripción · Monto.
+  Widget _tabla(BuildContext context, ColorScheme cs, List<Map<String, dynamic>> items) {
+    return Column(
+      children: [
+        Container(
+          color: cs.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(children: [
+            _celda('Fecha', flex: 12, bold: true),
+            _celda('# Factura', flex: 14, bold: true),
+            _celda('Descripción', flex: 34, bold: true),
+            _celda('Monto', flex: 14, right: true, bold: true),
+          ]),
+        ),
+        Expanded(
+          child: ListView.separated(
+            itemCount: items.length,
+            separatorBuilder: (_, __) => Divider(height: 1, color: cs.outlineVariant),
+            itemBuilder: (context, i) {
+              final f = items[i];
+              return InkWell(
+                onTap: () => _openDetail(context, f['id']),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  child: Row(children: [
+                    _celda('${f['fecha'] ?? '—'}', flex: 12),
+                    _celda('${f['numero_factura'] ?? '—'}', flex: 14),
+                    _celda(_descripcion(f), flex: 34),
+                    _celda(money(f['total_con_impuestos']), flex: 14, right: true, bold: true),
+                  ]),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return FutureBuilder<Map<String, dynamic>>(
       future: _future,
       builder: (context, snapshot) {
@@ -75,33 +227,46 @@ class _FacturasListState extends State<FacturasList> {
         final total = data['total'] ?? 0;
         final raw = data['data'] as List? ?? [];
         final items = raw.map((e) => Map<String, dynamic>.from(e)).toList();
+        double suma = 0;
+        for (final f in items) {
+          final v = f['total_con_impuestos'];
+          if (v is num) suma += v.toDouble();
+          else if (v is String) suma += double.tryParse(v) ?? 0;
+        }
         return Column(
           children: [
+            _chips(cs),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Row(children: [
-                const Icon(Icons.store),
+                const Icon(Icons.store, size: 18),
                 const SizedBox(width: 8),
                 Text('$total facturas de compra',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text(money(suma),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
               ]),
             ),
             Expanded(
-              child: ListView.separated(
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final f = items[i];
-                  final id = f['id'];
-                  return ListTile(
-                    title: Text(f['proveedor'] ?? 'Sin proveedor'),
-                    subtitle: Text('${f['fecha'] ?? '-'} · ${f['numero_factura'] ?? '-'}'),
-                    trailing: Text(money(f['total_con_impuestos']),
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    onTap: () => _openDetail(context, id),
-                  );
-                },
-              ),
+              child: LayoutBuilder(builder: (ctx, c) {
+                // PC/tablet: tabla ordenada. Móvil: lista de tarjetas.
+                if (c.maxWidth >= 700) return _tabla(context, cs, items);
+                return ListView.separated(
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final f = items[i];
+                    return ListTile(
+                      title: Text(_descripcion(f)),
+                      subtitle: Text('${f['fecha'] ?? '-'} · ${f['numero_factura'] ?? '-'}'),
+                      trailing: Text(money(f['total_con_impuestos']),
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      onTap: () => _openDetail(context, f['id']),
+                    );
+                  },
+                );
+              }),
             ),
           ],
         );
@@ -186,7 +351,7 @@ class _FacturasListState extends State<FacturasList> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(r.ok ? 'Factura borrada.' : 'Error: ${r.message}')),
     );
-    if (r.ok) setState(() => _future = ApiClient.getList('/facturas?limit=100'));
+    if (r.ok) setState(() => _future = _buildFuture());
   }
 }
 
