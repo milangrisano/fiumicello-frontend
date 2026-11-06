@@ -85,75 +85,24 @@ class _FacturasListState extends State<FacturasList> {
     return ApiClient.getList(url);
   }
 
-  /// Selector de rango propio (dos fechas: Desde / Hasta). Se usa en lugar de
-  /// showDateRangePicker, que en web no responde bien a la selección.
+  /// Mismo calendario de rango que en Resumen contable: se eligen dos días
+  /// (inicio y fin) y se pulsa Aplicar.
   Future<void> _elegirRango() async {
     final hoy = DateTime.now();
-    var ini = _rango?.start ?? DateTime(hoy.year, hoy.month, 1);
-    var fin = _rango?.end ?? hoy;
-    final aplicar = await showDialog<bool>(
+    final picked = await showDateRangePicker(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Elegir período'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.event),
-                title: const Text('Desde'),
-                subtitle: Text(_fmt(ini)),
-                trailing: const Icon(Icons.edit_calendar, size: 20),
-                onTap: () async {
-                  final p = await showDatePicker(
-                    context: ctx,
-                    initialDate: ini,
-                    firstDate: DateTime(2024, 1, 1),
-                    lastDate: hoy,
-                    helpText: 'Fecha inicial',
-                  );
-                  if (p != null) setDlg(() => ini = p);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.event),
-                title: const Text('Hasta'),
-                subtitle: Text(_fmt(fin)),
-                trailing: const Icon(Icons.edit_calendar, size: 20),
-                onTap: () async {
-                  final p = await showDatePicker(
-                    context: ctx,
-                    initialDate: fin,
-                    firstDate: DateTime(2024, 1, 1),
-                    lastDate: hoy,
-                    helpText: 'Fecha final',
-                  );
-                  if (p != null) setDlg(() => fin = p);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Aplicar'),
-            ),
-          ],
-        ),
-      ),
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: hoy,
+      initialDateRange: _rango ??
+          DateTimeRange(start: DateTime(hoy.year, hoy.month - 1, 1), end: hoy),
+      helpText: 'Elegir período',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+      saveText: 'Aplicar',
     );
-    if (aplicar != true || !mounted) return;
-    if (fin.isBefore(ini)) {
-      final t = ini;
-      ini = fin;
-      fin = t;
-    }
+    if (picked == null || !mounted) return;
     setState(() {
-      _rango = DateTimeRange(start: ini, end: fin);
+      _rango = picked;
       _future = _buildFuture();
     });
   }
