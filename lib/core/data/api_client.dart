@@ -323,6 +323,24 @@ class ApiClient {
   static Future<PostResult> resetPassword(email, token, password) =>
       _post('/auth/reset-password', {'email': email, 'token': token, 'password': password});
 
+  /// Cambia la contraseña del usuario logueado (requiere el token actual).
+  static Future<PostResult> cambiarContrasena(
+      String passwordActual, String passwordNueva) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/cambiar-contrasena'),
+        headers: _headers(),
+        body: jsonEncode({
+          'passwordActual': passwordActual,
+          'passwordNueva': passwordNueva,
+        }),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
+    }
+  }
+
   static Future<ListResult> listServicios() async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/auth/servicios'), headers: _headers());

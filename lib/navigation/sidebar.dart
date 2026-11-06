@@ -21,6 +21,100 @@ class Sidebar extends StatelessWidget {
     }
   }
 
+  /// Diálogo para cambiar la contraseña del usuario logueado.
+  Future<void> _cambiarContrasena(BuildContext context) async {
+    final actual = TextEditingController();
+    final nueva = TextEditingController();
+    final confirmar = TextEditingController();
+    String? error;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          backgroundColor: Theme.of(ctx).colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Cambiar contraseña'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                controller: actual,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Contraseña actual',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nueva,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nueva contraseña (mín. 6)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmar,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirmar nueva contraseña',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(error!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12)),
+                  ),
+                ),
+            ]),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final a = actual.text;
+                final n = nueva.text;
+                final c = confirmar.text;
+                if (n.length < 6) {
+                  setDlg(() => error = 'La nueva contraseña debe tener al menos 6 caracteres.');
+                  return;
+                }
+                if (n != c) {
+                  setDlg(() => error = 'Las contraseñas no coinciden.');
+                  return;
+                }
+                setDlg(() => error = null);
+                final r = await ApiClient.cambiarContrasena(a, n);
+                if (!ctx.mounted) return;
+                if (r.ok) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
+                  }
+                  Navigator.of(ctx).pop();
+                } else {
+                  setDlg(() => error = r.message);
+                }
+              },
+              child: const Text('Cambiar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Ícono de sección con su tooltip (nube con el nombre). Vertical apilado.
   Widget _iconoSec(BuildContext context, SectionEntry s) {
     final scheme = Theme.of(context).colorScheme;
@@ -107,6 +201,21 @@ class Sidebar extends StatelessWidget {
               ),
             );
           },
+        ),
+        // Cambiar contraseña.
+        Tooltip(
+          message: 'Cambiar contraseña',
+          waitDuration: const Duration(milliseconds: 400),
+          child: InkWell(
+            onTap: () => _cambiarContrasena(context),
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              child: Icon(Icons.key, color: scheme.onSurfaceVariant, size: 26),
+            ),
+          ),
         ),
         // Cerrar sesión (la versión se muestra justo debajo).
         Tooltip(
