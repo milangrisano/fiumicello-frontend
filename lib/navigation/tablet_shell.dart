@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'app_sections.dart';
+import 'perfil_menu.dart';
 import '../core/data/api_client.dart';
 import '../core/theme/theme_controller.dart';
 import 'app_titulo.dart';
@@ -25,17 +26,7 @@ class TabletShell extends StatelessWidget {
     final visible = AppSections.visible();
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Ver carta',
-          icon: Image.asset(
-            Theme.of(context).brightness == Brightness.dark
-                ? 'assets/gorro_fiumicello_blanco.png'
-                : 'assets/gorro_fiumicello.png',
-            height: 34,
-            fit: BoxFit.contain,
-          ),
-          onPressed: () => onSelect(AppSections.carta),
-        ),
+        leading: const PerfilMenu(),
         title: ValueListenableBuilder<String>(
           valueListenable: AppTitulo.titulo,
           builder: (context, t, _) => Text(t),

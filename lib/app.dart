@@ -5,6 +5,7 @@ import 'core/theme/theme_controller.dart';
 import 'navigation/app_shell.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
+import 'views/cambiar_contrasena_view.dart';
 import 'views/carta/carta_view.dart';
 
 /// Root widget. Clean, explicit named routes.
@@ -47,6 +48,7 @@ class FiumicelloApp extends StatelessWidget {
               '/login': (_) => const LoginView(),
               '/register': (_) => const RegisterView(),
               '/app': (_) => const AppShell(),
+              '/cambiar-contrasena': (_) => const CambiarContrasenaView(),
             },
             onGenerateRoute: (settings) {
               // Unknown route -> home (public carte).

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'active_view.dart';
 import 'app_sections.dart';
+import 'perfil_menu.dart';
 import 'radial_nav.dart';
 import '../core/data/api_client.dart';
 import '../core/theme/theme_controller.dart';
@@ -37,17 +38,7 @@ class MobileShell extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        leading: IconButton(
-          tooltip: 'Ver menú',
-          icon: Image.asset(
-            Theme.of(context).brightness == Brightness.dark
-                ? 'assets/gorro_fiumicello_blanco.png'
-                : 'assets/gorro_fiumicello.png',
-            height: 40,
-            fit: BoxFit.contain,
-          ),
-          onPressed: () => onSelect(AppSections.carta),
-        ),
+        leading: const PerfilMenu(),
         title: Text(
           email,
           style: const TextStyle(fontSize: 16),
