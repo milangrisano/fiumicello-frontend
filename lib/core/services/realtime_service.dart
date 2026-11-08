@@ -18,6 +18,7 @@ class RealtimeService {
     'turno:cerrado',
     'pedido:anulacion-solicitada',
     'pedido:anulada',
+    'factura:nueva',
   ];
 
   io.Socket? _socket;

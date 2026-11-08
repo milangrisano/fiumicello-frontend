@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 import '../../core/data/api_client.dart';
+import '../../core/services/realtime_service.dart';
 import '../../core/utils/formatters.dart';
 import '../pos_facturacion/widgets/facturas_items_view.dart';
 
@@ -57,6 +58,16 @@ class _FacturasListState extends State<FacturasList> {
   void initState() {
     super.initState();
     _future = _buildFuture();
+    // Asegura el socket conectado (para el evento factura:nueva).
+    RealtimeService.instance.conectar();
+    // Actualiza la lista al instante cuando el workflow/backend crea una
+    // factura nueva (evento factura:nueva del Socket.IO).
+    RealtimeService.instance.on('factura:nueva', (_) {
+      if (!mounted) return;
+      setState(() {
+        _future = _buildFuture();
+      });
+    });
   }
 
   /// Construye la petición con el rango de fechas del período elegido.
