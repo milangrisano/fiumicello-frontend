@@ -105,8 +105,9 @@ class _PosSalesViewState extends State<PosSalesView> {
         if (c.ok && c.data != null) _carta = c.data;
         else _error = c.message;
         if (f.ok) _formas = f.list.cast<Map<String, dynamic>>();
-        if (_cobroFormaPago == null && _formas.isNotEmpty) {
-          _cobroFormaPago = _formas.first['id'] as int?;
+        final activas = _formas.where((x) => (x['activo'] ?? true) as bool).toList();
+        if (_cobroFormaPago == null && activas.isNotEmpty) {
+          _cobroFormaPago = activas.first['id'] as int?;
         }
         _loading = false;
       });
@@ -577,9 +578,12 @@ class _PosSalesViewState extends State<PosSalesView> {
   /// `montoMostrar` es el total que se exhibe (por defecto el de la comanda
   /// actual; para "pedir la cuenta" de una mesa se pasa el de esa mesa).
   Future<void> _dialogPagarPedido(int pedidoId, {double? montoMostrar}) async {
+    final formasActivas =
+        _formas.where((x) => (x['activo'] ?? true) as bool).toList();
     int? formaSel = _cobroFormaPago;
-    if (formaSel == null && _formas.isNotEmpty) {
-      formaSel = _formas.first['id'] as int?;
+    if ((formaSel == null || !(formasActivas.any((f) => (f['id'] as int?) == formaSel))) &&
+        formasActivas.isNotEmpty) {
+      formaSel = formasActivas.first['id'] as int?;
     }
     final propinaCtrl = TextEditingController();
     final entregaCtrl = TextEditingController();
@@ -591,7 +595,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         content: StatefulBuilder(builder: (ctx, setStateDlg) {
           // ¿La forma de pago elegida es Efectivo? (por nombre, robusto).
           bool esEfectivo = false;
-          for (final f in _formas) {
+          for (final f in formasActivas) {
             if ((f['id'] as int?) == formaSel) {
               esEfectivo = (f['nombre'] ?? '').toString().toLowerCase() == 'efectivo';
               break;
@@ -611,7 +615,7 @@ class _PosSalesViewState extends State<PosSalesView> {
               DropdownButtonFormField<int?>(
                 initialValue: formaSel,
                 decoration: const InputDecoration(labelText: 'Medio de pago', border: OutlineInputBorder(), isDense: true),
-                items: [for (final f in _formas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
+                items: [for (final f in formasActivas) DropdownMenuItem(value: f['id'] as int, child: Text(f['nombre'] ?? ''))],
                 onChanged: (v) => setStateDlg(() => formaSel = v),
               ),
               const SizedBox(height: 8),
