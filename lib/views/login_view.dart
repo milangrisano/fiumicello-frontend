@@ -29,12 +29,12 @@ class _LoginViewState extends State<LoginView> {
 
   Future<void> _submit() async {
     setState(() { _loading = true; _error = null; });
-    final ok = await ApiClient.login(_user.text.trim(), _pass.text);
+    final r = await ApiClient.login(_user.text.trim(), _pass.text);
     if (!mounted) return;
-    if (ok) {
+    if (r.ok) {
       Navigator.of(context).pushReplacementNamed('/app');
     } else {
-      setState(() { _loading = false; _error = 'Email o contraseña incorrectos.'; });
+      setState(() { _loading = false; _error = r.message; });
     }
   }
 

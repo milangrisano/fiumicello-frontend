@@ -268,16 +268,31 @@ class ApiClient {
     iniciarTimerInactividad();
   }
 
-  static Future<bool> login(String email, String password) async {
+  /// Login. Devuelve PostResult con el mensaje REAL del backend (p. ej.
+  /// "Tu cuenta está desactivada." / "Tu cuenta está pendiente de aprobación.")
+  /// para que la UI no lo pise con un texto genérico.
+  static Future<PostResult> login(String email, String password) async {
     final res = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
-    if (res.statusCode != 200) return false;
+    if (res.statusCode != 200) {
+      // Extraer el mensaje real del backend si viene (message del error JSON).
+      String msg = 'Email o contraseña incorrectos.';
+      try {
+        final err = Map<String, dynamic>.from(jsonDecode(res.body));
+        if (err['message'] is String && (err['message'] as String).isNotEmpty) {
+          msg = err['message'] as String;
+        }
+      } catch (_) {}
+      return PostResult(false, msg);
+    }
     final body = Map<String, dynamic>.from(jsonDecode(res.body));
     final token = body['access_token'] as String?;
-    if (token == null || token.isEmpty) return false;
+    if (token == null || token.isEmpty) {
+      return PostResult(false, 'No se recibió sesión.');
+    }
     _token = token;
     _tokenExpira = _decodificarExp(token);
     _user = Map<String, dynamic>.from(body['user']);
@@ -288,7 +303,7 @@ class ApiClient {
     await cargarPermisos(); // load role permissions for the dynamic menu
     await cargarConfig(); // inactividad desde backend
     iniciarTimerInactividad();
-    return true;
+    return PostResult(true, '');
   }
 
   static Future<void> logout() async {
