@@ -76,16 +76,25 @@ class _UsuariosViewState extends State<UsuariosView> {
     final esSuperUsuario = rol == 'superadmin';
     final esPendiente = (u['estado'] ?? '') == 'pendiente';
     final esAprobado = (u['estado'] ?? '') == 'aprobado';
+    final esDesactivado = (u['estado'] ?? '') == 'desactivado';
+    final esYo = u['id'] != null && u['id'] == ApiClient.userId;
     final puedeGestionar = _esSuper || !esSuperUsuario;
-    // Icono izquierdo: turquesa si esta aprobado, gris piedra si no;
-    // superadmin (escudo) siempre en dorado.
+    // Ocultar desactivar en: el usuario logueado (no se desactiva a sí mismo),
+    // el superadmin (escudo) y los pendientes (aún no tienen acceso).
+    final puedeDesactivar = puedeGestionar && !esYo && !esSuperUsuario && !esPendiente;
+    // Icono izquierdo: turquesa si esta aprobado, gris piedra si pendiente,
+    // rojo si desactivado; superadmin (escudo) siempre en dorado.
     final colorLeading = esSuperUsuario
         ? AppPalette.darkSecondary
-        : (esAprobado ? AppPalette.darkPrimary : AppPalette.lightOnSurfaceVariant);
+        : (esAprobado
+            ? AppPalette.darkPrimary
+            : (esDesactivado ? Colors.redAccent : AppPalette.lightOnSurfaceVariant));
     return ListTile(
       leading: Icon(esSuperUsuario ? Icons.shield : Icons.person_outline, color: colorLeading),
       title: Text(email),
-      subtitle: Text('Rol: $rol · ${u['estado'] ?? ''}'),
+      subtitle: Text(
+        'Rol: $rol · ${u['estado'] ?? ''}${esDesactivado ? ' · acceso restringido' : ''}',
+      ),
       trailing: puedeGestionar
           ? Row(
               mainAxisSize: MainAxisSize.min,
@@ -96,6 +105,18 @@ class _UsuariosViewState extends State<UsuariosView> {
                     tooltip: 'Aprobar usuario',
                     onPressed: () => _aprobar(u),
                   ),
+                if (esDesactivado)
+                  IconButton(
+                    icon: Icon(Icons.lock_open, color: AppPalette.darkPrimary),
+                    tooltip: 'Reactivar acceso',
+                    onPressed: () => _cambiarEstado(u, 'aprobado'),
+                  ),
+                if (puedeDesactivar && !esDesactivado)
+                  IconButton(
+                    icon: const Icon(Icons.block, color: Colors.redAccent),
+                    tooltip: 'Desactivar acceso',
+                    onPressed: () => _cambiarEstado(u, 'desactivado'),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.tune),
                   tooltip: 'Cambiar rol',
@@ -105,6 +126,39 @@ class _UsuariosViewState extends State<UsuariosView> {
             )
           : null,
     );
+  }
+
+  Future<void> _cambiarEstado(Map<String, dynamic> u, String estado) async {
+    final id = u['id'];
+    if (id == null) return;
+    final esDesactivacion = estado == 'desactivado';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(esDesactivacion ? 'Desactivar acceso' : 'Reactivar acceso'),
+        content: Text(
+          esDesactivacion
+              ? '¿Desactivar el acceso de ${u['email'] ?? id}? No podrá iniciar sesión hasta que lo reactives.'
+              : '¿Reactivar el acceso de ${u['email'] ?? id}?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: esDesactivacion ? Colors.redAccent : AppPalette.darkPrimary,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(esDesactivacion ? 'Desactivar' : 'Reactivar',
+                style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final res = await ApiClient.cambiarEstadoUsuario(id as int, estado);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message)));
+    if (res.ok) _load();
   }
 
   Future<void> _aprobar(Map<String, dynamic> u) async {

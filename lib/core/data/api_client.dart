@@ -42,6 +42,8 @@ class ApiClient {
   static bool get isLoggedIn => _token != null && _token!.isNotEmpty;
   static String? get currentEmail => _user?['email'] as String?;
   static String? get currentRol => _user?['rol'] as String?;
+  /// ID del usuario logueado (para evitar que un admin se desactive a sí mismo).
+  static int? get userId => _user?['id'] as int?;
   static bool get isSuperadmin => currentRol == 'superadmin';
   static bool get isAdmin => currentRol == 'admin';
   static Set<String> get permisos => _permisos;
@@ -471,6 +473,20 @@ class ApiClient {
       return ListResult(false, const [], _msg(res.body));
     } catch (e) {
       return ListResult(false, const [], '$e');
+    }
+  }
+
+  /// Desactivar ('desactivado') o reactivar ('aprobado') el acceso de un usuario.
+  static Future<PostResult> cambiarEstadoUsuario(int id, String estado) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/usuarios/$id/estado'),
+        headers: _headers(),
+        body: jsonEncode({'estado': estado}),
+      );
+      return PostResult(res.statusCode == 200, _msg(res.body));
+    } catch (e) {
+      return PostResult(false, '$e');
     }
   }
 
