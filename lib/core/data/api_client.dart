@@ -529,6 +529,21 @@ class ApiClient {
     }
   }
 
+  /// Catálogo jerárquico (árbol de 3 niveles: Botón → Pestaña → CRUD) que la
+  /// GUI de roles renderiza como expansion tree.
+  static Future<ListResult> catalogoArbol() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/roles/catalogo-arbol'),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) return ListResult(true, jsonDecode(res.body) as List, '');
+      return ListResult(false, const [], _msg(res.body));
+    } catch (e) {
+      return ListResult(false, const [], '$e');
+    }
+  }
+
   static Future<PostResult> crearRol(String nombre, String descripcion, List<String> permisos) async {
     try {
       final res = await http.post(

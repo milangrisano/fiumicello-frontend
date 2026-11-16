@@ -4,7 +4,9 @@ import '../../core/data/api_client.dart';
 /// Superadmin/Admin screen: manage roles and their permissions dynamically.
 ///
 /// Lists roles, lets you create new ones, rename them, and toggle which
-/// permissions (module:action) each role has.
+/// permissions each role has. Permissions are presented as a 3-level tree
+/// (Botón del sidebar → Pestaña → CRUD por servicio), fetched from the
+/// hierarchical catalog endpoint.
 class RolesPermisosView extends StatefulWidget {
   const RolesPermisosView({super.key});
 
@@ -14,7 +16,7 @@ class RolesPermisosView extends StatefulWidget {
 
 class _RolesPermisosViewState extends State<RolesPermisosView> {
   List<Map<String, dynamic>> _roles = [];
-  List<Map<String, dynamic>> _catalogo = [];
+  List<Map<String, dynamic>> _catalogo = []; // jerárquico (3 niveles)
   bool _loading = true;
   String? _error;
 
@@ -27,13 +29,14 @@ class _RolesPermisosViewState extends State<RolesPermisosView> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     final r = await ApiClient.listRoles();
-    final c = await ApiClient.catalogoPermisos();
+    final c = await ApiClient.catalogoArbol();
     if (!mounted) return;
     setState(() {
       _roles = r.ok ? r.list.cast<Map<String, dynamic>>() : [];
       _catalogo = c.ok ? c.list.cast<Map<String, dynamic>>() : [];
       _loading = false;
       if (!r.ok) _error = r.message;
+      if (!c.ok) _error = c.message;
     });
   }
 
@@ -58,7 +61,7 @@ class _RolesPermisosViewState extends State<RolesPermisosView> {
           ],
         ),
         const SizedBox(height: 8),
-        const Text('Configura qué puede ver y hacer cada rol.',
+        const Text('Configura qué puede ver y hacer cada rol por botón, pestaña y servicio.',
             style: TextStyle(color: Colors.grey)),
         const Divider(height: 24),
         for (final r in _roles) _rolCard(r),
@@ -142,9 +145,10 @@ class _RolesPermisosViewState extends State<RolesPermisosView> {
   }
 }
 
-/// Editor for a single role: name, description, and permission toggles.
+/// Editor for a single role: name, description, and permission toggles shown
+/// as a 3-LEVEL TREE (Botón → Pestaña → Servicio/CRUD).
 class _RoleEditView extends StatefulWidget {
-  final List<Map<String, dynamic>> catalogo;
+  final List<Map<String, dynamic>> catalogo; // jerárquico
   final String? rolNombre;
   final String? rolDescripcion;
   final List<String> rolPermisos;
@@ -175,6 +179,13 @@ class _RoleEditViewState extends State<_RoleEditView> {
     _descripcion = TextEditingController(text: widget.rolDescripcion ?? '');
   }
 
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _descripcion.dispose();
+    super.dispose();
+  }
+
   Future<void> _guardar() async {
     final nombre = _nombre.text.trim().toLowerCase();
     if (nombre.isEmpty) {
@@ -190,16 +201,6 @@ class _RoleEditViewState extends State<_RoleEditView> {
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
     if (r.ok) Navigator.of(context).pop();
-  }
-
-  // Group catalog by modulo.
-  Map<String, List<Map<String, dynamic>>> get _porModulo {
-    final map = <String, List<Map<String, dynamic>>>{};
-    for (final p in widget.catalogo) {
-      final m = (p['modulo'] ?? 'Otros').toString();
-      map.putIfAbsent(m, () => []).add(p);
-    }
-    return map;
   }
 
   @override
@@ -220,28 +221,12 @@ class _RoleEditViewState extends State<_RoleEditView> {
           ),
           const Divider(height: 32),
           Text('Permisos', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text('Abre cada botón para asignar pestañas y qué puede hacer el rol por servicio.',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 8),
-          for (final entry in _porModulo.entries) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            for (final p in entry.value)
-              CheckboxListTile(
-                dense: true,
-                title: Text(p['label'].toString()),
-                value: _permisos.contains(p['key']),
-                onChanged: (v) {
-                  setState(() {
-                    if (v == true) {
-                      _permisos.add(p['key'].toString());
-                    } else {
-                      _permisos.remove(p['key'].toString());
-                    }
-                  });
-                },
-              ),
-          ],
+          // Árbol de 3 niveles: Botón → Pestaña → Servicio/CRUD
+          for (final boton in widget.catalogo) _arbolBoton(context, boton),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _guardar,
@@ -251,6 +236,153 @@ class _RoleEditViewState extends State<_RoleEditView> {
           ),
         ],
       ),
+    );
+  }
+
+  // ---------- Nivel 1: Botón del sidebar ----------
+  Widget _arbolBoton(BuildContext context, Map<String, dynamic> boton) {
+    final nivel1 = (boton['nivel1'] ?? '').toString();
+    final pestanas = (boton['pestañas'] as List? ?? const []).cast<Map<String, dynamic>>();
+    final todas = _permisosDeNivel(pestanas);
+    final marcadas = todas.where((p) => _permisos.contains(p)).length;
+    final completo = todas.isNotEmpty && marcadas == todas.length;
+    final parcial = marcadas > 0 && !completo;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        shape: const Border(),
+        leading: _iconoEstado(completo, parcial),
+        title: Text(nivel1, style: const TextStyle(fontWeight: FontWeight.w700)),
+        children: [
+          for (final pestana in pestanas) _arbolPestana(context, pestana),
+        ],
+      ),
+    );
+  }
+
+  List<String> _permisosDeNivel(List<Map<String, dynamic>> lista) {
+    final out = <String>[];
+    for (final item in lista) {
+      for (final s in ((item['servicios'] ?? const []) as List).cast<Map<String, dynamic>>()) {
+        for (final c in ((s['crud'] ?? const []) as List).cast<Map<String, dynamic>>()) {
+          final p = c['permiso']?.toString();
+          if (p != null && p.isNotEmpty) out.add(p);
+        }
+      }
+    }
+    return out;
+  }
+
+  // ---------- Nivel 2: Pestaña ----------
+  Widget _arbolPestana(BuildContext context, Map<String, dynamic> pestana) {
+    final nombre = (pestana['pestana'] ?? '').toString();
+    final servicios =
+        (pestana['servicios'] as List? ?? const []).cast<Map<String, dynamic>>();
+    final todas = _permisosDeServicios(servicios);
+    final marcadas = todas.where((p) => _permisos.contains(p)).length;
+    final completo = todas.isNotEmpty && marcadas == todas.length;
+    final parcial = marcadas > 0 && !completo;
+
+    return ExpansionTile(
+      shape: const Border(),
+      leading: _iconoEstado(completo, parcial),
+      title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: const Text('Pestaña'),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final servicio in servicios) _arbolServicio(context, servicio),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<String> _permisosDeServicios(List<Map<String, dynamic>> servicios) {
+    final out = <String>[];
+    for (final s in servicios) {
+      for (final c in ((s['crud'] ?? const []) as List).cast<Map<String, dynamic>>()) {
+        final p = c['permiso']?.toString();
+        if (p != null && p.isNotEmpty) out.add(p);
+      }
+    }
+    return out;
+  }
+
+  // ---------- Nivel 3: Servicio con su CRUD ----------
+  Widget _arbolServicio(BuildContext context, Map<String, dynamic> servicio) {
+    final nombre = (servicio['servicio'] ?? '').toString();
+    final crud = (servicio['crud'] as List? ?? const []).cast<Map<String, dynamic>>();
+    final todas = crud.map((c) => c['permiso'].toString()).toList();
+    final marcadas = todas.where((p) => _permisos.contains(p)).length;
+    final completo = todas.isNotEmpty && marcadas == todas.length;
+    final parcial = marcadas > 0 && !completo;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 4),
+      child: ExpansionTile(
+        shape: const Border(),
+        leading: _iconoEstado(completo, parcial),
+        title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text('Servicio'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 24, right: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final c in crud) _crudCheckbox(context, c),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconoEstado(bool completo, bool parcial) {
+    final color = completo ? Colors.green : (parcial ? Colors.orange : null);
+    return Icon(
+      completo ? Icons.check_box : (parcial ? Icons.indeterminate_check_box : Icons.check_box_outline_blank),
+      color: color,
+    );
+  }
+
+  // ---------- Casilla CRUD (permiso individual) ----------
+  Widget _crudCheckbox(BuildContext context, Map<String, dynamic> crudDef) {
+    final permiso = (crudDef['permiso'] ?? '').toString();
+    final etiqueta = (crudDef['etiqueta'] ?? '').toString();
+    final marcado = _permisos.contains(permiso);
+    final esSoft = permiso.contains(':eliminar');
+    return CheckboxListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.only(left: 8),
+      secondary: esSoft
+          ? const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 20)
+          : null,
+      title: Text(
+        etiqueta,
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: esSoft ? FontWeight.w600 : FontWeight.w400,
+            color: esSoft ? Colors.redAccent : null),
+      ),
+      value: marcado,
+      onChanged: (v) {
+        setState(() {
+          if (v == true) {
+            _permisos.add(permiso);
+          } else {
+            _permisos.remove(permiso);
+          }
+        });
+      },
     );
   }
 }
