@@ -1121,6 +1121,7 @@ Widget _barraPestanas() {
       Pantalla.cocina => _pestanaPermitida(4),
       Pantalla.movimientos => _pestanaPermitida(5),
       Pantalla.propinas => _pestanaPermitida(6),
+      _ => true, // inicio/resumen/abrirCaja/comandasTurno/itemsTurno: no son pestañas
     };
     final fallbackId = pantallaActualVisible ? null : _primeraPestanaVisible();
     final pantallaEfectiva = fallbackId == null ? _pantalla : _pantallaPorId(fallbackId);
