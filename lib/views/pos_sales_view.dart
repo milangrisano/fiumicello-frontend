@@ -752,24 +752,82 @@ class _PosSalesViewState extends State<PosSalesView> {
     }
   }
 
+  /// Convierte un id de pestaña (0-6, índice de la barra) al valor `Pantalla`
+  /// correspondiente. Inverso de `_pestanaActiva`.
+  int _pantallaPorId(int id) {
+    switch (id) {
+      case 1:
+        return Pantalla.mesas;
+      case 2:
+        return Pantalla.entregas;
+      case 3:
+        return Pantalla.paraLlevar;
+      case 4:
+        return Pantalla.cocina;
+      case 5:
+        return Pantalla.movimientos;
+      case 6:
+        return Pantalla.propinas;
+      default:
+        return Pantalla.comanda;
+    }
+  }
+
   /// Barra de pestañas visible en TODAS las vistas del POS (Nueva comanda,
   /// Mesas, Domicilios, Para llevar, Cocina, Movimientos de caja, Pago de
   /// propinas) para moverse entre ellas o abrir esas vistas. Fija, sin
   /// reordenamiento. SIN records ni for-index: el SDK de Flutter es viejo.
-  Widget _barraPestanas() {
-    final labels = <String>[
-      'Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina',
-      'Movimientos de caja', 'Pago de propinas',
-    ];
-    final icons = <IconData>[
-      Icons.menu_book,
-      Icons.restaurant,
-      Icons.local_shipping,
-      Icons.takeout_dining,
-      Icons.kitchen,
-      Icons.swap_horiz,
-      Icons.redeem,
-    ];
+  /// Permisos por pestaña del POS (Nivel 2 del modelo de permisología):
+/// si el rol no tiene el permiso, la pestaña NO se muestra en la barra.
+static const List<String?> _pestanasPermisos = <String?>[
+  'ventas:crear', // Nueva comanda
+  'ventas:ver',   // Mesas abiertas
+  'ventas:ver',   // Domicilios
+  'ventas:ver',   // Para llevar
+  'cocina:ver',   // Cocina
+  'caja:ver',     // Movimientos de caja
+  'propina:pagar',// Pago de propinas
+];
+
+/// Pestañas visibles para el rol actual (las que su rol tenga permiso).
+static const List<String> _pestanasLabels = <String>[
+  'Nueva comanda', 'Mesas abiertas', 'Domicilios', 'Para llevar', 'Cocina',
+  'Movimientos de caja', 'Pago de propinas',
+];
+
+static const List<IconData> _pestanasIcons = <IconData>[
+  Icons.menu_book,
+  Icons.restaurant,
+  Icons.local_shipping,
+  Icons.takeout_dining,
+  Icons.kitchen,
+  Icons.swap_horiz,
+  Icons.redeem,
+];
+
+/// Indices de la barra original que este rol puede ver.
+List<int> _pestanasVisibles() {
+  return [
+    for (var i = 0; i < _pestanasLabels.length; i++)
+      if (_pestanaPermitida(i)) i,
+  ];
+}
+
+bool _pestanaPermitida(int i) {
+  final p = i < _pestanasPermisos.length ? _pestanasPermisos[i] : null;
+  return p == null || ApiClient.hasPermiso(p);
+}
+
+/// Primera pestaña visible del rol (fallback si la actual no tiene permiso).
+int _primeraPestanaVisible() {
+  final vis = _pestanasVisibles();
+  if (vis.isEmpty) return 0;
+  return vis.first;
+}
+
+Widget _barraPestanas() {
+    final labels = _pestanasLabels;
+    final icons = _pestanasIcons;
     final scheme = Theme.of(context).colorScheme;
     final activa = _pestanaActiva();
     return Container(
@@ -779,7 +837,7 @@ class _PosSalesViewState extends State<PosSalesView> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
-          for (var i = 0; i < labels.length; i++)
+          for (final i in _pestanasVisibles())
             _tabPestana(context, i, labels[i], icons[i], activa),
         ],
       ),
@@ -1052,12 +1110,26 @@ class _PosSalesViewState extends State<PosSalesView> {
       return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)));
     }
     _pintarTitulo();
+    // Si la pestaña actual no está permitida para el rol (p.ej. un cocinero sin
+    // ventas:ver que cae en una pantalla del POS), se muestra la primera
+    // pestaña que sí puede ver: nunca renderizar una pantalla no permitida.
+    final pantallaActualVisible = switch (_pantalla) {
+      Pantalla.comanda => _pestanaPermitida(0),
+      Pantalla.mesas => _pestanaPermitida(1),
+      Pantalla.entregas => _pestanaPermitida(2),
+      Pantalla.paraLlevar => _pestanaPermitida(3),
+      Pantalla.cocina => _pestanaPermitida(4),
+      Pantalla.movimientos => _pestanaPermitida(5),
+      Pantalla.propinas => _pestanaPermitida(6),
+    };
+    final fallbackId = pantallaActualVisible ? null : _primeraPestanaVisible();
+    final pantallaEfectiva = fallbackId == null ? _pantalla : _pantallaPorId(fallbackId);
     // Renderizado por pantalla del flujo POS. TODAS con la barra de pestañas
     // encima para navegar entre ellas (Nueva comanda / Mesas / Domicilios /
     // Para llevar / Cocina). Cocina no requiere caja abierta (preparación).
     // No hay pantalla "inicio" del POS: se entra directo a Nueva comanda y el
     // resto se maneja por las pestañas y el menú lateral.
-    switch (_pantalla) {
+    switch (pantallaEfectiva) {
       case Pantalla.comanda:
         return _vistaConPestanas(_vistaComanda());
       case Pantalla.mesas:

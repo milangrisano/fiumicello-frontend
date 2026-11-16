@@ -16,6 +16,9 @@ class SectionEntry {
 class AppSections {
   AppSections._();
 
+  // Confirmar el botón POS: se muestra si el rol puede facturar (ventas:ver)
+  // O verse alguna pestaña del POS de solo lectura (cocina:ver — el cocinero
+  // debe poder entrar a su pestaña Cocina sin permiso de facturación).
   static const int carta = 0;
   static const int invoices = 1;
   static const int pos = 2;
@@ -25,7 +28,7 @@ class AppSections {
   static const List<String> _labelsAll = [
     'Carta',
     'Facturas y comprobantes',
-    'Nueva comanda',
+    'POS',
     'Resúmenes contables',
     'Administración',
   ];
@@ -54,6 +57,10 @@ class AppSections {
     if (index == admin) {
       return ApiClient.hasPermiso('roles:gestionar') ||
           ApiClient.hasPermiso('usuarios:gestionar');
+    }
+    if (index == pos) {
+      // POS: visible si puede facturar o si solo puede ver la cocina.
+      return ApiClient.hasPermiso('ventas:ver') || ApiClient.hasPermiso('cocina:ver');
     }
     final p = _permsAll[index];
     return p == null || ApiClient.hasPermiso(p);
