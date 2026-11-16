@@ -316,7 +316,7 @@ class _FacturasListState extends State<FacturasList> {
   /// Muestra el documento: imagen a pantalla completa (con zoom), o vista
   /// previa en ventana si es PDF.
   void _verImagen(BuildContext context, String archivo) {
-    final url = Uri.base.resolve('/archivos/$archivo').toString();
+    final url = _archivoUrl(archivo);
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     if (!esImagen) {
@@ -560,7 +560,7 @@ class _ComprobantesListState extends State<ComprobantesList> {
   /// Muestra el documento: imagen a pantalla completa (con zoom), o vista
   /// previa en ventana si es PDF.
   void _verImagen(BuildContext context, String archivo) {
-    final url = Uri.base.resolve('/archivos/$archivo').toString();
+    final url = _archivoUrl(archivo);
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     if (!esImagen) {
@@ -599,7 +599,7 @@ class _ImagenDoc extends StatelessWidget {
   Widget build(BuildContext context) {
     // Ruta relativa al host actual (nginx sirve /archivos/). Se resuelve contra
     // el origen de la página, correcto también accediendo por tailscale.
-    final url = Uri.base.resolve('/archivos/$archivo').toString();
+    final url = _archivoUrl(archivo);
     final esImagen = RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false)
         .hasMatch(archivo);
     // Documento que no es imagen (PDF u otro): abrir DIRECTO en el visor del
@@ -711,4 +711,14 @@ class PdfViewer extends StatelessWidget {
       },
     );
   }
+}
+
+/// Convierte una ruta de archivo (factura/comprobante) en URL absoluta que
+/// nginx sirve desde /archivos/. Incluye el token JWT actual en la query para
+/// que auth_request lo valide: sin ?token= nginx responde 401/403.
+String _archivoUrl(String archivo) {
+  final base = Uri.base.resolve('/archivos/$archivo').toString();
+  final token = ApiClient.token;
+  if (token == null || token.isEmpty) return base;
+  return '$base?token=${Uri.encodeComponent(token)}';
 }
