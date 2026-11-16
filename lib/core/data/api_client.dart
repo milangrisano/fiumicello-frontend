@@ -39,7 +39,6 @@ class ApiClient {
   static Map<String, dynamic>? _user;
   static Set<String> _permisos = {};
 
-  static String? get token => _token;
   static bool get isLoggedIn => _token != null && _token!.isNotEmpty;
   static String? get currentEmail => _user?['email'] as String?;
   static String? get currentRol => _user?['rol'] as String?;
