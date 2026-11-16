@@ -51,6 +51,49 @@ class _FacturasListState extends State<FacturasList> {
   String _periodo = 'mes';
   DateTimeRange? _rango;
 
+  // Buscador interactivo local (sin re-consultar): texto libre que matchea
+  // contra # factura / proveedor / descripción, y monto mínimo/máximo.
+  final TextEditingController _qCtrl = TextEditingController();
+  final TextEditingController _montoMinCtrl = TextEditingController();
+  final TextEditingController _montoMaxCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _qCtrl.dispose();
+    _montoMinCtrl.dispose();
+    _montoMaxCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Aplica el buscador local sobre la lista ya cargada del período (en vivo).
+  List<Map<String, dynamic>> _filtrar(List<Map<String, dynamic>> items) {
+    final q = _qCtrl.text.trim().toLowerCase();
+    // Campo vacío = sin límite: min→0, max→infinito.
+    final mMin = double.tryParse(_montoMinCtrl.text.replaceAll(',', '.')) ?? 0;
+    final hasMax = _montoMaxCtrl.text.trim().isNotEmpty;
+    final mMax = double.tryParse(_montoMaxCtrl.text.replaceAll(',', '.')) ??
+        double.infinity;
+    // Guard simple: si el texto está vacío y no hay montos, no filtramos nada.
+    if (q.isEmpty && _montoMinCtrl.text.trim().isEmpty &&
+        _montoMaxCtrl.text.trim().isEmpty) {
+      return items;
+    }
+    return items.where((f) {
+      final texto = [
+        '${f['numero_factura'] ?? ''}',
+        '${f['proveedor'] ?? ''}',
+        '${f['concepto'] ?? ''}',
+      ].join(' ').toLowerCase();
+      final okTexto = q.isEmpty || texto.contains(q);
+      final v = f['total_con_impuestos'];
+      final monto = (v is num)
+          ? v.toDouble()
+          : (v is String ? double.tryParse(v) ?? 0 : 0);
+      final okMonto = monto >= mMin && monto <= mMax;
+      return okTexto && okMonto;
+    }).toList();
+  }
+
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -157,6 +200,94 @@ class _FacturasListState extends State<FacturasList> {
     );
   }
 
+  /// Buscador interactivo: texto libre (# factura / proveedor / descripción)
+  /// y rango de monto (mín/máx). Filtra EN VIVO sobre la lista del período.
+  Widget _buscador(ColorScheme cs) {
+    final inputDeco = InputDecoration(
+      isDense: true,
+      filled: true,
+      fillColor: cs.surfaceContainerHigh,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // Buscar por # factura, proveedor o descripción.
+          SizedBox(
+            width: 260,
+            child: TextField(
+              controller: _qCtrl,
+              decoration: inputDeco.copyWith(
+                hintText: 'Buscar por # factura, proveedor, descripción…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _qCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _qCtrl.clear();
+                          setState(() {});
+                        },
+                      ),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          // Monto mínimo.
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _montoMinCtrl,
+              decoration: inputDeco.copyWith(
+                hintText: 'Monto mín',
+                prefixText: '\$ ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          // Monto máximo.
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _montoMaxCtrl,
+              decoration: inputDeco.copyWith(
+                hintText: 'Monto máx',
+                prefixText: '\$ ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          // Limpiar criterios de búsqueda.
+          if (_hayBusqueda)
+            TextButton.icon(
+              onPressed: _limpiarBusqueda,
+              icon: const Icon(Icons.filter_alt_off, size: 18),
+              label: const Text('Limpiar'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool get _hayBusqueda =>
+      _qCtrl.text.trim().isNotEmpty ||
+      _montoMinCtrl.text.trim().isNotEmpty ||
+      _montoMaxCtrl.text.trim().isNotEmpty;
+
+  void _limpiarBusqueda() {
+    _qCtrl.clear();
+    _montoMinCtrl.clear();
+    _montoMaxCtrl.clear();
+    setState(() {});
+  }
+
   // Celda de la tabla (PC): ancho flexible y alineación opcional a la derecha.
   Widget _celda(String t,
       {int flex = 1, bool right = false, bool bold = false, Color? color}) {
@@ -239,7 +370,8 @@ class _FacturasListState extends State<FacturasList> {
         final data = snapshot.data!;
         final total = data['total'] ?? 0;
         final raw = data['data'] as List? ?? [];
-        final items = raw.map((e) => Map<String, dynamic>.from(e)).toList();
+        final items = _filtrar(
+            raw.map((e) => Map<String, dynamic>.from(e)).toList());
         double suma = 0;
         for (final f in items) {
           final v = f['total_con_impuestos'];
@@ -249,13 +381,17 @@ class _FacturasListState extends State<FacturasList> {
         return Column(
           children: [
             _chips(cs),
+            _buscador(cs),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Row(children: [
                 const Icon(Icons.store, size: 18),
                 const SizedBox(width: 8),
-                Text('$total facturas de compra',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  _hayBusqueda
+                      ? '${items.length} resultados de $total facturas de compra'
+                      : '$total facturas de compra',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
                 const Spacer(),
                 Text(money(suma),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
