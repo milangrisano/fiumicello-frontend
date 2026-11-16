@@ -12,10 +12,12 @@ class AdminDocsView extends StatelessWidget {
     final baseUrl = ApiClient.baseUrl;
     final token = ApiClient.token;
 
-    // Construir URL de la documentación Swagger con token si está disponible
+    // ApiClient.baseUrl YA incluye el prefijo /api (API_BASE o http://host:3000/api),
+    // y el backend monta Swagger en '/api/docs' — concatenar '/api/docs' otra vez
+    // duplicaba el prefijo y daba 404 'Cannot GET /api/api/docs'.
     final String docsUrl = token != null && token.isNotEmpty
-        ? '$baseUrl/api/docs?token=$token'
-        : '$baseUrl/api/docs';
+        ? '$baseUrl/docs?token=$token'
+        : '$baseUrl/docs';
 
     return Center(
       child: ElevatedButton(
