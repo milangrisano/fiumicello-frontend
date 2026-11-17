@@ -210,14 +210,26 @@ class _FacturasListState extends State<FacturasList> {
     return p.isNotEmpty ? p : '—';
   }
 
-  Widget _chips(ColorScheme cs) {
+  /// Barra única de filtros: chips de período (año/mes/semana + calendario de
+  /// rango) y buscador (dropdown de criterio + campo) en UN solo Wrap, que
+  /// ocupa una línea en pantallas anchas (PC) y se envuelve en varias líneas
+  /// cuando no cabe (tablet / móvil).
+  Widget _filtros(ColorScheme cs) {
+    final inputDeco = InputDecoration(
+      isDense: true,
+      filled: true,
+      fillColor: cs.surfaceContainerHigh,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          // --- Chips de período (fecha) ---
           for (final p in ['año', 'mes', 'semana'])
             ChoiceChip(
               label: Text(p),
@@ -236,30 +248,9 @@ class _FacturasListState extends State<FacturasList> {
             tooltip: 'Elegir período (rango)',
             onPressed: _elegirRango,
           ),
-        ],
-      ),
-    );
-  }
+          const SizedBox(width: 4),
 
-  /// Buscador interactivo: dropdown de criterio (Fecha / # Factura /
-  /// Descripción / Monto) y UN campo de texto que filtra en vivo por el
-  /// criterio seleccionado, sobre la lista del período ya cargada.
-  Widget _buscador(ColorScheme cs) {
-    final inputDeco = InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: cs.surfaceContainerHigh,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          // Dropdown de criterio de búsqueda.
+          // --- Buscador por criterio ---
           DropdownButton<String>(
             value: _criterio,
             borderRadius: BorderRadius.circular(10),
@@ -278,7 +269,6 @@ class _FacturasListState extends State<FacturasList> {
               setState(() => _criterio = v);
             },
           ),
-          // Campo de búsqueda según el criterio seleccionado.
           if (_criterio == 'Fecha')
             _campoFecha(inputDeco, cs)
           else
@@ -491,8 +481,7 @@ class _FacturasListState extends State<FacturasList> {
         }
         return Column(
           children: [
-            _chips(cs),
-            _buscador(cs),
+            _filtros(cs),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Row(children: [
