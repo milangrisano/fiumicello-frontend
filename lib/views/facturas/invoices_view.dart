@@ -261,65 +261,10 @@ class _FacturasListState extends State<FacturasList> {
             },
           ),
           // Campo de búsqueda según el criterio seleccionado.
-          if (_criterio == 'Fecha') {
-            // Fecha: botón con formato de fecha que abre el calendario nativo.
-            final f = _fechaBusqueda;
-            SizedBox(
-              width: 260,
-              child: InkWell(
-                onTap: _elegirFechaBusqueda,
-                borderRadius: BorderRadius.circular(10),
-                child: InputDecorator(
-                  decoration: inputDeco.copyWith(
-                    hintText: 'Elegir fecha',
-                    prefixIcon: const Icon(Icons.calendar_month, size: 20),
-                    suffixIcon: _fechaBusqueda == null
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              setState(() => _fechaBusqueda = null);
-                            },
-                          ),
-                  ),
-                  isEmpty: f == null,
-                  child: Text(
-                    f == null
-                        ? 'Elegir fecha'
-                        : '${f!.day.toString().padLeft(2, '0')}/'
-                            '${f!.month.toString().padLeft(2, '0')}/${f!.year}',
-                    style: TextStyle(
-                        fontSize: 13.5,
-                        color: f == null ? cs.onSurfaceVariant : cs.onSurface),
-                  ),
-                ),
-              ),
-            );
-          } else {
-            SizedBox(
-              width: 300,
-              child: TextField(
-                controller: _qCtrl,
-                decoration: inputDeco.copyWith(
-                  hintText: _hintCriterio,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: _qCtrl.text.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _qCtrl.clear();
-                            setState(() {});
-                          },
-                        ),
-                ),
-                keyboardType: _criterio == 'Monto'
-                    ? const TextInputType.numberWithOptions(decimal: true)
-                    : TextInputType.text,
-                onChanged: (_) => setState(() {}),
-              ),
-            );
-          },
+          if (_criterio == 'Fecha')
+            _campoFecha(inputDeco, cs)
+          else
+            _campoTexto(inputDeco, cs),
           // Limpiar criterio de búsqueda.
           if (_hayBusqueda)
             TextButton.icon(
@@ -370,6 +315,69 @@ class _FacturasListState extends State<FacturasList> {
     );
     if (picked == null || !mounted) return;
     setState(() => _fechaBusqueda = picked);
+  }
+
+  /// Campo Fecha: botón con formato dd/mm/aaaa que abre el calendario nativo.
+  Widget _campoFecha(InputDecoration inputDeco, ColorScheme cs) {
+    final f = _fechaBusqueda;
+    return SizedBox(
+      width: 260,
+      child: InkWell(
+        onTap: _elegirFechaBusqueda,
+        borderRadius: BorderRadius.circular(10),
+        child: InputDecorator(
+          decoration: inputDeco.copyWith(
+            hintText: 'Elegir fecha',
+            prefixIcon: const Icon(Icons.calendar_month, size: 20),
+            suffixIcon: _fechaBusqueda == null
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      setState(() => _fechaBusqueda = null);
+                    },
+                  ),
+          ),
+          isEmpty: f == null,
+          child: Text(
+            f == null
+                ? 'Elegir fecha'
+                : '${f.day.toString().padLeft(2, '0')}/'
+                    '${f.month.toString().padLeft(2, '0')}/${f.year}',
+            style: TextStyle(
+                fontSize: 13.5,
+                color: f == null ? cs.onSurfaceVariant : cs.onSurface),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Campo de texto para los criterios que no son Fecha (busca en vivo).
+  Widget _campoTexto(InputDecoration inputDeco, ColorScheme cs) {
+    return SizedBox(
+      width: 300,
+      child: TextField(
+        controller: _qCtrl,
+        decoration: inputDeco.copyWith(
+          hintText: _hintCriterio,
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _qCtrl.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _qCtrl.clear();
+                    setState(() {});
+                  },
+                ),
+        ),
+        keyboardType: _criterio == 'Monto'
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : TextInputType.text,
+        onChanged: (_) => setState(() {}),
+      ),
+    );
   }
 
   // Celda de la tabla (PC): ancho flexible y alineación opcional a la derecha.
