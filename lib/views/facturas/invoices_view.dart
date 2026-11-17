@@ -52,29 +52,47 @@ class _FacturasListState extends State<FacturasList> {
   DateTimeRange? _rango;
 
   // Buscador interactivo local (sin re-consultar): un dropdown de criterio
-  // (Fecha / # Factura / Descripción / Monto). Para Fecha se elige con un
-  // date picker (formato nativo), el resto filtra con el campo de texto en
-  // vivo sobre la lista del período.
+  // (Fecha / # Factura / Descripción / Monto). Para Fecha se escriben tres
+  // campos DD / MM / AAAA (sin calendario ni ventanas); el resto filtra con
+  // el campo de texto en vivo sobre la lista del período.
   String _criterio = 'Factura';
   final TextEditingController _qCtrl = TextEditingController();
-  DateTime? _fechaBusqueda;
+  final TextEditingController _diaCtrl = TextEditingController();
+  final TextEditingController _mesCtrl = TextEditingController();
+  final TextEditingController _anioCtrl = TextEditingController();
 
   @override
   void dispose() {
     _qCtrl.dispose();
+    _diaCtrl.dispose();
+    _mesCtrl.dispose();
+    _anioCtrl.dispose();
     super.dispose();
   }
 
   /// Aplica el buscador local sobre la lista ya cargada del período (en vivo).
   List<Map<String, dynamic>> _filtrar(List<Map<String, dynamic>> items) {
-    // Criterio Fecha: usa la fecha elegida en el date picker (formato YYYY-MM-DD).
+    // Criterio Fecha: filtra por DD/MM/AAAA (los campos incompletos se ignoran).
     if (_criterio == 'Fecha') {
-      final f = _fechaBusqueda;
-      if (f == null) return items;
-      final buscada = _fmt(f);
-      return items
-          .where((fact) => '${fact['fecha'] ?? ''}'.startsWith(buscada))
-          .toList();
+      final d = _diaCtrl.text.trim();
+      final m = _mesCtrl.text.trim();
+      final a = _anioCtrl.text.trim();
+      if (d.isEmpty && m.isEmpty && a.isEmpty) return items;
+      return items.where((fact) {
+        final fecha = '${fact['fecha'] ?? ''}'.trim(); // formato YYYY-MM-DD
+        if (a.isNotEmpty && !fecha.startsWith(a)) return false;
+        if (m.isNotEmpty) {
+          final mm = m.padLeft(2, '0');
+          // La fecha guardada puede ser YYYY-MM-DD o YYYY-MM-DDTHH:... — el
+          // día está en posición 8..10.
+          if (fecha.length < 10 || fecha.substring(5, 7) != mm) return false;
+        }
+        if (d.isNotEmpty) {
+          final dd = d.padLeft(2, '0');
+          if (fecha.length < 10 || fecha.substring(8, 10) != dd) return false;
+        }
+        return true;
+      }).toList();
     }
     final q = _qCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return items;
@@ -293,62 +311,56 @@ class _FacturasListState extends State<FacturasList> {
 
   bool get _hayBusqueda =>
       _criterio == 'Fecha'
-          ? _fechaBusqueda != null
+          ? _diaCtrl.text.trim().isNotEmpty ||
+              _mesCtrl.text.trim().isNotEmpty ||
+              _anioCtrl.text.trim().isNotEmpty
           : _qCtrl.text.trim().isNotEmpty;
 
   void _limpiarBusqueda() {
     _qCtrl.clear();
-    setState(() => _fechaBusqueda = null);
+    _diaCtrl.clear();
+    _mesCtrl.clear();
+    _anioCtrl.clear();
+    setState(() {});
   }
 
-  /// Abre el calendario nativo para elegir la fecha de búsqueda.
-  Future<void> _elegirFechaBusqueda() async {
-    final hoy = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fechaBusqueda ?? hoy,
-      firstDate: DateTime(2024, 1, 1),
-      lastDate: hoy,
-      helpText: 'Elegir fecha de factura',
-      cancelText: 'Cancelar',
-      confirmText: 'Aplicar',
-    );
-    if (picked == null || !mounted) return;
-    setState(() => _fechaBusqueda = picked);
-  }
-
-  /// Campo Fecha: botón con formato dd/mm/aaaa que abre el calendario nativo.
+  /// Campo Fecha: tres recuadros DD / MM / AAAA para escribir directo (sin
+  /// calendario ni ventanas). Filtra en vivo conforme se completa cada campo.
   Widget _campoFecha(InputDecoration inputDeco, ColorScheme cs) {
-    final f = _fechaBusqueda;
+    final deco = (String hint) => inputDeco.copyWith(hintText: hint);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _inputCorto(deco('DD'), _diaCtrl, 2, _mesCtrl),
+        const SizedBox(width: 6),
+        Text('/', style: TextStyle(color: cs.onSurfaceVariant)),
+        const SizedBox(width: 6),
+        _inputCorto(deco('MM'), _mesCtrl, 2, _anioCtrl),
+        const SizedBox(width: 6),
+        Text('/', style: TextStyle(color: cs.onSurfaceVariant)),
+        const SizedBox(width: 6),
+        _inputCorto(deco('AAAA'), _anioCtrl, 4, null),
+      ],
+    );
+  }
+
+  /// Input numérico corto (DD/MM/AAAA) con salto automático al siguiente.
+  Widget _inputCorto(InputDecoration deco, TextEditingController ctrl, int maxLen,
+      TextEditingController? next) {
     return SizedBox(
-      width: 260,
-      child: InkWell(
-        onTap: _elegirFechaBusqueda,
-        borderRadius: BorderRadius.circular(10),
-        child: InputDecorator(
-          decoration: inputDeco.copyWith(
-            hintText: 'Elegir fecha',
-            prefixIcon: const Icon(Icons.calendar_month, size: 20),
-            suffixIcon: _fechaBusqueda == null
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      setState(() => _fechaBusqueda = null);
-                    },
-                  ),
-          ),
-          isEmpty: f == null,
-          child: Text(
-            f == null
-                ? 'Elegir fecha'
-                : '${f.day.toString().padLeft(2, '0')}/'
-                    '${f.month.toString().padLeft(2, '0')}/${f.year}',
-            style: TextStyle(
-                fontSize: 13.5,
-                color: f == null ? cs.onSurfaceVariant : cs.onSurface),
-          ),
-        ),
+      width: maxLen == 2 ? 52 : 70,
+      child: TextField(
+        controller: ctrl,
+        decoration: deco,
+        keyboardType: TextInputType.number,
+        maxLength: maxLen,
+        textAlign: TextAlign.center,
+        buildCounter: (_, __) => const SizedBox.shrink(),
+        style: const TextStyle(fontSize: 13.5),
+        onChanged: (_) {
+          setState(() {});
+          if (next != null && ctrl.text.length == maxLen) next.focus();
+        },
       ),
     );
   }
