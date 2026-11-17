@@ -46,119 +46,60 @@ class FacturasList extends StatefulWidget {
 class _FacturasListState extends State<FacturasList> {
   late Future<Map<String, dynamic>> _future;
 
-  // Filtro de período: 'año' | 'mes' | 'semana' (chips) o rango libre
-  // (calendario). Si _rango != null, manda el rango y los chips se desmarcan.
+  // Filtro de período: 'año' | 'mes' | 'semana' (chips) o rango libre del
+  // calendario. Es un ATAJO de fecha; el buscador server-side combina todo.
   String _periodo = 'mes';
   DateTimeRange? _rango;
 
-  // Buscador interactivo local (sin re-consultar): un dropdown de criterio
-  // (Fecha / # Factura / Descripción / Monto). Para Fecha se escriben tres
-  // campos DD / MM / AAAA (sin calendario ni ventanas); el resto filtra con
-  // el campo de texto en vivo sobre la lista del período.
-  String _criterio = 'Factura';
+  // Buscador SERVER-SIDE combinable: cada campo lleno se suma a la consulta
+  // (vacío = no filtra). Se puede combinar texto + fechas + montos a la vez.
   final TextEditingController _qCtrl = TextEditingController();
-  final TextEditingController _diaCtrl = TextEditingController();
-  final TextEditingController _mesCtrl = TextEditingController();
-  final TextEditingController _anioCtrl = TextEditingController();
+  // Fechas del formulario (además del atajo de los chips).
+  final TextEditingController _diaDesdeCtrl = TextEditingController();
+  final TextEditingController _mesDesdeCtrl = TextEditingController();
+  final TextEditingController _anioDesdeCtrl = TextEditingController();
+  final TextEditingController _diaHastaCtrl = TextEditingController();
+  final TextEditingController _mesHastaCtrl = TextEditingController();
+  final TextEditingController _anioHastaCtrl = TextEditingController();
+  final TextEditingController _montoMinCtrl = TextEditingController();
+  final TextEditingController _montoMaxCtrl = TextEditingController();
 
   @override
   void dispose() {
     _qCtrl.dispose();
-    _diaCtrl.dispose();
-    _mesCtrl.dispose();
-    _anioCtrl.dispose();
+    _diaDesdeCtrl.dispose();
+    _mesDesdeCtrl.dispose();
+    _anioDesdeCtrl.dispose();
+    _diaHastaCtrl.dispose();
+    _mesHastaCtrl.dispose();
+    _anioHastaCtrl.dispose();
+    _montoMinCtrl.dispose();
+    _montoMaxCtrl.dispose();
     super.dispose();
   }
 
-  /// Aplica el buscador local sobre la lista ya cargada del período (en vivo).
-  List<Map<String, dynamic>> _filtrar(List<Map<String, dynamic>> items) {
-    // Criterio Fecha: filtra por DD/MM/AAAA (los campos incompletos se ignoran).
-    if (_criterio == 'Fecha') {
-      final d = _diaCtrl.text.trim();
-      final m = _mesCtrl.text.trim();
-      final a = _anioCtrl.text.trim();
-      if (d.isEmpty && m.isEmpty && a.isEmpty) return items;
-      return items.where((fact) {
-        final fecha = '${fact['fecha'] ?? ''}'.trim(); // formato YYYY-MM-DD
-        if (a.isNotEmpty && !fecha.startsWith(a)) return false;
-        if (m.isNotEmpty) {
-          final mm = m.padLeft(2, '0');
-          // La fecha guardada puede ser YYYY-MM-DD o YYYY-MM-DDTHH:... — el
-          // día está en posición 8..10.
-          if (fecha.length < 10 || fecha.substring(5, 7) != mm) return false;
-        }
-        if (d.isNotEmpty) {
-          final dd = d.padLeft(2, '0');
-          if (fecha.length < 10 || fecha.substring(8, 10) != dd) return false;
-        }
-        return true;
-      }).toList();
-    }
-    final q = _qCtrl.text.trim().toLowerCase();
-    if (q.isEmpty) return items;
-    switch (_criterio) {
-      case 'Fecha':
-        // Coincide si la fecha de la factura contiene el texto (subcadena).
-        return items
-            .where((f) => '${f['fecha'] ?? ''}'.toLowerCase().contains(q))
-            .toList();
-      case 'Descripción':
-        // Proveedor + concepto (descripción mostrada en la tabla).
-        return items.where((f) {
-          final texto = [
-            '${f['proveedor'] ?? ''}',
-            '${f['concepto'] ?? ''}',
-          ].join(' ').toLowerCase();
-          return texto.contains(q);
-        }).toList();
-      case 'Monto':
-        // Valor numérico del monto (acepta ">"="<" o número suelto).
-        final buscado = double.tryParse(q.replaceAll(',', '.')) ?? -1;
-        return items.where((f) {
-          final v = f['total_con_impuestos'];
-          final monto = (v is num)
-              ? v.toDouble()
-              : (v is String ? double.tryParse(v) ?? 0 : 0);
-          if (q.startsWith('>') || q.startsWith('>=')) {
-            return monto > buscado || monto == buscado;
-          }
-          if (q.startsWith('<')) return monto < buscado;
-          return monto == buscado || monto.toStringAsFixed(2).startsWith(q);
-        }).toList();
-      case 'Factura':
-      default:
-        // # de factura (subcadena, insensible a mayúsculas).
-        return items
-            .where((f) =>
-                '${f['numero_factura'] ?? ''}'.toLowerCase().contains(q))
-            .toList();
-    }
-  }
-
-  static String _fmt(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _buildFuture();
-    // Asegura el socket conectado (para el evento factura:nueva).
-    RealtimeService.instance.conectar();
-    // Actualiza la lista al instante cuando el workflow/backend crea una
-    // factura nueva (evento factura:nueva del Socket.IO).
-    RealtimeService.instance.on('factura:nueva', (_) {
-      if (!mounted) return;
-      setState(() {
-        _future = _buildFuture();
-      });
-    });
-  }
-
-  /// Construye la petición con el rango de fechas del período elegido.
+  /// Construye la petición al backend con TODOS los filtros activos.
+  /// Los campos vacíos se omiten; los que tengan valor se combinan en la query.
   Future<Map<String, dynamic>> _buildFuture() {
+    final params = <String>[];
+
+    // Chips/atajo de período (si no hay fechas manuales del formulario).
+    final tieneDesdeManual =
+        _diaDesdeCtrl.text.isNotEmpty ||
+            _mesDesdeCtrl.text.isNotEmpty ||
+            _anioDesdeCtrl.text.isNotEmpty;
+    final tieneHastaManual =
+        _diaHastaCtrl.text.isNotEmpty ||
+            _mesHastaCtrl.text.isNotEmpty ||
+            _anioHastaCtrl.text.isNotEmpty;
+
     String? desde;
     String? hasta;
-    if (_rango != null) {
+    if (tieneDesdeManual || tieneHastaManual) {
+      // Fechas manuales del formulario (YYYY-MM-DD, campos incompletos→01).
+      desde = _fechaDesdeManual();
+      hasta = _fechaHastaManual();
+    } else if (_rango != null) {
       desde = _fmt(_rango!.start);
       hasta = _fmt(_rango!.end);
     } else {
@@ -170,15 +111,49 @@ class _FacturasListState extends State<FacturasList> {
         desde = _fmt(DateTime(hoy.year, hoy.month, 1));
         hasta = _fmt(DateTime(hoy.year, hoy.month + 1, 0));
       } else {
-        // semana: lunes a domingo de la semana actual.
         final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
         desde = _fmt(lunes);
         hasta = _fmt(lunes.add(const Duration(days: 6)));
       }
     }
-    final url = '/facturas?limit=500&desde=$desde&hasta=$hasta';
+    if (desde != null && desde.isNotEmpty) params.add('desde=$desde');
+    if (hasta != null && hasta.isNotEmpty) params.add('hasta=$hasta');
+
+    // Texto libre global (# factura / proveedor / concepto).
+    final q = _qCtrl.text.trim();
+    if (q.isNotEmpty) params.add('q=${Uri.encodeQueryComponent(q)}');
+
+    // Montos.
+    final mMin = _montoMinCtrl.text.trim();
+    final mMax = _montoMaxCtrl.text.trim();
+    if (mMin.isNotEmpty) params.add('montoMin=${Uri.encodeQueryComponent(mMin)}');
+    if (mMax.isNotEmpty) params.add('montoMax=${Uri.encodeQueryComponent(mMax)}');
+
+    final url = '/facturas?limit=500&${params.join('&')}';
     return ApiClient.getList(url);
   }
+
+  /// YYYY-MM-DD a partir de los tres campos Desde (incompletos→01).
+  String _fechaDesdeManual() {
+    final d = _diaDesdeCtrl.text.trim().padLeft(2, '0');
+    final m = _mesDesdeCtrl.text.trim().padLeft(2, '0');
+    final a = _anioDesdeCtrl.text.trim();
+    return '${a.isNotEmpty ? a : '2024'}-${m.isNotEmpty ? m : '01'}-${d.isNotEmpty ? d : '01'}';
+  }
+
+  /// YYYY-MM-DD a partir de los tres campos Hasta (incompletos→31).
+  String _fechaHastaManual() {
+    final d = _diaHastaCtrl.text.trim().padLeft(2, '0');
+    final m = _mesHastaCtrl.text.trim().padLeft(2, '0');
+    final a = _anioHastaCtrl.text.trim();
+    return '${a.isNotEmpty ? a : '2099'}-${m.isNotEmpty ? m : '12'}-${d.isNotEmpty ? d : '31'}';
+  }
+
+  void _buscar() => setState(() => _future = _buildFuture());
+
+  /// Formatea una fecha como YYYY-MM-DD (cero-padding) para la query.
+  static String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   /// Mismo calendario de rango que en Resumen contable: se eligen dos días
   /// (inicio y fin) y se pulsa Aplicar.
@@ -210,10 +185,11 @@ class _FacturasListState extends State<FacturasList> {
     return p.isNotEmpty ? p : '—';
   }
 
-  /// Barra única de filtros: chips de período (año/mes/semana + calendario de
-  /// rango) y buscador (dropdown de criterio + campo) en UN solo Wrap, que
-  /// ocupa una línea en pantallas anchas (PC) y se envuelve en varias líneas
-  /// cuando no cabe (tablet / móvil).
+  /// Barra única de filtros server-side combinables: chips de período como
+  /// atajo de fechas (año/mes/semana + calendario), más el formulario con
+  /// texto + fechas manuales + montos. Cada campo lleno se suma a la query
+  /// (vacío = no filtra), en UN solo Wrap que ocupa una línea en PC y se
+  /// envuelve en varias líneas en tablet / móvil.
   Widget _filtros(ColorScheme cs) {
     final inputDeco = InputDecoration(
       isDense: true,
@@ -229,7 +205,7 @@ class _FacturasListState extends State<FacturasList> {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // --- Chips de período (fecha) ---
+          // --- Chips de período (atajo de fecha) ---
           for (final p in ['año', 'mes', 'semana'])
             ChoiceChip(
               label: Text(p),
@@ -250,30 +226,62 @@ class _FacturasListState extends State<FacturasList> {
           ),
           const SizedBox(width: 4),
 
-          // --- Buscador por criterio ---
-          DropdownButton<String>(
-            value: _criterio,
-            borderRadius: BorderRadius.circular(10),
-            style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
-            underline: const SizedBox.shrink(),
-            icon: const Icon(Icons.arrow_drop_down),
-            items: const [
-              DropdownMenuItem(value: 'Fecha', child: Text('Fecha')),
-              DropdownMenuItem(value: 'Factura', child: Text('# Factura')),
-              DropdownMenuItem(
-                  value: 'Descripción', child: Text('Descripción')),
-              DropdownMenuItem(value: 'Monto', child: Text('Monto')),
-            ],
-            onChanged: (v) {
-              if (v == null || v == _criterio) return;
-              setState(() => _criterio = v);
-            },
+          // --- Texto libre global (# factura / proveedor / concepto) ---
+          SizedBox(
+            width: 280,
+            child: TextField(
+              controller: _qCtrl,
+              decoration: inputDeco.copyWith(
+                hintText: 'Proveedor, # factura o descripción…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _qCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _qCtrl.clear();
+                          setState(() {});
+                        },
+                      ),
+              ),
+              onSubmitted: (_) => _buscar(),
+            ),
           ),
-          if (_criterio == 'Fecha')
-            _campoFecha(inputDeco, cs)
-          else
-            _campoTexto(inputDeco, cs),
-          // Limpiar criterio de búsqueda.
+
+          // --- Fecha desde (DD / MM / AAAA) ---
+          _campoFecha1(inputDeco, cs, 'Desde', _diaDesdeCtrl, _mesDesdeCtrl,
+              _anioDesdeCtrl),
+
+          // --- Fecha hasta (DD / MM / AAAA) ---
+          _campoFecha1(inputDeco, cs, 'Hasta', _diaHastaCtrl, _mesHastaCtrl,
+              _anioHastaCtrl),
+
+          // --- Monto mín / máx ---
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _montoMinCtrl,
+              decoration: inputDeco.copyWith(hintText: 'Monto mín'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _montoMaxCtrl,
+              decoration: inputDeco.copyWith(hintText: 'Monto máx'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+
+          // --- Botones Buscar / Limpiar ---
+          FilledButton.icon(
+            onPressed: _buscar,
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Buscar'),
+          ),
           if (_hayBusqueda)
             TextButton.icon(
               onPressed: _limpiarBusqueda,
@@ -285,51 +293,27 @@ class _FacturasListState extends State<FacturasList> {
     );
   }
 
-  String get _hintCriterio {
-    switch (_criterio) {
-      case 'Fecha':
-        return 'Buscar por fecha (ej. 2026-11-16)…';
-      case 'Descripción':
-        return 'Buscar por proveedor o concepto…';
-      case 'Monto':
-        return 'Monto (ej. 300000 o >50000)…';
-      case 'Factura':
-      default:
-        return 'Buscar por # factura…';
-    }
-  }
-
-  bool get _hayBusqueda =>
-      _criterio == 'Fecha'
-          ? _diaCtrl.text.trim().isNotEmpty ||
-              _mesCtrl.text.trim().isNotEmpty ||
-              _anioCtrl.text.trim().isNotEmpty
-          : _qCtrl.text.trim().isNotEmpty;
-
-  void _limpiarBusqueda() {
-    _qCtrl.clear();
-    _diaCtrl.clear();
-    _mesCtrl.clear();
-    _anioCtrl.clear();
-    setState(() {});
-  }
-
-  /// Campo Fecha: tres recuadros DD / MM / AAAA para escribir directo (sin
-  /// calendario ni ventanas). Filtra en vivo conforme se completa cada campo.
-  Widget _campoFecha(InputDecoration inputDeco, ColorScheme cs) {
+  /// Tres recuadros DD / MM / AAAA con una etiqueta (Desde/Hasta).
+  Widget _campoFecha1(InputDecoration inputDeco, ColorScheme cs, String label,
+      TextEditingController dia, TextEditingController mes,
+      TextEditingController anio) {
     final deco = (String hint) => inputDeco.copyWith(hintText: hint);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _inputCorto(deco('DD'), _diaCtrl, 2, _mesCtrl),
+        Text(label,
+            style: TextStyle(
+                fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
         const SizedBox(width: 6),
+        _inputCorto(deco('DD'), dia, 2, mes),
+        const SizedBox(width: 5),
         Text('/', style: TextStyle(color: cs.onSurfaceVariant)),
-        const SizedBox(width: 6),
-        _inputCorto(deco('MM'), _mesCtrl, 2, _anioCtrl),
-        const SizedBox(width: 6),
+        const SizedBox(width: 5),
+        _inputCorto(deco('MM'), mes, 2, anio),
+        const SizedBox(width: 5),
         Text('/', style: TextStyle(color: cs.onSurfaceVariant)),
-        const SizedBox(width: 6),
-        _inputCorto(deco('AAAA'), _anioCtrl, 4, null),
+        const SizedBox(width: 5),
+        _inputCorto(deco('AAAA'), anio, 4, null),
       ],
     );
   }
@@ -338,7 +322,7 @@ class _FacturasListState extends State<FacturasList> {
   Widget _inputCorto(InputDecoration deco, TextEditingController ctrl, int maxLen,
       TextEditingController? next) {
     return SizedBox(
-      width: maxLen == 2 ? 52 : 70,
+      width: maxLen == 2 ? 44 : 60,
       child: TextField(
         controller: ctrl,
         decoration: deco,
@@ -358,35 +342,33 @@ class _FacturasListState extends State<FacturasList> {
             FocusScope.of(context).nextFocus();
           }
         },
+        onSubmitted: (_) => _buscar(),
       ),
     );
   }
 
-  /// Campo de texto para los criterios que no son Fecha (busca en vivo).
-  Widget _campoTexto(InputDecoration inputDeco, ColorScheme cs) {
-    return SizedBox(
-      width: 300,
-      child: TextField(
-        controller: _qCtrl,
-        decoration: inputDeco.copyWith(
-          hintText: _hintCriterio,
-          prefixIcon: const Icon(Icons.search, size: 20),
-          suffixIcon: _qCtrl.text.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  onPressed: () {
-                    _qCtrl.clear();
-                    setState(() {});
-                  },
-                ),
-        ),
-        keyboardType: _criterio == 'Monto'
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.text,
-        onChanged: (_) => setState(() {}),
-      ),
-    );
+  bool get _hayBusqueda =>
+      _qCtrl.text.trim().isNotEmpty ||
+      _diaDesdeCtrl.text.trim().isNotEmpty ||
+      _mesDesdeCtrl.text.trim().isNotEmpty ||
+      _anioDesdeCtrl.text.trim().isNotEmpty ||
+      _diaHastaCtrl.text.trim().isNotEmpty ||
+      _mesHastaCtrl.text.trim().isNotEmpty ||
+      _anioHastaCtrl.text.trim().isNotEmpty ||
+      _montoMinCtrl.text.trim().isNotEmpty ||
+      _montoMaxCtrl.text.trim().isNotEmpty;
+
+  void _limpiarBusqueda() {
+    _qCtrl.clear();
+    _diaDesdeCtrl.clear();
+    _mesDesdeCtrl.clear();
+    _anioDesdeCtrl.clear();
+    _diaHastaCtrl.clear();
+    _mesHastaCtrl.clear();
+    _anioHastaCtrl.clear();
+    _montoMinCtrl.clear();
+    _montoMaxCtrl.clear();
+    setState(() => _future = _buildFuture());
   }
 
   // Celda de la tabla (PC): ancho flexible y alineación opcional a la derecha.
@@ -471,8 +453,8 @@ class _FacturasListState extends State<FacturasList> {
         final data = snapshot.data!;
         final total = data['total'] ?? 0;
         final raw = data['data'] as List? ?? [];
-        final items = _filtrar(
-            raw.map((e) => Map<String, dynamic>.from(e)).toList());
+        final items =
+            raw.map((e) => Map<String, dynamic>.from(e)).toList();
         double suma = 0;
         for (final f in items) {
           final v = f['total_con_impuestos'];
