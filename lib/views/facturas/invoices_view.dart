@@ -355,11 +355,18 @@ class _FacturasListState extends State<FacturasList> {
         keyboardType: TextInputType.number,
         maxLength: maxLen,
         textAlign: TextAlign.center,
-        buildCounter: (_, __) => const SizedBox.shrink(),
+        buildCounter: (BuildContext context,
+                {required int currentLength,
+                required bool isFocused,
+                required int? maxLength}) =>
+            null,
         style: const TextStyle(fontSize: 13.5),
         onChanged: (_) {
           setState(() {});
-          if (next != null && ctrl.text.length == maxLen) next.focus();
+          // Al completar el campo, salta el foco al siguiente (DD→MM→AAAA).
+          if (next != null && ctrl.text.length == maxLen) {
+            FocusScope.of(context).nextFocus();
+          }
         },
       ),
     );
