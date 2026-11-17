@@ -52,10 +52,12 @@ class _FacturasListState extends State<FacturasList> {
   DateTimeRange? _rango;
 
   // Buscador interactivo local (sin re-consultar): un dropdown de criterio
-  // (Fecha / # Factura / Descripción / Monto) y un campo de texto que filtra
-  // según el criterio seleccionado, en vivo sobre la lista del período.
+  // (Fecha / # Factura / Descripción / Monto). Para Fecha se elige con un
+  // date picker (formato nativo), el resto filtra con el campo de texto en
+  // vivo sobre la lista del período.
   String _criterio = 'Factura';
   final TextEditingController _qCtrl = TextEditingController();
+  DateTime? _fechaBusqueda;
 
   @override
   void dispose() {
@@ -65,6 +67,15 @@ class _FacturasListState extends State<FacturasList> {
 
   /// Aplica el buscador local sobre la lista ya cargada del período (en vivo).
   List<Map<String, dynamic>> _filtrar(List<Map<String, dynamic>> items) {
+    // Criterio Fecha: usa la fecha elegida en el date picker (formato YYYY-MM-DD).
+    if (_criterio == 'Fecha') {
+      final f = _fechaBusqueda;
+      if (f == null) return items;
+      final buscada = _fmt(f);
+      return items
+          .where((fact) => '${fact['fecha'] ?? ''}'.startsWith(buscada))
+          .toList();
+    }
     final q = _qCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return items;
     switch (_criterio) {
@@ -250,29 +261,65 @@ class _FacturasListState extends State<FacturasList> {
             },
           ),
           // Campo de búsqueda según el criterio seleccionado.
-          SizedBox(
-            width: 300,
-            child: TextField(
-              controller: _qCtrl,
-              decoration: inputDeco.copyWith(
-                hintText: _hintCriterio,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _qCtrl.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _qCtrl.clear();
-                          setState(() {});
-                        },
-                      ),
+          if (_criterio == 'Fecha') {
+            // Fecha: botón con formato de fecha que abre el calendario nativo.
+            final f = _fechaBusqueda;
+            SizedBox(
+              width: 260,
+              child: InkWell(
+                onTap: _elegirFechaBusqueda,
+                borderRadius: BorderRadius.circular(10),
+                child: InputDecorator(
+                  decoration: inputDeco.copyWith(
+                    hintText: 'Elegir fecha',
+                    prefixIcon: const Icon(Icons.calendar_month, size: 20),
+                    suffixIcon: _fechaBusqueda == null
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              setState(() => _fechaBusqueda = null);
+                            },
+                          ),
+                  ),
+                  isEmpty: f == null,
+                  child: Text(
+                    f == null
+                        ? 'Elegir fecha'
+                        : '${f!.day.toString().padLeft(2, '0')}/'
+                            '${f!.month.toString().padLeft(2, '0')}/${f!.year}',
+                    style: TextStyle(
+                        fontSize: 13.5,
+                        color: f == null ? cs.onSurfaceVariant : cs.onSurface),
+                  ),
+                ),
               ),
-              keyboardType: _criterio == 'Monto'
-                  ? const TextInputType.numberWithOptions(decimal: true)
-                  : TextInputType.text,
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
+            );
+          } else {
+            SizedBox(
+              width: 300,
+              child: TextField(
+                controller: _qCtrl,
+                decoration: inputDeco.copyWith(
+                  hintText: _hintCriterio,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _qCtrl.text.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _qCtrl.clear();
+                            setState(() {});
+                          },
+                        ),
+                ),
+                keyboardType: _criterio == 'Monto'
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.text,
+                onChanged: (_) => setState(() {}),
+              ),
+            );
+          },
           // Limpiar criterio de búsqueda.
           if (_hayBusqueda)
             TextButton.icon(
@@ -299,11 +346,30 @@ class _FacturasListState extends State<FacturasList> {
     }
   }
 
-  bool get _hayBusqueda => _qCtrl.text.trim().isNotEmpty;
+  bool get _hayBusqueda =>
+      _criterio == 'Fecha'
+          ? _fechaBusqueda != null
+          : _qCtrl.text.trim().isNotEmpty;
 
   void _limpiarBusqueda() {
     _qCtrl.clear();
-    setState(() {});
+    setState(() => _fechaBusqueda = null);
+  }
+
+  /// Abre el calendario nativo para elegir la fecha de búsqueda.
+  Future<void> _elegirFechaBusqueda() async {
+    final hoy = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fechaBusqueda ?? hoy,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: hoy,
+      helpText: 'Elegir fecha de factura',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _fechaBusqueda = picked);
   }
 
   // Celda de la tabla (PC): ancho flexible y alineación opcional a la derecha.
