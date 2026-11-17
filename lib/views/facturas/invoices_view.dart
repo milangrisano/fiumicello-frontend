@@ -65,6 +65,22 @@ class _FacturasListState extends State<FacturasList> {
   final TextEditingController _montoMaxCtrl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _future = _buildFuture();
+    // Asegura el socket conectado (para el evento factura:nueva).
+    RealtimeService.instance.conectar();
+    // Actualiza la lista al instante cuando el workflow/backend crea una
+    // factura nueva (evento factura:nueva del Socket.IO).
+    RealtimeService.instance.on('factura:nueva', (_) {
+      if (!mounted) return;
+      setState(() {
+        _future = _buildFuture();
+      });
+    });
+  }
+
+  @override
   void dispose() {
     _qCtrl.dispose();
     _diaDesdeCtrl.dispose();
