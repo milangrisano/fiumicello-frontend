@@ -51,6 +51,10 @@ class _FacturasListState extends State<FacturasList> {
   String _periodo = 'mes';
   DateTimeRange? _rango;
 
+  // Panel de filtros avanzados (Desde/Hasta + montos): se despliega bajo los
+  // atajos de período cuando el usuario lo abre, para no abarrotar la barra.
+  bool _filtrosAvanzados = false;
+
   // Buscador SERVER-SIDE combinable: cada campo lleno se suma a la consulta
   // (vacío = no filtra). Se puede combinar texto + fechas + montos a la vez.
   final TextEditingController _qCtrl = TextEditingController();
@@ -201,11 +205,13 @@ class _FacturasListState extends State<FacturasList> {
     return p.isNotEmpty ? p : '—';
   }
 
-  /// Barra única de filtros server-side combinables: chips de período como
-  /// atajo de fechas (año/mes/semana + calendario), más el formulario con
-  /// texto + fechas manuales + montos. Cada campo lleno se suma a la query
-  /// (vacío = no filtra), en UN solo Wrap que ocupa una línea en PC y se
-  /// envuelve en varias líneas en tablet / móvil.
+  /// Filtros de la vista de facturas (server-side combinables).
+  ///
+  /// Opción A — barra limpia: los atajos de PERÍODO (año/mes/semana +
+  /// calendario) y el buscador de TEXTO siempre visibles; el resto (fechas
+  /// manuales Desde/Hasta y montos mín/máx + Botones Buscar/Limpiar) viven
+  /// bajo un panel desplegable "Filtros avanzados" para no abarrotar la fila.
+  /// Todo campo lleno se suma a la query (vacío = no filtra).
   Widget _filtros(ColorScheme cs) {
     final inputDeco = InputDecoration(
       isDense: true,
@@ -216,94 +222,171 @@ class _FacturasListState extends State<FacturasList> {
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // --- Chips de período (atajo de fecha) ---
-          for (final p in ['año', 'mes', 'semana'])
-            ChoiceChip(
-              label: Text(p),
-              selected: _rango == null && _periodo == p,
-              shape: const StadiumBorder(),
-              onSelected: (_) {
-                setState(() {
-                  _periodo = p;
-                  _rango = null;
-                  _future = _buildFuture();
-                });
-              },
-            ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'Elegir período (rango)',
-            onPressed: _elegirRango,
-          ),
-          const SizedBox(width: 4),
-
-          // --- Texto libre global (# factura / proveedor / concepto) ---
-          SizedBox(
-            width: 280,
-            child: TextField(
-              controller: _qCtrl,
-              decoration: inputDeco.copyWith(
-                hintText: 'Proveedor, # factura o descripción…',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _qCtrl.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _qCtrl.clear();
-                          setState(() {});
-                        },
-                      ),
+          // ── Fila superior (siempre visible) ─────────────────────────
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // Chips de período (atajo de fecha).
+              for (final p in ['año', 'mes', 'semana'])
+                ChoiceChip(
+                  label: Text(p),
+                  selected: _rango == null && _periodo == p,
+                  shape: const StadiumBorder(),
+                  onSelected: (_) {
+                    setState(() {
+                      _periodo = p;
+                      _rango = null;
+                      _future = _buildFuture();
+                    });
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.calendar_month),
+                tooltip: 'Elegir período (rango)',
+                onPressed: _elegirRango,
               ),
-              onSubmitted: (_) => _buscar(),
-            ),
+              const SizedBox(width: 4),
+
+              // Texto libre global (# factura / proveedor / concepto),
+              // crece con la fila (mín 240, máx 400).
+              Flexible(
+                flex: 4,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 240, maxWidth: 400),
+                  child: TextField(
+                    controller: _qCtrl,
+                    decoration: inputDeco.copyWith(
+                      hintText: 'Proveedor, # factura o descripción…',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _qCtrl.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _qCtrl.clear();
+                                setState(() {});
+                              },
+                            ),
+                    ),
+                    onSubmitted: (_) => _buscar(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+
+              // Botón que despliega/pliega los filtros avanzados.
+              FilledButton.tonalIcon(
+                onPressed: () => setState(() => _filtrosAvanzados = !_filtrosAvanzados),
+                icon: Icon(_filtrosAvanzados
+                    ? Icons.expand_less
+                    : Icons.tune),
+                label: Text(_filtrosAvanzados ? 'Menos filtros' : 'Filtros avanzados'),
+              ),
+            ],
           ),
 
-          // --- Fecha desde (DD / MM / AAAA) ---
-          _campoFecha1(inputDeco, cs, 'Desde', _diaDesdeCtrl, _mesDesdeCtrl,
-              _anioDesdeCtrl),
-
-          // --- Fecha hasta (DD / MM / AAAA) ---
-          _campoFecha1(inputDeco, cs, 'Hasta', _diaHastaCtrl, _mesHastaCtrl,
-              _anioHastaCtrl),
-
-          // --- Monto mín / máx ---
-          SizedBox(
-            width: 110,
-            child: TextField(
-              controller: _montoMinCtrl,
-              decoration: inputDeco.copyWith(hintText: 'Monto mín'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
+          // ── Panel avanzado (expandible) ─────────────────────────────
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: _filtrosAvanzados
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerLow,
+                        border: Border.all(color: cs.outlineVariant),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month, size: 18),
+                              const SizedBox(width: 6),
+                              Text('Rango de fechas',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.onSurfaceVariant)),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.clear_all, size: 18),
+                                tooltip: 'Vaciar fechas',
+                                onPressed: () {
+                                  for (final c in [
+                                    _diaDesdeCtrl, _mesDesdeCtrl,
+                                    _anioDesdeCtrl, _diaHastaCtrl,
+                                    _mesHastaCtrl, _anioHastaCtrl,
+                                  ]) {
+                                    c.clear();
+                                  }
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              _campoFecha1(inputDeco, cs, 'Desde',
+                                  _diaDesdeCtrl, _mesDesdeCtrl, _anioDesdeCtrl),
+                              _campoFecha1(inputDeco, cs, 'Hasta',
+                                  _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl),
+                              SizedBox(
+                                width: 110,
+                                child: TextField(
+                                  controller: _montoMinCtrl,
+                                  decoration:
+                                      inputDeco.copyWith(hintText: 'Monto mín'),
+                                  keyboardType: const TextInputType
+                                      .numberWithOptions(decimal: true),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 110,
+                                child: TextField(
+                                  controller: _montoMaxCtrl,
+                                  decoration:
+                                      inputDeco.copyWith(hintText: 'Monto máx'),
+                                  keyboardType: const TextInputType
+                                      .numberWithOptions(decimal: true),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (_hayBusqueda)
+                                  TextButton.icon(
+                                    onPressed: _limpiarBusqueda,
+                                    icon: const Icon(Icons.filter_alt_off,
+                                        size: 18),
+                                    label: const Text('Limpiar'),
+                                  ),
+                                FilledButton.icon(
+                                  onPressed: _buscar,
+                                  icon: const Icon(Icons.search, size: 18),
+                                  label: const Text('Buscar'),
+                                ),
+                              ]),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
-          SizedBox(
-            width: 110,
-            child: TextField(
-              controller: _montoMaxCtrl,
-              decoration: inputDeco.copyWith(hintText: 'Monto máx'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ),
-
-          // --- Botones Buscar / Limpiar ---
-          FilledButton.icon(
-            onPressed: _buscar,
-            icon: const Icon(Icons.search, size: 18),
-            label: const Text('Buscar'),
-          ),
-          if (_hayBusqueda)
-            TextButton.icon(
-              onPressed: _limpiarBusqueda,
-              icon: const Icon(Icons.filter_alt_off, size: 18),
-              label: const Text('Limpiar'),
-            ),
         ],
       ),
     );
