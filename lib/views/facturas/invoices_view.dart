@@ -1259,6 +1259,57 @@ class _ComprobantesListState extends State<ComprobantesList> {
       ),
     );
   }
+
+  void _openCompDetail(BuildContext context, Map<String, dynamic> c) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SingleChildScrollView(child: _CompDetalle(c: c)),
+        actions: [
+          if (ApiClient.isSuperadmin || ApiClient.isAdmin)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _borrar(context, c['id'], c['beneficiario_emisor'] ?? c['concepto']);
+              },
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              label: const Text('Borrar comprobante'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _borrar(BuildContext context, dynamic id, String? nombre) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Borrar comprobante'),
+        content: Text('¿Seguro que quieres borrar el comprobante ${nombre ?? ''}?\nEsta acción es permanente y definitiva.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || id == null) return;
+    final r = await ApiClient.borrarComprobante(id as int);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(r.ok ? 'Comprobante borrado.' : 'Error: ${r.message}')),
+    );
+    if (r.ok) setState(() => _future = _buildFuture());
+  }
 }
 /// Widget reutilizable para mostrar la foto/escaneo del documento. Al tocarla
 /// se abre ampliada (con zoom) si es imagen; si es PDF/otro, abre en pestaña
