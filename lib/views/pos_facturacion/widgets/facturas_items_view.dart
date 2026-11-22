@@ -6,8 +6,8 @@ import '../../../core/utils/formatters.dart';
 /// Vista "Ítems de facturas": tabla con todos los ítems adquiridos en las
 /// facturas de compra ingresadas (agrupados por producto con cantidad y total).
 /// Selector de periodo por chips (Semana / Mes / Año) + botón calendario de
-/// rango. En móvil (ancho <640) se muestran tarjetas (ListTile); en PC, tabla.
-/// Accesible desde la pantalla de inicio del POS.
+/// rango + buscador server-side combinable (producto/proveedor/nº factura).
+/// En móvil (ancho <700) se muestran tarjetas (ListTile); en PC, tabla.
 class FacturasItemsView extends StatefulWidget {
   /// Modo embebido: omite la fila de flecha-atrás + título (para renderizarse
   /// dentro de un layout que ya aporta la barra de navegación por pestañas).
@@ -21,13 +21,38 @@ class FacturasItemsView extends StatefulWidget {
 class _FacturasItemsViewState extends State<FacturasItemsView> {
   String _modo = 'mes'; // semana | mes | anio | rango
   DateTimeRange? _rango;
+  bool _filtrosAvanzados = false;
+  // Buscador server-side: texto (producto/categoría/proveedor/nº factura) +
+  // fechas manuales (Desde/Hasta). Vacío = no filtra.
+  final TextEditingController _qCtrl = TextEditingController();
+  final TextEditingController _diaDesdeCtrl = TextEditingController();
+  final TextEditingController _mesDesdeCtrl = TextEditingController();
+  final TextEditingController _anioDesdeCtrl = TextEditingController();
+  final TextEditingController _diaHastaCtrl = TextEditingController();
+  final TextEditingController _mesHastaCtrl = TextEditingController();
+  final TextEditingController _anioHastaCtrl = TextEditingController();
 
-  /// Formatea una fecha como YYYY-MM-DD (para el filtro del backend).
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// Rango (desde, hasta) según el modo seleccionado.
+  @override
+  void dispose() {
+    for (final c in [_qCtrl, _diaDesdeCtrl, _mesDesdeCtrl, _anioDesdeCtrl,
+      _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Rango (desde, hasta) según el modo / fechas manuales seleccionadas.
   (String, String)? _rangoActual() {
+    final tieneDesdeManual = _diaDesdeCtrl.text.isNotEmpty ||
+        _mesDesdeCtrl.text.isNotEmpty || _anioDesdeCtrl.text.isNotEmpty;
+    final tieneHastaManual = _diaHastaCtrl.text.isNotEmpty ||
+        _mesHastaCtrl.text.isNotEmpty || _anioHastaCtrl.text.isNotEmpty;
+    if (tieneDesdeManual || tieneHastaManual) {
+      return (_fechaDesdeManual(), _fechaHastaManual());
+    }
     if (_modo == 'rango' && _rango != null) {
       return (_fmt(_rango!.start), _fmt(_rango!.end));
     }
@@ -48,16 +73,56 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     return null;
   }
 
-  /// Construye la URL con el rango según el modo seleccionado.
+  String _fechaDesdeManual() {
+    final d = _diaDesdeCtrl.text.trim().padLeft(2, '0');
+    final m = _mesDesdeCtrl.text.trim().padLeft(2, '0');
+    final a = _anioDesdeCtrl.text.trim();
+    return '${a.isNotEmpty ? a : '2024'}-${m.isNotEmpty ? m : '01'}-${d.isNotEmpty ? d : '01'}';
+  }
+
+  String _fechaHastaManual() {
+    final d = _diaHastaCtrl.text.trim().padLeft(2, '0');
+    final m = _mesHastaCtrl.text.trim().padLeft(2, '0');
+    final a = _anioHastaCtrl.text.trim();
+    return '${a.isNotEmpty ? a : '2099'}-${m.isNotEmpty ? m : '12'}-${d.isNotEmpty ? d : '31'}';
+  }
+
+  /// Construye la URL con rango + texto libre (server-side).
   String _buildUrl() {
+    final params = <String>[];
     final rango = _rangoActual();
-    if (rango == null) return '/facturas/items';
-    final q = Uri(queryParameters: {'desde': rango.$1, 'hasta': rango.$2}).query;
-    return '/facturas/items?$q';
+    if (rango != null) {
+      params.add('desde=${Uri.encodeQueryComponent(rango.$1)}');
+      params.add('hasta=${Uri.encodeQueryComponent(rango.$2)}');
+    }
+    final q = _qCtrl.text.trim();
+    if (q.isNotEmpty) params.add('q=${Uri.encodeQueryComponent(q)}');
+    final url = params.isEmpty ? '/facturas/items' : '/facturas/items?${params.join('&')}';
+    return url;
+  }
+
+  void _buscar() => setState(() {});
+
+  bool get _hayBusqueda =>
+      _qCtrl.text.trim().isNotEmpty ||
+      _diaDesdeCtrl.text.trim().isNotEmpty ||
+      _mesDesdeCtrl.text.trim().isNotEmpty ||
+      _anioDesdeCtrl.text.trim().isNotEmpty ||
+      _diaHastaCtrl.text.trim().isNotEmpty ||
+      _mesHastaCtrl.text.trim().isNotEmpty ||
+      _anioHastaCtrl.text.trim().isNotEmpty;
+
+  void _limpiarBusqueda() {
+    for (final c in [_qCtrl, _diaDesdeCtrl, _mesDesdeCtrl, _anioDesdeCtrl,
+      _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl]) {
+      c.clear();
+    }
+    setState(() {});
   }
 
   Widget _cargarVista() {
     return FutureBuilder<Map<String, dynamic>?>(
+      key: ValueKey(_buildUrl()),
       future: ApiClient.getJson(_buildUrl()),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -80,7 +145,7 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No hay ítems de facturas en este periodo.'),
+              child: Text('No hay ítems de facturas que coincidan con el filtro.'),
             ),
           );
         }
@@ -96,7 +161,9 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(children: [
-                  const Text('TOTAL ITEMS',
+                  Text(_hayBusqueda
+                      ? '${items.length} resultados · TOTAL ÍTEMS'
+                      : 'TOTAL ITEMS',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const Spacer(),
                   Text(money(total),
@@ -108,8 +175,8 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, c) {
-                  if (c.maxWidth < 640) {
-                    // Móvil: tarjetas (ListTile) — cómodo de tocar.
+                  if (c.maxWidth < 700) {
+                    // Móvil: tarjetas (ListTile).
                     return ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: items.length,
@@ -196,6 +263,148 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     );
   }
 
+  // ── Barra de filtros (igual a la de Facturas/Comprobantes) ──
+  Widget _barraFiltros(ColorScheme cs) {
+    final inputDeco = InputDecoration(
+      isDense: true, filled: true, fillColor: cs.surfaceContainerHigh,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
+    Widget chipsPeriodo() => Wrap(
+      spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final m in ['semana', 'mes', 'anio'])
+          ChoiceChip(
+            label: Text(m == 'semana' ? 'Semana' : (m == 'mes' ? 'Mes' : 'Año')),
+            selected: _rango == null && _modo == m,
+            shape: const StadiumBorder(),
+            onSelected: (_) {
+              setState(() { _modo = m; _rango = null; });
+            },
+          ),
+        IconButton(icon: const Icon(Icons.calendar_month),
+            tooltip: 'Elegir período (rango)', onPressed: _elegirRango),
+      ],
+    );
+    Widget campoTexto({double? width}) => SizedBox(
+      width: width,
+      child: TextField(
+        controller: _qCtrl,
+        decoration: inputDeco.copyWith(
+          hintText: 'Producto, proveedor o nº factura…',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _qCtrl.text.isEmpty
+              ? null
+              : IconButton(icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () { _qCtrl.clear(); setState(() {}); }),
+        ),
+        onSubmitted: (_) => setState(() {}),
+      ),
+    );
+    Widget botonFiltros() => FilledButton.tonalIcon(
+      onPressed: () => setState(() => _filtrosAvanzados = !_filtrosAvanzados),
+      style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(10)),
+      icon: Icon(_filtrosAvanzados ? Icons.expand_less : Icons.tune, size: 22),
+      label: const Text(''),
+    );
+    Widget panelAvanzado() => AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: _filtrosAvanzados
+          ? Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLow,
+                  border: Border.all(color: cs.outlineVariant),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.calendar_month, size: 18),
+                      const SizedBox(width: 6),
+                      Text('Rango de fechas',
+                          style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.clear_all, size: 18),
+                        tooltip: 'Vaciar fechas',
+                        onPressed: () {
+                          for (final c in [_diaDesdeCtrl, _mesDesdeCtrl,
+                            _anioDesdeCtrl, _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl]) {
+                            c.clear();
+                          }
+                          setState(() {});
+                        },
+                      ),
+                    ]),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _campoFecha1(inputDeco, cs, 'Desde',
+                            _diaDesdeCtrl, _mesDesdeCtrl, _anioDesdeCtrl),
+                        _campoFecha1(inputDeco, cs, 'Hasta',
+                            _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                      if (_hayBusqueda)
+                        TextButton.icon(
+                          onPressed: _limpiarBusqueda,
+                          icon: const Icon(Icons.filter_alt_off, size: 18),
+                          label: const Text('Limpiar')),
+                      FilledButton.icon(
+                        onPressed: _buscar,
+                        icon: const Icon(Icons.search, size: 18),
+                        label: const Text('Buscar')),
+                    ]),
+                  ],
+                ),
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(builder: (ctx, c) {
+            final esMovil = c.maxWidth < 700;
+            if (esMovil) {
+              return Column(children: [
+                Center(child: chipsPeriodo()),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Flexible(child: campoTexto()),
+                  const SizedBox(width: 4),
+                  botonFiltros(),
+                ]),
+              ]);
+            }
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                chipsPeriodo(),
+                const SizedBox(width: 10),
+                campoTexto(width: 300),
+                const SizedBox(width: 4),
+                botonFiltros(),
+              ],
+            );
+          }),
+          panelAvanzado(),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -213,39 +422,7 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
               ),
             ]),
-          // Selector de periodo: chips Semana/Mes/Año + calendario de rango.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final m in ['semana', 'mes', 'anio'])
-                  ChoiceChip(
-                    label: Text(m == 'semana' ? 'Semana' : (m == 'mes' ? 'Mes' : 'Año')),
-                    selected: _modo == m,
-                    shape: const StadiumBorder(),
-                    onSelected: (_) => setState(() => _modo = m),
-                  ),
-                if (_modo == 'rango')
-                  ChoiceChip(
-                    label: Text(_rango == null
-                        ? 'Rango'
-                        : '${_fmt(_rango!.start)} → ${_fmt(_rango!.end)}'),
-                    // Texto oscuro para que no se pierda sobre el turquesa.
-                    labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
-                    selected: true,
-                    shape: const StadiumBorder(),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.calendar_month),
-                  tooltip: 'Elegir período (rango)',
-                  onPressed: _elegirRango,
-                ),
-              ],
-            ),
-          ),
+          _barraFiltros(cs),
           Expanded(child: _cargarVista()),
         ],
       ),
@@ -277,15 +454,60 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     }
   }
 
+  /// Tres recuadros DD / MM / AAAA con una etiqueta (Desde/Hasta).
+  Widget _campoFecha1(InputDecoration inputDeco, ColorScheme cs, String label,
+      TextEditingController dia, TextEditingController mes,
+      TextEditingController anio) {
+    final deco = (String hint) => inputDeco.copyWith(hintText: hint);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+        const SizedBox(width: 6),
+        _inputCorto(deco('DD'), dia, 2, mes),
+        const SizedBox(width: 5),
+        Text('/', style: TextStyle(color: cs.onSurfaceVariant)),
+        const SizedBox(width: 5),
+        _inputCorto(deco('MM'), mes, 2, anio),
+        const SizedBox(width: 5),
+        Text('/', style: TextStyle(color: cs.onSurfaceVariant)),
+        const SizedBox(width: 5),
+        _inputCorto(deco('AAAA'), anio, 4, null),
+      ],
+    );
+  }
+
+  /// Input numérico corto (DD/MM/AAAA) con salto automático al siguiente.
+  Widget _inputCorto(InputDecoration deco, TextEditingController ctrl, int maxLen,
+      TextEditingController? next) {
+    return SizedBox(
+      width: maxLen == 2 ? 44 : 60,
+      child: TextField(
+        controller: ctrl,
+        decoration: deco,
+        keyboardType: TextInputType.number,
+        maxLength: maxLen,
+        textAlign: TextAlign.center,
+        buildCounter: (BuildContext context,
+                {required int currentLength,
+                required bool isFocused,
+                required int? maxLength}) => null,
+        style: const TextStyle(fontSize: 13.5),
+        onChanged: (_) {
+          setState(() {});
+          if (next != null && ctrl.text.length == maxLen) {
+            FocusScope.of(context).nextFocus();
+          }
+        },
+        onSubmitted: (_) => setState(() {}),
+      ),
+    );
+  }
+
   /// Detecta la unidad de medida dentro de la descripción del producto.
-  /// Soporta unidades pegadas a un número (p. ej. "400ml", "2.5kg", "500gr")
-  /// y separadas ("4.52 kg", "X 5 KILOS", "(1 caja)"). Devuelve la unidad
-  /// normalizada, o '' si no hay ninguna.
   String _unidadDe(String desc) {
     final texto = desc.toLowerCase();
-    // Busca la primera unidad conocida como palabra completa o pegada a un
-    // número. Se recorren en orden de especificidad para evitar colisiones
-    // (p. ej. "mill" no debe leerse como "ml").
     final pares = <(String, String)>[
       (r'(?:^|[^a-z])kwh(?:[^a-z]|$)', 'kWh'),
       (r'kilogramos|kilos', 'kg'),
@@ -306,7 +528,6 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     return '';
   }
 
-  /// Intenta convertir el valor a número (acepta int/double/String).
   double _num(dynamic v) {
     if (v == null) return 0;
     if (v is num) return (v as num).toDouble();
@@ -314,7 +535,6 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
     return n ?? 0;
   }
 
-  /// Cantidad formateada con su unidad (si la hay), p. ej. "4.52 kg".
   String _cantidadConUnidad(Map<String, dynamic> f) {
     final u = _unidadDe('${f['producto'] ?? f['descripcion'] ?? ''}');
     return u.isEmpty ? '${_num(f['cantidad'])}' : '${_num(f['cantidad'])} $u';
