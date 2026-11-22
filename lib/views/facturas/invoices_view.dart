@@ -253,11 +253,14 @@ class _FacturasListState extends State<FacturasList> {
               const SizedBox(width: 4),
 
               // Texto libre global (# factura / proveedor / concepto),
-              // crece con la fila (mín 240, máx 400).
-              Flexible(
-                flex: 4,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 240, maxWidth: 400),
+              // con ancho fijo cómodo (no cabe un Flexible dentro del Wrap
+              // — Flexible solo es válido en Row/Column/Flex; en Wrap rompe
+              // el layout y puede colgar el render → "Aw, Snap!"). Se
+              // ajusta solo en pantallas estrechas con el Wrap envolviéndolo.
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 240, maxWidth: 400),
+                child: SizedBox(
+                  width: 320,
                   child: TextField(
                     controller: _qCtrl,
                     decoration: inputDeco.copyWith(
