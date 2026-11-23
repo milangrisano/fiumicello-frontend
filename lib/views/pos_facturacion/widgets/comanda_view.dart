@@ -476,8 +476,22 @@ class ComandaView extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.zero,
       title: Text('${l.nombre}${l.tamanio != null ? ' (${l.tamanio})' : ''}'),
-      // Click sobre el precio = edición INLINE en el mismo sitio (sin diálogo).
-      subtitle: _PrecioInline(linea: l, onCambiar: (v) => onCambiarPrecio(l, v)),
+      // Click sobre el precio = edición INLINE del precio UNITARIO en el mismo
+      // sitio (sin diálogo). Debajo, el SUBTOTAL del item (precio × cantidad)
+      // solo cuando hay más de 1 unidad: se actualiza con cada +/−.
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PrecioInline(linea: l, onCambiar: (v) => onCambiarPrecio(l, v)),
+          if (l.cantidad > 1)
+            Text('Subtotal: ${money(l.subtotal)}',
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87)),
+        ],
+      ),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         // Disminuir
         IconButton(
