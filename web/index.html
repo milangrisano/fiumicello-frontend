@@ -39,7 +39,12 @@
           serviceWorkerVersion: serviceWorkerVersion,
         },
         onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
+          engineInitializer.initializeEngine({
+            // Usar el CanvasKit LOCAL (servido por este mismo nginx) en vez del
+            // CDN de Google (gstatic). Así la app no depende de internet externa
+            // y el motor funciona en entornos con gstatic bloqueado/lento.
+            canvasKitBaseUrl: '/canvaskit/',
+          }).then(function(appRunner) {
             appRunner.runApp();
           });
         }
