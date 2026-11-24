@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/data/api_client.dart';
 import '../../core/theme/app_themes.dart';
+import '../../core/services/realtime_service.dart';
 
 /// Superadmin/Admin screen: manage users and their roles.
 ///
@@ -25,7 +26,19 @@ class _UsuariosViewState extends State<UsuariosView> {
   @override
   void initState() {
     super.initState();
+    // Asegura el WebSocket conectado (no-op si ya lo está) para recibir
+    // 'usuario:pendiente' aunque el admin entre directo a Usuarios.
+    RealtimeService.instance.conectar();
     _load();
+    // Tiempo real: si llega un usuario nuevo pendiente de aprobación,
+    // recargamos la lista para que el admin lo vea sin recarga manual.
+    RealtimeService.instance.on('usuario:pendiente', (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    RealtimeService.instance.off('usuario:pendiente');
+    super.dispose();
   }
 
   Future<void> _load() async {

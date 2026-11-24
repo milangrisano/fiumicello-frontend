@@ -19,6 +19,7 @@ class RealtimeService {
     'pedido:anulacion-solicitada',
     'pedido:anulada',
     'factura:nueva',
+    'usuario:pendiente',
   ];
 
   io.Socket? _socket;
@@ -56,6 +57,11 @@ class RealtimeService {
   /// Registra un oyente para un evento ('comanda:nueva', etc.).
   void on(String evento, void Function(Map<String, dynamic>) cb) {
     _oyentes[evento] = cb;
+  }
+
+  /// Quita el oyente de un evento (para desuscribirse en dispose).
+  void off(String evento) {
+    _oyentes.remove(evento);
   }
 
   /// Desconecta (p. ej. al logout).
