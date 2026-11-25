@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/data/api_client.dart';
+import '../../../core/services/realtime_service.dart';
 import '../../../core/utils/formatters.dart';
 
 /// Vista "Ítems de facturas": tabla con todos los ítems adquiridos en las
@@ -32,11 +33,31 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
   final TextEditingController _mesHastaCtrl = TextEditingController();
   final TextEditingController _anioHastaCtrl = TextEditingController();
 
+  // Revisión para forzar recarga del FutureBuilder al recibir eventos realtime
+  // (factura nueva/actualizada). Se incluye en el ValueKey del FutureBuilder.
+  int _revision = 0;
+
   static String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
+  void initState() {
+    super.initState();
+    RealtimeService.instance.conectar();
+    RealtimeService.instance.on('factura:nueva', (_) {
+      if (!mounted) return;
+      setState(() => _revision++);
+    });
+    RealtimeService.instance.on('factura:actualizada', (_) {
+      if (!mounted) return;
+      setState(() => _revision++);
+    });
+  }
+
+  @override
   void dispose() {
+    RealtimeService.instance.off('factura:nueva');
+    RealtimeService.instance.off('factura:actualizada');
     for (final c in [_qCtrl, _diaDesdeCtrl, _mesDesdeCtrl, _anioDesdeCtrl,
       _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl]) {
       c.dispose();
@@ -122,7 +143,7 @@ class _FacturasItemsViewState extends State<FacturasItemsView> {
 
   Widget _cargarVista() {
     return FutureBuilder<Map<String, dynamic>?>(
-      key: ValueKey(_buildUrl()),
+      key: ValueKey('$_revision-${_buildUrl()}'),
       future: ApiClient.getJson(_buildUrl()),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {

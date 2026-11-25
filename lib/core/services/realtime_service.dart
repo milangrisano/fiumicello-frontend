@@ -19,6 +19,8 @@ class RealtimeService {
     'pedido:anulacion-solicitada',
     'pedido:anulada',
     'factura:nueva',
+    'factura:actualizada',
+    'comprobante:nuevo',
     'usuario:pendiente',
   ];
 

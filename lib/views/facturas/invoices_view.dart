@@ -82,10 +82,19 @@ class _FacturasListState extends State<FacturasList> {
         _future = _buildFuture();
       });
     });
+    // Refresca también al actualizarse una factura (asignar/clasificar
+    // comprobante) para que los campos vinculados se vean al instante.
+    RealtimeService.instance.on('factura:actualizada', (_) {
+      if (!mounted) return;
+      setState(() {
+        _future = _buildFuture();
+      });
+    });
   }
 
   @override
   void dispose() {
+    RealtimeService.instance.off('factura:actualizada');
     _qCtrl.dispose();
     _diaDesdeCtrl.dispose();
     _mesDesdeCtrl.dispose();
@@ -824,11 +833,23 @@ class _ComprobantesListState extends State<ComprobantesList> {
   @override
   void initState() {
     super.initState();
-    _future = _buildFuture();
+    RealtimeService.instance.conectar();
+    // Refresca la lista de comprobantes en tiempo real: al crear un comprobante
+    // nuevo o al actualizarse una factura (asignación/clasificación).
+    RealtimeService.instance.on('comprobante:nuevo', (_) {
+      if (!mounted) return;
+      setState(() => _future = _buildFuture());
+    });
+    RealtimeService.instance.on('factura:actualizada', (_) {
+      if (!mounted) return;
+      setState(() => _future = _buildFuture());
+    });
   }
 
   @override
   void dispose() {
+    RealtimeService.instance.off('comprobante:nuevo');
+    RealtimeService.instance.off('factura:actualizada');
     for (final c in [_qCtrl, _diaDesdeCtrl, _mesDesdeCtrl, _anioDesdeCtrl,
       _diaHastaCtrl, _mesHastaCtrl, _anioHastaCtrl, _montoMinCtrl, _montoMaxCtrl]) {
       c.dispose();
