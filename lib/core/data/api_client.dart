@@ -916,7 +916,13 @@ class ApiClient {
       final res = await http.put(
         Uri.parse('$baseUrl/ventas/formas-pago/$id'),
         headers: _headers(),
-        body: jsonEncode({'nombre': nombre, 'activo': activo}),
+        // No enviar 'activo' si es null (p. ej. al editar solo el nombre):
+        // el backend lo interpretaría como poner activo=null (NOT NULL en BD)
+        // y fallaría con 500, abortando también el guardado del nombre.
+        body: jsonEncode({
+          'nombre': nombre,
+          if (activo != null) 'activo': activo,
+        }),
       );
       return PostResult(res.statusCode == 200, _msg(res.body));
     } catch (e) {
