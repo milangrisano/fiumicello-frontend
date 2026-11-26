@@ -1480,13 +1480,15 @@ Widget _barraPestanas() {
           )
         else
           FilledButton.icon(
+            // Entrega directa (sin ventana de confirmación): al tocar se marca
+            // como entregado y se refresca la lista al instante.
             onPressed: () async {
-              final ok = await _dialogConfirm('¿Marcar como entregado?');
-              if (ok == true) {
-                final r = await ApiClient.entregarPedido(p['id'] as int);
-                _snack(r.message);
-                await _refreshVivos();
-              }
+              final r = await ApiClient.entregarPedido(p['id'] as int);
+              // En éxito el endpoint devuelve el pedido completo (sin campo
+              // `message`), así que NO mostramos el texto genérico "No se pudo
+              // completar la operación" — mensaje de confirmación en éxito.
+              _snack(r.ok ? 'Pedido marcado como entregado.' : r.message);
+              await _refreshVivos();
             },
             icon: const Icon(Icons.check),
             label: const Text('Marcar entregado'),
