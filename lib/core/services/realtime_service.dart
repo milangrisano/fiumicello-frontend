@@ -13,6 +13,7 @@ class RealtimeService {
 
   static const _eventos = [
     'comanda:nueva',
+    'pedido:actualizado',
     'cocina:estado',
     'turno:abierto',
     'turno:cerrado',

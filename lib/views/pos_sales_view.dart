@@ -78,6 +78,10 @@ class _PosSalesViewState extends State<PosSalesView> {
     rt.on('turno:abierto', (_) => _cargarTurno());
     rt.on('turno:cerrado', (_) => _cargarTurno());
     rt.on('comanda:nueva', (_) => _refreshVivos());
+    // Pedido cobrado/entregado en OTRO terminal: refresca para llevar y
+    // domicilios al instante (evita el snackbar "El pedido no está pendiente
+    // de entrega." al tocar una comanda que ya se entregó en otra pantalla).
+    rt.on('pedido:actualizado', (_) => _refreshVivos());
     rt.on('pedido:anulacion-solicitada', (d) =>
         _recibirSolicitudAnulacion(d['id'] as int? ?? 0, d));
     rt.on('pedido:anulada', (_) => _refreshVivos());
