@@ -66,7 +66,9 @@ class _PagosViewState extends State<PagosView> {
     final nombre = await _dialogTexto('Nueva forma de pago', hint: 'Ej. Nequi, Tarjeta, Efectivo');
     if (nombre == null || nombre.trim().isEmpty) return;
     final r = await ApiClient.crearFormaPago(nombre.trim());
-    _snack(r.message);
+    // El endpoint devuelve la entidad (sin message) en éxito: no mostrar el
+    // genérico "No se pudo completar la operación" en un caso exitoso.
+    _snack(r.ok ? 'Forma de pago creada.' : r.message);
     await _load();
   }
 
@@ -74,7 +76,7 @@ class _PagosViewState extends State<PagosView> {
     final nombre = await _dialogTexto('Editar forma de pago', inicial: f['nombre'] ?? '');
     if (nombre == null || nombre.trim().isEmpty) return;
     final r = await ApiClient.actualizarFormaPago(f['id'] as int, nombre.trim());
-    _snack(r.message);
+    _snack(r.ok ? 'Forma de pago actualizada.' : r.message);
     await _load();
   }
 

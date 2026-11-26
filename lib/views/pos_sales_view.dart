@@ -1695,7 +1695,7 @@ Widget _barraPestanas() {
     final nombre = await _dialogNota('Nueva forma de pago');
     if (nombre != null && nombre.trim().isNotEmpty) {
       final r = await ApiClient.crearFormaPago(nombre.trim());
-      _snack(r.message);
+      _snack(r.ok ? 'Forma de pago creada.' : r.message);
       await _load();
     }
   }
